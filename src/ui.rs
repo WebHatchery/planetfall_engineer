@@ -105,7 +105,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         1010.0,
         104.0,
         238.0,
-        392.0,
+        420.0,
         Color::new(0.04, 0.06, 0.09, 0.9),
     );
     draw_ui_text_ex(
@@ -290,6 +290,21 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             label,
             x + 7.0,
             483.0,
+            TextStyle::new(10.0, Color::new(0.82, 0.87, 0.9, 1.0)).params(),
+        );
+    }
+    for (x, label) in [
+        (1018.0, "PAUSE"),
+        (1078.0, "1X"),
+        (1138.0, "2X"),
+        (1198.0, "4X"),
+    ] {
+        draw_rectangle(x, 496.0, 52.0, 22.0, Color::new(0.12, 0.16, 0.2, 0.98));
+        draw_rectangle_lines(x, 496.0, 52.0, 22.0, 1.0, Color::new(0.45, 0.55, 0.62, 0.9));
+        draw_ui_text_ex(
+            label,
+            x + 8.0,
+            511.0,
             TextStyle::new(10.0, Color::new(0.82, 0.87, 0.9, 1.0)).params(),
         );
     }

@@ -1,6 +1,7 @@
 //! Mouse and keyboard build-palette actions.
 
 use crate::game::Game;
+use crate::state::TimeControl;
 use crate::{devices::DeviceId, ui};
 use macroquad::prelude::*;
 
@@ -40,6 +41,28 @@ impl Game {
         } else {
             self.cancel_build_plan();
         }
+        true
+    }
+
+    pub(crate) fn handle_time_click(&mut self) -> bool {
+        let (mouse_x, mouse_y) = mouse_position();
+        let scale_x = screen_width() / ui::LOGICAL_WIDTH;
+        let scale_y = screen_height() / ui::LOGICAL_HEIGHT;
+        let x = mouse_x / scale_x;
+        let y = mouse_y / scale_y;
+        if !(1018.0..1250.0).contains(&x) || !(496.0..522.0).contains(&y) {
+            return false;
+        }
+        let time = if x < 1076.0 {
+            TimeControl::Paused
+        } else if x < 1136.0 {
+            TimeControl::OneX
+        } else if x < 1196.0 {
+            TimeControl::TwoX
+        } else {
+            TimeControl::FourX
+        };
+        self.set_time(time);
         true
     }
 

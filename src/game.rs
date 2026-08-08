@@ -191,6 +191,7 @@ impl Game {
         if is_mouse_button_pressed(MouseButton::Left)
             && !self.handle_palette_click()
             && !self.handle_build_action_click()
+            && !self.handle_time_click()
         {
             self.select_from_pointer();
         }
@@ -561,7 +562,7 @@ impl Game {
         self.notice = format!("{} {reason}", id.name());
     }
 
-    fn set_time(&mut self, time: TimeControl) {
+    pub(crate) fn set_time(&mut self, time: TimeControl) {
         let command = if time == TimeControl::Paused {
             CommandKind::SetPaused
         } else {

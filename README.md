@@ -165,6 +165,8 @@ device entity and directional behavior. The readout shows its cost and
 `READY`/`BLOCKED` reason for bounds, protection, overlap, or budget before queue.
 Visible `ROTATE`, `COMMIT`, and `CANCEL` buttons mirror the keyboard actions so
 the core placement loop is fully mouse-reachable.
+Visible `PAUSE`, `1X`, `2X`, and `4X` buttons likewise drive the fixed-tick time
+controls at the reference and 800×600 viewport sizes.
 Verification maps expose their current PASS/FAIL result, exact balance error,
 and compact injected/drained/reacted/product ledger in the readout. F6 resets
 the active lab or device fixture and F8 advances exactly one verification tick

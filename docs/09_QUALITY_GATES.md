@@ -123,6 +123,9 @@ The HUD provides the selected device cost and a text validity reason, while a
 blocked preview changes to a red ghost and remains non-committable.
 The palette's visible Rotate, Commit, and Cancel buttons share the scaled mouse
 regions used by the keyboard-equivalent commands.
+The time-control row exposes Pause, 1X, 2X, and 4X through the same scaled
+mouse interaction path; the gameplay evidence includes both 1280×720 and
+800×600 views.
 
 L01 renders each incomplete tutorial step as a field prompt with an instruction
 and required action; the prompt disappears only after the authoritative event
