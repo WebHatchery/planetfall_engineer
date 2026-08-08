@@ -95,6 +95,8 @@ forecast meltwater surge using a spillway or sensor-assisted control.
 - `emergency_drain`: east boundary at (39,18).
 - Preinstalled disconnected pipe trunks leave twelve marked player-build gaps
   across the aquifer-to-reservoir and reservoir-to-trench routes.
+- The trench contains no source fixture: all objective water must arrive from
+  the aquifer through the player's pump, completed pipe runs, and reservoir.
 - Forecast surge at tick 900: aquifer becomes 400 `vU`/tick for 300 ticks, with
   alerts at ticks 600 and 800, then returns to 100.
 - Budget: 105 credits. Build kit: prior tools plus pipe, pump, reservoir,

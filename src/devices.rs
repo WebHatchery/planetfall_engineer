@@ -6,7 +6,12 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
+mod network;
 mod showcase;
+use network::{
+    direction, footprint_outlet, pipe_connected, pipe_endpoint, step, transfer_surface,
+    transfer_surface_to,
+};
 pub use showcase::{run_all_showcases, showcase_world};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -304,10 +309,27 @@ impl DeviceSystem {
     }
 
     pub fn set_selected_gate(&mut self, anchor: CellPos, setting_bp: u16) -> bool {
+        self.set_selected_flow_for(anchor, setting_bp, &[DeviceId::Floodgate])
+    }
+
+    pub fn set_selected_flow(&mut self, anchor: CellPos, setting_bp: u16) -> bool {
+        self.set_selected_flow_for(
+            anchor,
+            setting_bp,
+            &[DeviceId::Floodgate, DeviceId::Pump, DeviceId::Reservoir],
+        )
+    }
+
+    fn set_selected_flow_for(
+        &mut self,
+        anchor: CellPos,
+        setting_bp: u16,
+        allowed: &[DeviceId],
+    ) -> bool {
         if let Some(gate) = self
             .devices
             .iter_mut()
-            .find(|device| device.device == DeviceId::Floodgate && device.anchor == anchor)
+            .find(|device| allowed.contains(&device.device) && device.anchor == anchor)
         {
             gate.setting_bp = setting_bp.min(10_000);
             true
@@ -349,8 +371,13 @@ impl DeviceSystem {
                         .min(250)
                         .min(device.setting_bp as u32 * 250 / 10_000);
                     let outlet = step(device.anchor, direction(device.rotation));
-                    let destination = pipe_endpoint(&topology, outlet, direction(device.rotation))
-                        .unwrap_or(outlet);
+                    let destination = pipe_endpoint(
+                        &topology,
+                        outlet,
+                        direction(device.rotation),
+                        Some(device.anchor),
+                    )
+                    .unwrap_or(outlet);
                     if amount > 0
                         && device.powered
                         && transfer_surface_to(world, device.anchor, destination, amount) > 0
@@ -379,7 +406,14 @@ impl DeviceSystem {
                         .min((10_000u32.saturating_sub(device.setting_bp as u32)) * 800 / 10_000);
                     if release > 0 {
                         if let Some(fluid) = device.stored_fluid {
-                            let destination = step(device.anchor, direction(device.rotation));
+                            let outlet = footprint_outlet(device);
+                            let destination = pipe_endpoint(
+                                &topology,
+                                outlet,
+                                direction(device.rotation),
+                                Some(device.anchor),
+                            )
+                            .unwrap_or(outlet);
                             if let Some(destination_index) = world.index(destination) {
                                 let moved = world.cells[destination_index].add_surface(
                                     crate::simulation::FluidEntry::new(fluid, release),
@@ -551,173 +585,6 @@ fn floodgate_controls_edge(device: &DeviceState, source: CellPos, destination: C
     source_side && matches_edge
 }
 
-fn direction(rotation: u8) -> (i16, i16) {
-    match rotation % 4 {
-        0 => (1, 0),
-        1 => (0, 1),
-        2 => (-1, 0),
-        _ => (0, -1),
-    }
-}
-fn step(source: CellPos, (dx, dy): (i16, i16)) -> CellPos {
-    CellPos {
-        x: source.x.saturating_add_signed(dx),
-        y: source.y.saturating_add_signed(dy),
-    }
-}
-fn adjacent(a: CellPos, b: CellPos) -> bool {
-    a.x.abs_diff(b.x) + a.y.abs_diff(b.y) == 1
-}
-
-fn adjacent_to_footprint(position: CellPos, device: &DeviceState) -> bool {
-    let (width, height) = device.device.footprint();
-    (0..height).any(|dy| {
-        (0..width).any(|dx| {
-            adjacent(
-                position,
-                CellPos {
-                    x: device.anchor.x + dx,
-                    y: device.anchor.y + dy,
-                },
-            )
-        })
-    })
-}
-
-fn is_conduit(device: DeviceId) -> bool {
-    matches!(device, DeviceId::Pipe | DeviceId::Channel)
-}
-
-fn pipe_connected(devices: &[DeviceState], first: CellPos, second: CellPos) -> bool {
-    let mut frontier = vec![first];
-    let mut visited = Vec::new();
-    while let Some(position) = frontier.pop() {
-        if visited.contains(&position) {
-            continue;
-        }
-        visited.push(position);
-        if adjacent(position, second) {
-            return true;
-        }
-        for pipe in devices.iter().filter(|device| is_conduit(device.device)) {
-            if adjacent(position, pipe.anchor) && !visited.contains(&pipe.anchor) {
-                frontier.push(pipe.anchor);
-            }
-        }
-    }
-    false
-}
-
-fn pipe_endpoint(
-    devices: &[DeviceState],
-    start: CellPos,
-    direction: (i16, i16),
-) -> Option<CellPos> {
-    let first_pipe = devices
-        .iter()
-        .any(|device| is_conduit(device.device) && device.anchor == start);
-    if !first_pipe {
-        return None;
-    }
-    let mut frontier = vec![start];
-    let mut visited = Vec::new();
-    while let Some(position) = frontier.pop() {
-        if visited.contains(&position) {
-            continue;
-        }
-        visited.push(position);
-        let endpoints: Vec<_> = devices
-            .iter()
-            .filter(|device| {
-                !is_conduit(device.device)
-                    && device.device != DeviceId::Pump
-                    && device.anchor != start
-                    && adjacent_to_footprint(position, device)
-            })
-            .collect();
-        if let Some(endpoint) = endpoints.into_iter().min_by_key(|device| device.entity_id) {
-            return Some(endpoint.anchor);
-        }
-        for pipe in devices
-            .iter()
-            .filter(|device| is_conduit(device.device) && adjacent(position, device.anchor))
-        {
-            frontier.push(pipe.anchor);
-        }
-    }
-    Some(step(start, direction))
-}
-fn transfer_surface(
-    world: &mut SimulationWorld,
-    source: CellPos,
-    (dx, dy): (i16, i16),
-    amount: u32,
-) -> u32 {
-    let x = source.x as i16 + dx;
-    let y = source.y as i16 + dy;
-    if x < 0 || y < 0 {
-        return 0;
-    }
-    let destination = CellPos {
-        x: x as u16,
-        y: y as u16,
-    };
-    let Some(source_index) = world.index(source) else {
-        return 0;
-    };
-    let Some(destination_index) = world.index(destination) else {
-        return 0;
-    };
-    let Some(entry) = world.cells[source_index].surface.first().cloned() else {
-        return 0;
-    };
-    let moved = amount.min(entry.volume_vu).min(
-        crate::simulation::CELL_CAPACITY_VU
-            .saturating_sub(world.cells[destination_index].surface_volume()),
-    );
-    if moved == 0 {
-        return 0;
-    }
-    remove_fluid(&mut world.cells[source_index].surface, entry.fluid, moved);
-    world.cells[destination_index].add_surface(crate::simulation::FluidEntry {
-        fluid: entry.fluid,
-        volume_vu: moved,
-        temperature_dk: entry.temperature_dk,
-        contamination_bp: entry.contamination_bp,
-    });
-    moved
-}
-fn transfer_surface_to(
-    world: &mut SimulationWorld,
-    source: CellPos,
-    destination: CellPos,
-    amount: u32,
-) -> u32 {
-    let Some(source_index) = world.index(source) else {
-        return 0;
-    };
-    let Some(destination_index) = world.index(destination) else {
-        return 0;
-    };
-    let Some(entry) = world.cells[source_index].surface.first().cloned() else {
-        return 0;
-    };
-    let moved = amount.min(entry.volume_vu).min(
-        crate::simulation::CELL_CAPACITY_VU
-            .saturating_sub(world.cells[destination_index].surface_volume()),
-    );
-    if moved == 0 {
-        return 0;
-    }
-    remove_fluid(&mut world.cells[source_index].surface, entry.fluid, moved);
-    world.cells[destination_index].add_surface(crate::simulation::FluidEntry {
-        fluid: entry.fluid,
-        volume_vu: moved,
-        temperature_dk: entry.temperature_dk,
-        contamination_bp: entry.contamination_bp,
-    });
-    moved
-}
 fn remove_fluid(entries: &mut Vec<crate::simulation::FluidEntry>, fluid: FluidId, amount: u32) {
     if let Some(entry) = entries.iter_mut().find(|entry| entry.fluid == fluid) {
         entry.volume_vu -= amount.min(entry.volume_vu);
@@ -787,8 +654,8 @@ fn footprints_overlap(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::showcase::run_showcase;
+    use super::*;
     #[test]
     fn all_ten_devices_have_unique_showcases() {
         let reports: Vec<_> = DeviceId::ALL.into_iter().map(run_showcase).collect();
@@ -814,17 +681,21 @@ mod tests {
                 .len(),
             10
         );
-        assert!(SHOWCASE_MAPS
-            .iter()
-            .all(|showcase| showcase.map_id == format!("device_{}", showcase.device.name())));
+        assert!(
+            SHOWCASE_MAPS
+                .iter()
+                .all(|showcase| showcase.map_id == format!("device_{}", showcase.device.name()))
+        );
     }
     #[test]
     fn footprint_rotation_and_overlap_are_rejected() {
         let world = SimulationWorld::new(4, 4);
         let mut devices = DeviceSystem::default();
-        assert!(devices
-            .place(&world, DeviceId::Reservoir, CellPos { x: 1, y: 1 }, 3, 100)
-            .is_ok());
+        assert!(
+            devices
+                .place(&world, DeviceId::Reservoir, CellPos { x: 1, y: 1 }, 3, 100)
+                .is_ok()
+        );
         assert_eq!(
             devices.place(&world, DeviceId::Channel, CellPos { x: 1, y: 1 }, 0, 100),
             Err(DeviceError::Occupied)
@@ -981,13 +852,38 @@ mod tests {
             .place(&world, DeviceId::Reservoir, CellPos { x: 3, y: 0 }, 0, 100)
             .unwrap();
         assert_eq!(
-            pipe_endpoint(&devices.devices, CellPos { x: 1, y: 0 }, (1, 0)),
+            pipe_endpoint(&devices.devices, CellPos { x: 1, y: 0 }, (1, 0), None,),
             Some(CellPos { x: 3, y: 0 })
         );
         world.inject(CellPos { x: 0, y: 0 }, FluidId::Water, 500);
         devices.tick(&mut world);
         assert_eq!(devices.devices[3].stored_vu, 250);
         assert_eq!(world.cells[0].surface_volume(), 250);
+    }
+
+    #[test]
+    fn reservoir_releases_beyond_a_connected_pipe_run() {
+        let mut world = SimulationWorld::new(8, 3);
+        let mut devices = DeviceSystem::default();
+        devices
+            .place(&world, DeviceId::Reservoir, CellPos { x: 1, y: 1 }, 0, 100)
+            .unwrap();
+        for x in 3..=5 {
+            devices
+                .place(&world, DeviceId::Pipe, CellPos { x, y: 1 }, 0, 100)
+                .unwrap();
+        }
+        let reservoir = devices
+            .devices
+            .iter_mut()
+            .find(|device| device.device == DeviceId::Reservoir)
+            .unwrap();
+        reservoir.stored_vu = 1_000;
+        reservoir.stored_fluid = Some(FluidId::Water);
+        reservoir.setting_bp = 5_000;
+        devices.tick(&mut world);
+        let destination = world.index(CellPos { x: 6, y: 1 }).unwrap();
+        assert_eq!(world.cells[destination].surface_volume(), 400);
     }
 
     #[test]

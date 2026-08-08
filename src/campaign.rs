@@ -159,25 +159,31 @@ fn author_l02(world: &mut SimulationWorld) {
         for x in 31..=36 {
             set_height(world, CellPos { x, y }, 0);
             set_sealed(world, CellPos { x, y });
+            set_contained(world, CellPos { x, y });
         }
     }
-    world.add_source(CellPos { x: 33, y: 8 }, FluidId::Water, 10_000);
     // Two pipe runs are intentionally broken into twelve obvious gaps. They
     // read as infrastructure rather than a generic empty board and leave the
     // player with meaningful connection work.
     for pos in [
+        (6, 16),
+        (7, 16),
         (8, 16),
         (10, 16),
         (12, 16),
         (14, 16),
+        (16, 16),
+        (16, 15),
         (16, 14),
+        (17, 14),
+        (17, 13),
+        (18, 13),
         (18, 12),
-        (22, 9),
-        (24, 9),
-        (26, 9),
-        (28, 9),
-        (30, 9),
-        (37, 8),
+        (22, 8),
+        (24, 8),
+        (26, 8),
+        (28, 8),
+        (30, 8),
     ] {
         install_device(world, DeviceId::Pipe, CellPos { x: pos.0, y: pos.1 }, 0, 0);
     }
@@ -373,6 +379,17 @@ mod tests {
             .any(|entry| entry.fluid == FluidId::Water && entry.volume_vu >= 750);
         assert!(water);
         assert_eq!(map.world.sources[0].rate_vu, 100);
+    }
+
+    #[test]
+    fn l02_has_no_hidden_objective_source() {
+        let map = load_campaign(MissionId::L02HoldingLine);
+        assert_eq!(map.world.sources.len(), 1);
+        assert_eq!(map.world.sources[0].position, CellPos { x: 5, y: 16 });
+        assert_eq!(map.world.sources[0].rate_vu, 100);
+        assert!((31..=36).all(|x| {
+            (7..=9).all(|y| map.world.cells[map.world.index(CellPos { x, y }).unwrap()].contained)
+        }));
     }
 
     #[test]

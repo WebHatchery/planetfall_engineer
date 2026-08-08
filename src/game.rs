@@ -602,12 +602,12 @@ impl Game {
             return;
         }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let changed = devices.set_selected_gate(self.session.selected, setting_bp);
+        let changed = devices.set_selected_flow(self.session.selected, setting_bp);
         self.session.simulation.devices = devices;
         self.notice = if changed {
-            format!("Floodgate set to {}%", setting_bp / 100)
+            format!("Selected flow control set to {}%", setting_bp / 100)
         } else {
-            "No floodgate selected".into()
+            "Select a floodgate, pump, or reservoir".into()
         };
     }
 

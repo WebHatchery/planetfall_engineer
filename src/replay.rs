@@ -28,6 +28,7 @@ pub struct ScenarioReport {
     pub terminal_success: bool,
     pub terminal_failure: bool,
     pub objective_incomplete: bool,
+    pub objective_progress: u32,
     pub mass_balance_error: i64,
     pub injected_vu: u64,
     pub drained_vu: u64,
@@ -76,6 +77,7 @@ pub fn run_scenario(id: MissionId, kind: ScenarioKind) -> ScenarioReport {
         terminal_success: mission.phase == MissionPhase::Success,
         terminal_failure: mission.phase == MissionPhase::Failure,
         objective_incomplete: mission.objective_progress < objective_target(id),
+        objective_progress: mission.objective_progress,
         mass_balance_error,
         injected_vu: map.world.ledger.injected,
         drained_vu: map.world.ledger.drained,
@@ -192,17 +194,10 @@ fn install_reference_build(
                 0,
             );
             for pos in [
-                (6, 16),
-                (7, 16),
                 (9, 16),
                 (11, 16),
                 (13, 16),
                 (15, 16),
-                (16, 16),
-                (16, 15),
-                (17, 14),
-                (17, 13),
-                (18, 13),
                 (19, 12),
                 (20, 12),
                 (20, 11),
@@ -223,6 +218,15 @@ fn install_reference_build(
                 CellPos { x: 20, y: 8 },
                 0,
             );
+            for x in [23, 25, 27, 29] {
+                let _ = admit_build(
+                    world,
+                    mission,
+                    crate::devices::DeviceId::Pipe,
+                    CellPos { x, y: 8 },
+                    0,
+                );
+            }
         }
         MissionId::L03Firebreak => {
             let _ = admit_build(
@@ -322,6 +326,29 @@ fn tick_scenario(
     id: MissionId,
     kind: ScenarioKind,
 ) {
+    if id == MissionId::L02HoldingLine
+        && matches!(kind, ScenarioKind::Reference | ScenarioKind::Alternate)
+    {
+        let trench_water = (31..=36)
+            .flat_map(|x| (7..=9).map(move |y| CellPos { x, y }))
+            .filter_map(|position| world.index(position))
+            .flat_map(|index| world.cells[index].surface.iter())
+            .filter(|entry| entry.fluid == FluidId::Water)
+            .map(|entry| entry.volume_vu)
+            .sum::<u32>();
+        if let Some(reservoir) = world
+            .devices
+            .devices
+            .iter_mut()
+            .find(|device| device.device == crate::devices::DeviceId::Reservoir)
+        {
+            reservoir.setting_bp = if trench_water >= 6_500 || reservoir.stored_vu < 2_500 {
+                10_000
+            } else {
+                5_000
+            };
+        }
+    }
     if kind == ScenarioKind::Failure {
         match id {
             MissionId::L01FirstFlow => {
