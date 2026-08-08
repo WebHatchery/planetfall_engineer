@@ -92,6 +92,8 @@ impl Default for CellDefinition {
 pub struct SimCell {
     pub height_hu: i16,
     pub sealed: bool,
+    #[serde(default)]
+    pub contained: bool,
     pub ground_contamination_bp: u16,
     pub surface: Vec<FluidEntry>,
     pub airborne: Vec<FluidEntry>,
@@ -108,6 +110,7 @@ impl SimCell {
         Self {
             height_hu,
             sealed,
+            contained: false,
             ground_contamination_bp: 0,
             surface: Vec::new(),
             airborne: Vec::new(),
@@ -377,7 +380,10 @@ impl SimulationWorld {
                         let delta = source.surface_head_hu() - dest.surface_head_hu();
                         let gate_factor = self.devices.surface_flow_factor(source_pos, dest_pos);
                         if delta <= 1
-                            || dest.sealed
+                            || (dest.sealed
+                                && !self.devices.controls_surface_edge(source_pos, dest_pos))
+                            || (source.contained != dest.contained
+                                && !self.devices.controls_surface_edge(source_pos, dest_pos))
                             || dest.surface_volume() >= CELL_CAPACITY_VU
                             || gate_factor == 0
                         {

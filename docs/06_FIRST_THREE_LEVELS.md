@@ -36,9 +36,13 @@ route, run time, see water respond, then operate a gate to stabilize a basin.
   quarter 0, zoom level 3. The opening view shows a high north-west meltwater
   terrace, a winding descending cut through a central ridge, the sealed basin,
   a protected beacon marker, and the south-east waste sink.
-- `meltwater_source`: (4,4), starts stopped; 180 `vU`/tick after tutorial run.
+- `meltwater_source`: (21,8), immediately upstream of the inlet gate; starts
+  stopped and supplies 180 `vU`/tick after the tutorial run. The inlet
+  headworks sit at 7,000 `hU` and are contained, so its only liquid outlet is
+  the floodgate.
 - Natural route slopes south-east toward `waste_sink` at (27,16).
-- `restoration_basin`: 4x4 zone x=22..25, y=7..10, sealed, capacity 12,000 `vU`.
+- `restoration_basin`: 4x4 zone x=22..25, y=7..10, sealed and contained,
+  capacity 12,000 `vU`; its only liquid crossing is the inlet floodgate.
 - Ridge x=12..18, y=4..11 at 1,850 `hU`; the authored cut descends from the
   source terrace through (12,8)..(21,8), reaching 250 `hU` before the basin.
 - Protected survey beacon: (10,6); protected cells cannot be edited.

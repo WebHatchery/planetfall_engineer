@@ -323,16 +323,16 @@ impl DeviceSystem {
                 if device.device != DeviceId::Floodgate {
                     return None;
                 }
-                let delta = (
-                    destination.x as i16 - source.x as i16,
-                    destination.y as i16 - source.y as i16,
-                );
-                let direction = direction(device.rotation);
-                let source_side = source == device.anchor || destination == device.anchor;
-                let matches_edge = delta == direction || delta == (-direction.0, -direction.1);
-                (source_side && matches_edge).then_some(device.setting_bp as u32)
+                floodgate_controls_edge(device, source, destination)
+                    .then_some(device.setting_bp as u32)
             })
             .unwrap_or(10_000)
+    }
+
+    pub fn controls_surface_edge(&self, source: CellPos, destination: CellPos) -> bool {
+        self.devices
+            .iter()
+            .any(|device| floodgate_controls_edge(device, source, destination))
     }
 
     pub fn tick(&mut self, world: &mut SimulationWorld) {
@@ -535,6 +535,20 @@ impl DeviceSystem {
             relay.active = relay.powered && relay.stored_vu >= 100;
         }
     }
+}
+
+fn floodgate_controls_edge(device: &DeviceState, source: CellPos, destination: CellPos) -> bool {
+    if device.device != DeviceId::Floodgate {
+        return false;
+    }
+    let delta = (
+        destination.x as i16 - source.x as i16,
+        destination.y as i16 - source.y as i16,
+    );
+    let direction = direction(device.rotation);
+    let source_side = source == device.anchor || destination == device.anchor;
+    let matches_edge = delta == direction || delta == (-direction.0, -direction.1);
+    source_side && matches_edge
 }
 
 fn direction(rotation: u8) -> (i16, i16) {

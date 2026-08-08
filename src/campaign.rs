@@ -105,14 +105,17 @@ fn author_l01(world: &mut SimulationWorld) {
             set_height(world, CellPos { x, y }, 0);
         }
     }
-    world.add_source(CellPos { x: 4, y: 4 }, FluidId::Water, 180);
-    // The gate feeds a maintained basin inlet. The high terrace source remains
-    // scenic runoff; this controlled source is the puzzle's reliable supply.
-    world.add_source(CellPos { x: 22, y: 8 }, FluidId::Water, 10_000);
+    set_height(world, CellPos { x: 21, y: 8 }, 7_000);
+    // The single meltwater source sits immediately upstream of the authored
+    // inlet gate, so the tutorial's gate action is the only way water reaches
+    // the sealed restoration basin.
+    world.add_source(CellPos { x: 21, y: 8 }, FluidId::Water, 180);
+    set_contained(world, CellPos { x: 21, y: 8 });
     protect(world, CellPos { x: 10, y: 6 });
     for y in 7..=10 {
         for x in 22..=25 {
             set_sealed(world, CellPos { x, y });
+            set_contained(world, CellPos { x, y });
         }
     }
     // A real, initially closed inlet gate establishes the tutorial's first
@@ -263,6 +266,9 @@ fn set_height(world: &mut SimulationWorld, pos: CellPos, height: i16) {
 fn set_sealed(world: &mut SimulationWorld, pos: CellPos) {
     cell_mut(world, pos).sealed = true;
 }
+fn set_contained(world: &mut SimulationWorld, pos: CellPos) {
+    cell_mut(world, pos).contained = true;
+}
 fn protect(world: &mut SimulationWorld, pos: CellPos) {
     let index = world
         .index(pos)
@@ -317,7 +323,12 @@ mod tests {
         let map = load_campaign(MissionId::L01FirstFlow);
         assert!(map.world.definitions[map.world.index(CellPos { x: 10, y: 6 }).unwrap()].protected);
         assert!(map.world.cells[map.world.index(CellPos { x: 22, y: 7 }).unwrap()].sealed);
+        assert!(map.world.cells[map.world.index(CellPos { x: 22, y: 7 }).unwrap()].contained);
         assert_eq!(map.reference_tick_range, (480, 750));
+        assert_eq!(map.world.sources.len(), 1);
+        assert_eq!(map.world.sources[0].position, CellPos { x: 21, y: 8 });
+        assert_eq!(map.world.sources[0].rate_vu, 180);
+        assert!(map.world.cells[map.world.index(CellPos { x: 21, y: 8 }).unwrap()].contained);
     }
 
     #[test]
@@ -329,6 +340,26 @@ mod tests {
         assert!(height(CellPos { x: 14, y: 8 }) > height(CellPos { x: 22, y: 8 }));
         assert_eq!(height(CellPos { x: 22, y: 8 }), 0);
         assert_eq!(height(CellPos { x: 27, y: 16 }), 0);
+    }
+
+    #[test]
+    fn l01_inlet_gate_feeds_the_sealed_basin() {
+        let mut map = load_campaign(MissionId::L01FirstFlow);
+        map.world.set_sources_enabled(true);
+        map.world
+            .devices
+            .set_selected_gate(CellPos { x: 21, y: 8 }, 10_000);
+        for _ in 0..200 {
+            map.world.tick();
+        }
+        let basin_water: u32 = (22..=25)
+            .flat_map(|x| (7..=10).map(move |y| CellPos { x, y }))
+            .map(|pos| map.world.cells[map.world.index(pos).unwrap()].surface_volume())
+            .sum();
+        assert!(
+            basin_water >= 6_000,
+            "open inlet gate must fill the basin: {basin_water} vU"
+        );
     }
 
     #[test]
