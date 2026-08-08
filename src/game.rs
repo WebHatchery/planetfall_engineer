@@ -72,7 +72,7 @@ impl Game {
         if is_key_pressed(KeyCode::F1) { let report = self.lab.automatic_scenario(); self.notice = format!("lab_fluids_all {} tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash); }
         if is_key_pressed(KeyCode::F2) { self.notice = run_all_showcases(); }
         if is_key_pressed(KeyCode::F3) { self.notice = campaign_summary(); }
-        if is_key_pressed(KeyCode::F4) { self.session.mission.skip_tutorial(); let complete = self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()); self.notice = if complete { "Tutorial skipped — L01 build kit unlocked" } else { "Tutorial skip unavailable" }.into(); }
+        if is_key_pressed(KeyCode::F4) { self.session.mission.skip_tutorial(); let complete = self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()); if complete { self.session.simulation.set_sources_enabled(true); } self.notice = if complete { "Tutorial skipped — L01 build kit unlocked; source enabled" } else { "Tutorial skip unavailable" }.into(); }
         if is_key_pressed(KeyCode::F6) { self.session.mission.checkpoint(); self.notice = format!("Mission checkpoint recorded at tick {}", self.session.mission.checkpoint_tick); }
         if is_key_pressed(KeyCode::F7) { self.session.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
         if is_key_pressed(KeyCode::F8) { let admission = self.session.mission.admit(CommandKind::DismissPrompt); self.notice = format!("Tutorial command: {admission:?}"); }

@@ -108,6 +108,9 @@ pub struct MassLedger {
     pub products: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SourceState { pub position: CellPos, pub fluid: FluidId, pub rate_vu: u32, pub enabled: bool }
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SimEvent {
     SourceBackpressure { cell: CellPos, requested_vu: u32, accepted_vu: u32 },
@@ -125,13 +128,14 @@ pub struct SimulationWorld {
     pub ledger: MassLedger,
     pub events: Vec<SimEvent>,
     pub devices: DeviceSystem,
+    pub sources: Vec<SourceState>,
 }
 
 impl SimulationWorld {
     pub fn new(width: u16, height: u16) -> Self {
         let definitions = vec![CellDefinition::default(); width as usize * height as usize];
         let cells = definitions.iter().map(|d| SimCell::empty(d.base_height_hu, false)).collect();
-        Self { width, height, definitions, cells, tick: 0, ledger: MassLedger::default(), events: Vec::new(), devices: DeviceSystem::default() }
+        Self { width, height, definitions, cells, tick: 0, ledger: MassLedger::default(), events: Vec::new(), devices: DeviceSystem::default(), sources: Vec::new() }
     }
 
     pub fn index(&self, pos: CellPos) -> Option<usize> { (pos.x < self.width && pos.y < self.height).then_some(pos.y as usize * self.width as usize + pos.x as usize) }
@@ -148,6 +152,9 @@ impl SimulationWorld {
         self.ledger.injected += accepted as u64;
         if accepted < volume_vu { self.events.push(SimEvent::SourceBackpressure { cell: pos, requested_vu: volume_vu, accepted_vu: accepted }); }
     }
+
+    pub fn add_source(&mut self, position: CellPos, fluid: FluidId, rate_vu: u32) { self.sources.push(SourceState { position, fluid, rate_vu, enabled: false }); }
+    pub fn set_sources_enabled(&mut self, enabled: bool) { for source in &mut self.sources { source.enabled = enabled; } }
 
     pub fn terrain_edit(&mut self, pos: CellPos, action: TerrainAction) -> Result<(), TerrainError> {
         let index = self.index(pos).ok_or(TerrainError::OutOfBounds)?;
@@ -166,6 +173,8 @@ impl SimulationWorld {
     pub fn tick(&mut self) {
         self.events.clear();
         self.tick = self.tick.saturating_add(1);
+        let sources = self.sources.clone();
+        for source in sources.into_iter().filter(|source| source.enabled) { self.inject(source.position, source.fluid, source.rate_vu); }
         self.flow_surface();
         self.flow_steam();
         self.react_materials();
@@ -249,4 +258,5 @@ mod tests {
     #[test] fn lava_and_water_make_steam_and_rock() { let mut world = SimulationWorld::new(1, 1); world.inject(pos(0, 0), FluidId::Water, 500); world.inject(pos(0, 0), FluidId::Lava, 500); world.tick(); assert_eq!(volume(&world.cells[0].surface, FluidId::Water), 250); assert_eq!(volume(&world.cells[0].surface, FluidId::Lava), 250); assert_eq!(volume(&world.cells[0].airborne, FluidId::Steam), 250); assert_eq!(world.cells[0].pending_rock_vu, 250); assert!(world.events.iter().any(|event| matches!(event, SimEvent::MaterialReacted { reaction, .. } if reaction == "water_lava"))); }
     #[test] fn slurry_contaminates_unsealed_ground_and_lava_vitrifies() { let mut world = SimulationWorld::new(1, 1); world.inject(pos(0, 0), FluidId::ToxicSlurry, 500); world.inject(pos(0, 0), FluidId::Lava, 500); world.tick(); assert_eq!(world.cells[0].ground_contamination_bp, 10_000); assert_eq!(world.cells[0].pending_vitrified_vu, 240); }
     #[test] fn source_backpressure_is_explicit() { let mut world = SimulationWorld::new(1, 1); world.inject(pos(0, 0), FluidId::Water, 9_000); assert!(world.events.iter().any(|event| matches!(event, SimEvent::SourceBackpressure { accepted_vu: 8_000, .. }))); }
+    #[test] fn authored_source_stays_stopped_until_enabled() { let mut world = SimulationWorld::new(2, 1); world.add_source(pos(0, 0), FluidId::Water, 180); world.tick(); assert_eq!(world.cells.iter().map(|cell| volume(&cell.surface, FluidId::Water)).sum::<u32>(), 0); world.set_sources_enabled(true); world.tick(); assert_eq!(world.cells.iter().map(|cell| volume(&cell.surface, FluidId::Water)).sum::<u32>(), 180); }
 }

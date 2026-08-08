@@ -25,6 +25,7 @@ pub fn load_campaign(id: MissionId) -> CampaignMap {
 
 fn author_l01(world: &mut SimulationWorld) {
     set_ambient(world, 3_030);
+    world.add_source(CellPos { x: 4, y: 4 }, FluidId::Water, 180);
     protect(world, CellPos { x: 10, y: 6 });
     for x in 12..=18 { set_height(world, CellPos { x, y: 7 }, 1_500); }
     for x in 14..=18 { set_height(world, CellPos { x, y: 8 }, 1_250); }
@@ -33,6 +34,7 @@ fn author_l01(world: &mut SimulationWorld) {
 
 fn author_l02(world: &mut SimulationWorld) {
     set_ambient(world, 2_930);
+    world.add_source(CellPos { x: 5, y: 16 }, FluidId::Water, 100);
     for y in 14..=18 { for x in 3..=7 { set_height(world, CellPos { x, y }, 0); } }
     for y in 14..=18 { for x in 24..=28 { protect(world, CellPos { x, y }); } }
     for y in 7..=9 { for x in 31..=36 { set_sealed(world, CellPos { x, y }); } }
@@ -40,6 +42,7 @@ fn author_l02(world: &mut SimulationWorld) {
 
 fn author_l03(world: &mut SimulationWorld) {
     set_ambient(world, 3_230);
+    world.add_source(CellPos { x: 5, y: 15 }, FluidId::Lava, 100);
     for y in 12..=18 { for x in 35..=40 { protect(world, CellPos { x, y }); } }
     for y in 12..=16 { for x in 20..=25 { set_sealed(world, CellPos { x, y }); set_height(world, CellPos { x, y }, 500); } }
     set_sealed(world, CellPos { x: 27, y: 9 });

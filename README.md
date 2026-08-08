@@ -43,6 +43,8 @@ engineering contract; the GDD remains the source of product intent.
 - Floodgates now control their authored surface edge at 0%, 50%, and 100%;
   `J/K/H` set the selected gate, and the inspector readout shows setting and
   active state alongside queued-plan budget.
+- Authored campaign sources are fixed-rate and deterministic: L01 starts with
+  its 180 `vU`/tick meltwater source stopped, and tutorial skip enables it.
 - Deterministic placement validation for bounds, overlap, protected terrain,
   budget, and rotation, plus renderer-independent device showcase fixtures.
 - Build-plan queue with budget reservation, atomic commit, cancellation, and
