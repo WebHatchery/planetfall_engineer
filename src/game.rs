@@ -111,9 +111,28 @@ impl Game {
             let h = cell.height_hu as f32 * 0.0005; let center = vec3(x as f32 + 0.5, h * 0.5, y as f32 + 0.5); let size = vec3(0.96, h.max(0.12), 0.96);
             let tint = if pos == selected { Color::new(0.82, 0.66, 0.24, 1.0) } else if cell.sealed { Color::new(0.25, 0.29, 0.35, 1.0) } else { Color::new(0.32 + x as f32 * 0.005, 0.24 + y as f32 * 0.004, 0.20, 1.0) };
             draw_cube(center, size, None, tint); draw_cube_wires(center, size, Color::new(0.08, 0.09, 0.12, 0.55));
+            let sim_cell = &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()];
+            let surface_depth = sim_cell.surface_volume() as f32 * 0.0005;
+            if surface_depth > 0.0 {
+                let surface_center = vec3(x as f32 + 0.5, h + surface_depth * 0.5 + 0.02, y as f32 + 0.5);
+                let surface_color = sim_cell.surface.first().map(|material| fluid_color(material.fluid)).unwrap_or(WHITE);
+                draw_cube(surface_center, vec3(0.88, surface_depth.max(0.04), 0.88), None, surface_color);
+            }
+            let steam_depth = sim_cell.airborne_volume() as f32 * 0.00035;
+            if steam_depth > 0.0 { draw_cube(vec3(x as f32 + 0.5, h + 0.35 + steam_depth * 0.5, y as f32 + 0.5), vec3(0.7, steam_depth.max(0.08), 0.7), None, Color::new(0.76, 0.86, 0.92, 0.38)); }
         }}
+        for device in &self.session.simulation.devices.devices {
+            let (width, height) = device.device.footprint();
+            let anchor = &self.session.simulation.cells[self.session.simulation.index(device.anchor).unwrap()];
+            let center = vec3(device.anchor.x as f32 + width as f32 * 0.5, anchor.height_hu as f32 * 0.0005 + 0.35, device.anchor.y as f32 + height as f32 * 0.5);
+            let color = if device.active { Color::new(0.35, 0.92, 0.72, 1.0) } else { Color::new(0.72, 0.52, 0.25, 1.0) };
+            draw_cube(center, vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72), None, color);
+            draw_cube_wires(center, vec3(width as f32 * 0.78, 0.74, height as f32 * 0.78), if device.anchor == selected { WHITE } else { Color::new(0.08, 0.09, 0.12, 0.8) });
+        }
         draw_grid_lines();
     }
 }
+
+fn fluid_color(fluid: FluidId) -> Color { match fluid { FluidId::Water => Color::new(0.12, 0.48, 0.9, 0.78), FluidId::Lava => Color::new(0.95, 0.22, 0.06, 0.9), FluidId::ToxicSlurry => Color::new(0.62, 0.72, 0.16, 0.86), FluidId::Steam => Color::new(0.76, 0.86, 0.92, 0.38) } }
 
 fn draw_grid_lines() { /* Depth-tested cube silhouettes provide the stepped grid in R0. */ }

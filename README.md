@@ -54,6 +54,14 @@ engineering contract; the GDD remains the source of product intent.
   `F6` records a checkpoint, `F7` exercises failure recovery, and `F8` reports
   a tutorial command admission.
 
+## 3D Vertical-Slice Presentation
+
+The orthographic world now renders authoritative surface depth, airborne steam,
+device footprints, active/inactive machine state, and selected-device outlines
+as derived depth-tested geometry. Camera movement, quarter-turn rotation,
+survey selection, terrain edits, materials, and device placement remain on the
+same production 3D path.
+
 The template avoids browser-incompatible filesystem access. Static data is
 embedded with `include_str!()`, runtime browser assets go through Macroquad or
 toolkit async loaders, and save data uses macroquad-toolkit persistence.
