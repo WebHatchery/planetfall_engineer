@@ -37,6 +37,9 @@ engineering contract; the GDD remains the source of product intent.
 
 - Stable entities for all ten slice devices with costs, footprints, rotations,
   health, power, settings, storage, and active-state reporting.
+- Active device behavior includes rotated pump transfer, reservoir capacity,
+  spillway threshold/rate, filter contamination removal, turbine power output,
+  sensor threshold state, and rune-relay flow/power gating.
 - Deterministic placement validation for bounds, overlap, protected terrain,
   budget, and rotation, plus renderer-independent device showcase fixtures.
 - Runtime controls: `B` places a channel, `P` places a pipe, `O` places a pump,
