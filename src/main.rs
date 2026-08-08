@@ -8,6 +8,7 @@ mod content;
 mod data;
 mod devices;
 mod game;
+mod game_build;
 mod game_placement;
 mod game_verification;
 mod mission;

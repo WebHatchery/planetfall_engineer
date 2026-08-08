@@ -121,6 +121,8 @@ The active build selection also renders a translucent 3D footprint ghost;
 `Z` rotates it through all four quarter turns before queue/commit.
 The HUD provides the selected device cost and a text validity reason, while a
 blocked preview changes to a red ghost and remains non-committable.
+The palette's visible Rotate, Commit, and Cancel buttons share the scaled mouse
+regions used by the keyboard-equivalent commands.
 
 The replay owner covers the ten campaign scenarios listed above, including
 alternate success paths, authored hazard failures, and the L03 insufficient-

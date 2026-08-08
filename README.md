@@ -161,6 +161,8 @@ The selected build has a translucent 3D footprint ghost; `Z` cycles its quarter
 turn rotation, and the queued plan carries that rotation into the authoritative
 device entity and directional behavior. The readout shows its cost and
 `READY`/`BLOCKED` reason for bounds, protection, overlap, or budget before queue.
+Visible `ROTATE`, `COMMIT`, and `CANCEL` buttons mirror the keyboard actions so
+the core placement loop is fully mouse-reachable.
 Verification maps expose their current PASS/FAIL result, exact balance error,
 and compact injected/drained/reacted/product ledger in the readout. F6 resets
 the active lab or device fixture and F8 advances exactly one verification tick,

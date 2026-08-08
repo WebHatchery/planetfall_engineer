@@ -188,7 +188,10 @@ impl Game {
         ) {
             let _ = self.session.mission.admit(CommandKind::Camera);
         }
-        if is_mouse_button_pressed(MouseButton::Left) && !self.handle_palette_click() {
+        if is_mouse_button_pressed(MouseButton::Left)
+            && !self.handle_palette_click()
+            && !self.handle_build_action_click()
+        {
             self.select_from_pointer();
         }
         if is_key_pressed(KeyCode::Space) {
@@ -489,73 +492,6 @@ impl Game {
         }
     }
 
-    fn handle_palette_click(&mut self) -> bool {
-        let (mouse_x, mouse_y) = mouse_position();
-        let scale_x = screen_width() / ui::LOGICAL_WIDTH;
-        let scale_y = screen_height() / ui::LOGICAL_HEIGHT;
-        let x = mouse_x / scale_x;
-        let y = mouse_y / scale_y;
-        if !(1018.0..1248.0).contains(&x) || !(326.0..456.0).contains(&y) {
-            return false;
-        }
-        let column = if x < 1132.0 { 0 } else { 1 };
-        let row = ((y - 326.0) / 26.0) as usize;
-        let index = row * 2 + column;
-        if let Some(device) = DeviceId::ALL.get(index).copied() {
-            self.queue_device(device);
-        }
-        true
-    }
-
-    fn queue_device(&mut self, device: DeviceId) {
-        self.placement_device = device;
-        if !self.admit(CommandKind::QueueDevice(device)) {
-            return;
-        }
-        let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let result = devices.queue(
-            &self.session.simulation,
-            device,
-            self.session.selected,
-            self.placement_rotation,
-            self.session.mission.budget,
-        );
-        self.session.simulation.devices = devices;
-        self.notice = result
-            .map(|id| {
-                format!(
-                    "Queued {} plan #{id} at {}° — Enter commit, Backspace cancel",
-                    device.name(),
-                    self.placement_rotation * 90
-                )
-            })
-            .unwrap_or_else(|error| format!("Queue rejected: {error:?}"));
-    }
-
-    fn commit_build_plan(&mut self) {
-        if !self.admit(CommandKind::CommitPlan) {
-            return;
-        }
-        let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let result = devices.commit_plan(&self.session.simulation, self.session.mission.budget);
-        self.session.simulation.devices = devices;
-        self.notice = result
-            .map(|entities| format!("Committed {} build plan(s)", entities.len()))
-            .unwrap_or_else(|error| format!("Plan commit rejected: {error:?}"));
-    }
-
-    fn cancel_build_plan(&mut self) {
-        let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let cancelled = devices.cancel_last_plan();
-        self.session.simulation.devices = devices;
-        self.notice = if cancelled {
-            "Last build plan cancelled"
-        } else {
-            "No queued build plan"
-        }
-        .into();
-    }
-
     fn set_gate(&mut self, setting_bp: u16) {
         if !self.admit(CommandKind::SetGate(setting_bp)) {
             return;
@@ -636,7 +572,7 @@ impl Game {
         }
     }
 
-    fn admit(&mut self, command: CommandKind) -> bool {
+    pub(crate) fn admit(&mut self, command: CommandKind) -> bool {
         match self.session.mission.admit(command) {
             crate::mission::Admission::Accepted => {
                 if self
