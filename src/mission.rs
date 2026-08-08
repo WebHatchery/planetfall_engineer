@@ -45,6 +45,25 @@ pub enum MissionPhase {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AlertLevel {
+    Clear,
+    Advisory,
+    Warning,
+    Critical,
+}
+
+impl AlertLevel {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Clear => "CLEAR",
+            Self::Advisory => "ADVISORY",
+            Self::Warning => "WARNING",
+            Self::Critical => "CRITICAL",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommandKind {
     Camera,
     Select,
@@ -145,6 +164,12 @@ pub struct MissionState {
     pub checkpoint_tick: u64,
     #[serde(default)]
     pub failure_ticks: u32,
+    #[serde(default = "default_alert_level")]
+    pub alert_level: AlertLevel,
+}
+
+const fn default_alert_level() -> AlertLevel {
+    AlertLevel::Clear
 }
 
 impl MissionState {
@@ -165,6 +190,7 @@ impl MissionState {
             tutorial: (id == MissionId::L01FirstFlow).then(TutorialState::l01),
             checkpoint_tick: 0,
             failure_ticks: 0,
+            alert_level: AlertLevel::Clear,
         }
     }
     pub fn start(&mut self) {
@@ -253,6 +279,17 @@ impl MissionState {
             self.failure_ticks.saturating_add(1)
         } else {
             0
+        };
+        self.alert_level = match self.id {
+            MissionId::L01FirstFlow if hazard_active => AlertLevel::Critical,
+            MissionId::L01FirstFlow if self.objective_progress > 0 => AlertLevel::Advisory,
+            MissionId::L02HoldingLine if hazard_active => AlertLevel::Critical,
+            MissionId::L02HoldingLine if self.tick >= 800 => AlertLevel::Warning,
+            MissionId::L02HoldingLine if self.tick >= 600 => AlertLevel::Advisory,
+            MissionId::L03Firebreak if hazard_active => AlertLevel::Critical,
+            MissionId::L03Firebreak if formed_rock > 0 => AlertLevel::Warning,
+            MissionId::L03Firebreak if self.tick >= 700 => AlertLevel::Advisory,
+            _ => AlertLevel::Clear,
         };
         let failure_limit = if self.id == MissionId::L01FirstFlow {
             10
@@ -545,6 +582,22 @@ mod tests {
             mission.failure_reason.as_deref(),
             Some("protected beacon flooded")
         );
+    }
+    #[test]
+    fn authored_alert_levels_escalate_before_failure() {
+        let mut mission = MissionState::new(MissionId::L02HoldingLine);
+        mission.start();
+        let mut world = SimulationWorld::new(40, 24);
+        world.tick = 600;
+        mission.on_tick(&world);
+        assert_eq!(mission.alert_level, AlertLevel::Advisory);
+        world.tick = 800;
+        mission.on_tick(&world);
+        assert_eq!(mission.alert_level, AlertLevel::Warning);
+        let camp = crate::state::CellPos { x: 26, y: 16 };
+        world.inject(camp, FluidId::Water, 1_500);
+        mission.on_tick(&world);
+        assert_eq!(mission.alert_level, AlertLevel::Critical);
     }
     #[test]
     fn completion_unlocks_next_campaign_level_and_keeps_best_time() {

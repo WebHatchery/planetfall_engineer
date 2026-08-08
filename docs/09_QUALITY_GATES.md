@@ -97,6 +97,10 @@ At every size:
 - reduced-motion mode has no required information only in animation;
 - water/lava/slurry/steam and alert levels have non-color distinctions.
 
+Mission alert state is authoritative and text-labeled at four levels: clear,
+advisory, warning, and critical. Hazard failure timers remain separate from
+the display level, so a warning can be inspected before a terminal failure.
+
 Captures live under `docs/verification/` with stable names
 `<map_or_screen>_<width>x<height>.png`. `catalog_thumbnail.png` at repository
 root MUST be a current title-screen capture before release publishing.

@@ -162,9 +162,23 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         });
     draw_ui_text_ex(&objective, 1024.0, 172.0, style.params());
     draw_ui_text_ex(
-        &format!("Tutorial {}", tutorial),
+        &format!("ALERT {}", ctx.session.mission.alert_level.name()),
         1024.0,
         190.0,
+        TextStyle::new(
+            13.0,
+            if ctx.session.mission.alert_level == crate::mission::AlertLevel::Critical {
+                Color::new(0.95, 0.45, 0.38, 1.0)
+            } else {
+                Color::new(0.95, 0.8, 0.35, 1.0)
+            },
+        )
+        .params(),
+    );
+    draw_ui_text_ex(
+        &format!("Tutorial {}", tutorial),
+        1024.0,
+        208.0,
         style.params(),
     );
     draw_ui_text_ex(
@@ -174,22 +188,22 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             FluidId::ALL.len()
         ),
         1024.0,
-        208.0,
+        226.0,
         style.params(),
     );
     draw_ui_text_ex(
         &format!("Surface {} vU", selected.surface_volume()),
         1024.0,
-        226.0,
+        244.0,
         style.params(),
     );
     draw_ui_text_ex(
         &format!("Ground {} bp", selected.ground_contamination_bp),
         1024.0,
-        244.0,
+        262.0,
         style.params(),
     );
-    draw_ui_text_ex(&device_readout, 1024.0, 262.0, style.params());
+    draw_ui_text_ex(&device_readout, 1024.0, 280.0, style.params());
     draw_ui_text_ex(
         &format!(
             "Queue {} / {} credits",
@@ -197,7 +211,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             ctx.session.simulation.devices.reserved_budget
         ),
         1024.0,
-        280.0,
+        298.0,
         style.params(),
     );
     let verification_status = ctx
@@ -218,18 +232,18 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             )
         })
         .unwrap_or_else(|| "Ledger inactive".into());
-    draw_ui_text_ex(&verification_status, 1024.0, 298.0, style.params());
+    draw_ui_text_ex(&verification_status, 1024.0, 316.0, style.params());
     draw_ui_text_ex(
         "BUILD PALETTE // click to queue",
         1024.0,
-        312.0,
+        330.0,
         TextStyle::new(12.0, Color::new(0.8, 0.68, 0.4, 1.0)).params(),
     );
     for (index, device) in crate::devices::DeviceId::ALL.into_iter().enumerate() {
         let column = index % 2;
         let row = index / 2;
         let x = 1018.0 + column as f32 * 114.0;
-        let y = 326.0 + row as f32 * 26.0;
+        let y = 344.0 + row as f32 * 26.0;
         draw_rectangle(x, y, 108.0, 22.0, Color::new(0.10, 0.13, 0.17, 0.95));
         draw_rectangle_lines(x, y, 108.0, 22.0, 1.0, Color::new(0.28, 0.38, 0.44, 0.9));
         draw_ui_text_ex(

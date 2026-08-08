@@ -123,6 +123,9 @@ viewport-aware screen rays and AABB hits.
 The live HUD now identifies the authored campaign level and mission phase and
 shows objective progress plus the current tutorial step alongside the selected
 cell and device readout.
+It also names the deterministic alert level (`CLEAR`, `ADVISORY`, `WARNING`,
+or `CRITICAL`) so forecast pressure and hazard escalation are readable without
+depending on color alone.
 
 Terminal success and failure now open a readable debrief/recovery panel with
 the objective result, failure reason when present, and the valid next action.
