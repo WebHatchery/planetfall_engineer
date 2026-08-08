@@ -1,6 +1,7 @@
 //! Authored campaign map constructors and reference fixtures.
 
 use crate::{
+    devices::DeviceId,
     mission::MissionId,
     simulation::{CellDefinition, FluidId, SimulationWorld},
     state::CellPos,
@@ -113,14 +114,29 @@ fn author_l01(world: &mut SimulationWorld) {
             set_sealed(world, CellPos { x, y });
         }
     }
+    // A real, initially closed inlet gate establishes the tutorial's first
+    // machine relationship instead of asking the player to imagine one.
+    install_device(world, DeviceId::Floodgate, CellPos { x: 21, y: 8 }, 0, 0);
 }
 
 fn author_l02(world: &mut SimulationWorld) {
     set_ambient(world, 2_930);
     world.add_source(CellPos { x: 5, y: 16 }, FluidId::Water, 100);
+    // Low aquifer and raised central reserve make pumping legible at a glance.
     for y in 14..=18 {
         for x in 3..=7 {
             set_height(world, CellPos { x, y }, 0);
+        }
+    }
+    world.inject(CellPos { x: 5, y: 16 }, FluidId::Water, 8_000);
+    for y in 5..=11 {
+        for x in 17..=23 {
+            set_height(world, CellPos { x, y }, 2_000);
+        }
+    }
+    for y in 7..=8 {
+        for x in 19..=20 {
+            set_sealed(world, CellPos { x, y });
         }
     }
     for y in 14..=18 {
@@ -133,11 +149,54 @@ fn author_l02(world: &mut SimulationWorld) {
             set_sealed(world, CellPos { x, y });
         }
     }
+    // Two pipe runs are intentionally broken into twelve obvious gaps. They
+    // read as infrastructure rather than a generic empty board and leave the
+    // player with meaningful connection work.
+    for pos in [
+        (8, 16),
+        (10, 16),
+        (12, 16),
+        (14, 16),
+        (16, 14),
+        (18, 12),
+        (22, 9),
+        (24, 9),
+        (26, 9),
+        (28, 9),
+        (30, 9),
+        (37, 8),
+    ] {
+        install_device(world, DeviceId::Pipe, CellPos { x: pos.0, y: pos.1 }, 0, 0);
+    }
+    set_height(world, CellPos { x: 39, y: 18 }, 0);
 }
 
 fn author_l03(world: &mut SimulationWorld) {
     set_ambient(world, 3_230);
     world.add_source(CellPos { x: 5, y: 15 }, FluidId::Lava, 100);
+    // Caldera walls and a descending lava trough frame the reaction shelf.
+    for y in 0..world.height {
+        for x in 0..world.width {
+            let rim = x.min(y).min(world.width - 1 - x).min(world.height - 1 - y);
+            set_height(world, CellPos { x, y }, if rim < 3 { 2_000 } else { 900 });
+        }
+    }
+    for x in 5..=35 {
+        set_height(world, CellPos { x, y: 15 }, 350);
+        if x % 3 != 0 {
+            set_height(world, CellPos { x, y: 14 }, 650);
+        }
+    }
+    for y in 3..=6 {
+        for x in 8..=11 {
+            set_height(world, CellPos { x, y }, 250);
+        }
+    }
+    for y in 3..=6 {
+        for x in 8..=11 {
+            world.inject(CellPos { x, y }, FluidId::Water, 750);
+        }
+    }
     // The cistern's first controlled pocket makes the documented water/lava
     // reaction observable from the authored campaign start.
     world.inject(CellPos { x: 22, y: 14 }, FluidId::Water, 3_000);
@@ -159,6 +218,10 @@ fn author_l03(world: &mut SimulationWorld) {
             set_height(world, CellPos { x, y }, 2_000);
         }
     }
+    for x in 24..=30 {
+        set_height(world, CellPos { x, y: 9 }, 300);
+    }
+    install_device(world, DeviceId::Channel, CellPos { x: 30, y: 9 }, 0, 0);
 }
 
 pub fn seed_reference_materials(map: &mut CampaignMap) {
@@ -213,6 +276,26 @@ fn protect(world: &mut SimulationWorld, pos: CellPos) {
         .index(pos)
         .expect("authored protected anchor is in bounds");
     world.definitions[index].protected = true;
+}
+fn install_device(
+    world: &mut SimulationWorld,
+    device: DeviceId,
+    anchor: CellPos,
+    rotation: u8,
+    setting_bp: u16,
+) {
+    let mut devices = std::mem::take(&mut world.devices);
+    let placed = devices.place(world, device, anchor, rotation, u32::MAX);
+    if let Ok(entity) = placed {
+        if let Some(state) = devices
+            .devices
+            .iter_mut()
+            .find(|state| state.entity_id == entity)
+        {
+            state.setting_bp = setting_bp;
+        }
+    }
+    world.devices = devices;
 }
 fn set_ambient(world: &mut SimulationWorld, ambient: i32) {
     for definition in &mut world.definitions {

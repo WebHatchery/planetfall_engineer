@@ -31,6 +31,23 @@ pub struct WorldState {
 }
 
 impl WorldState {
+    /// A save-compatible presentation snapshot.  SimulationWorld remains the
+    /// gameplay authority; this exists solely for older saves and UI metadata.
+    pub fn from_simulation(simulation: &SimulationWorld) -> Self {
+        Self {
+            width: simulation.width,
+            height: simulation.height,
+            cells: simulation
+                .cells
+                .iter()
+                .map(|cell| CellState {
+                    height_hu: cell.height_hu,
+                    sealed: cell.sealed,
+                })
+                .collect(),
+        }
+    }
+
     pub fn new(width: usize, height: usize) -> Self {
         let cells = (0..height)
             .flat_map(|y| {

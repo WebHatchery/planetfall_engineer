@@ -289,7 +289,16 @@ impl SimulationWorld {
                     + u64::from(cell.formed_rock_vu)
                     + u64::from(cell.formed_vitrified_vu)
             })
-            .sum()
+            .sum::<u64>()
+            // Reservoir contents are real retained material, not an accounting
+            // exception. The current slice stores only volume, so it is added
+            // here until reservoir fluid composition is modelled explicitly.
+            + self
+                .devices
+                .devices
+                .iter()
+                .map(|device| device.stored_vu as u64)
+                .sum::<u64>()
     }
 
     pub fn mass_balance_error(&self) -> i64 {
@@ -388,7 +397,7 @@ impl SimulationWorld {
                 }
                 let budget = total.min(limit);
                 let mut assigned = 0;
-                for (dest_pos, _, weight) in options {
+                for &(dest_pos, _, weight) in &options {
                     let amount = (budget as u64 * weight as u64 / total_weight as u64) as u32;
                     assigned += amount;
                     if amount > 0 {
@@ -404,7 +413,7 @@ impl SimulationWorld {
                     }
                 }
                 if assigned < budget {
-                    if let Some((dest_pos, _)) = self.neighbors(source_pos).first().copied() {
+                    if let Some((dest_pos, _, _)) = options.first().copied() {
                         let amount = budget - assigned;
                         let (fluid, temp, contamination) = mixture_for(source, amount);
                         transfers.push((
@@ -455,9 +464,7 @@ impl SimulationWorld {
                 for (dest, _) in self.neighbors(pos) {
                     let di = self.index(dest).unwrap();
                     let target = &snapshot[di];
-                    if target.airborne_volume() >= source.airborne_volume()
-                        || target_airborne_blocked(di)
-                    {
+                    if target.airborne_volume() >= source.airborne_volume() || target.sealed {
                         continue;
                     }
                     let amount = ((source.airborne_volume() - target.airborne_volume()) / 5)
@@ -651,9 +658,6 @@ pub enum TerrainError {
     Capacity,
 }
 
-fn target_airborne_blocked(_index: usize) -> bool {
-    false
-}
 fn volume(entries: &[FluidEntry], fluid: FluidId) -> u32 {
     entries
         .iter()

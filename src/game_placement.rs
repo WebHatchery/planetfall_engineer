@@ -8,8 +8,8 @@ impl Game {
     pub(crate) fn placement_preview(&self) -> (bool, &'static str) {
         let anchor = self.session.selected;
         let (width, height) = self.placement_device.footprint();
-        if anchor.x + width > self.session.world.width
-            || anchor.y + height > self.session.world.height
+        if anchor.x + width > self.session.simulation.width
+            || anchor.y + height > self.session.simulation.height
         {
             return (false, "out of bounds");
         }
@@ -66,8 +66,8 @@ impl Game {
         let anchor = self.session.selected;
         let (width, height) = self.placement_device.footprint();
         let (valid, _) = self.placement_preview();
-        if anchor.x + width > self.session.world.width
-            || anchor.y + height > self.session.world.height
+        if anchor.x + width > self.session.simulation.width
+            || anchor.y + height > self.session.simulation.height
         {
             return;
         }

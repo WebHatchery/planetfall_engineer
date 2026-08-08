@@ -409,7 +409,13 @@ fn transfer_surface(
     let Some(entry) = world.cells[source_index].surface.first().cloned() else {
         return 0;
     };
-    let moved = amount.min(entry.volume_vu);
+    let moved = amount.min(entry.volume_vu).min(
+        crate::simulation::CELL_CAPACITY_VU
+            .saturating_sub(world.cells[destination_index].surface_volume()),
+    );
+    if moved == 0 {
+        return 0;
+    }
     remove_fluid(&mut world.cells[source_index].surface, entry.fluid, moved);
     world.cells[destination_index].add_surface(crate::simulation::FluidEntry {
         fluid: entry.fluid,

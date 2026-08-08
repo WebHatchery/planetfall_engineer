@@ -60,7 +60,9 @@ impl FoundationCamera {
         Self {
             target: vec2(width as f32 / 2.0, height as f32 / 2.0),
             yaw: 0,
-            zoom: width.max(height) as f32,
+            // Keep the opening survey close enough that the player sees
+            // terraces and machinery as a diorama, not an entire debug board.
+            zoom: (width.max(height) as f32 * 0.72).clamp(22.0, 40.0),
         }
     }
     fn update(&mut self, dt: f32, width: usize, height: usize) -> bool {
@@ -139,7 +141,7 @@ impl Game {
         let mut session = GameSession::new(&data.config);
         let campaign = load_campaign(MissionId::L01FirstFlow);
         session.simulation = campaign.world;
-        session.world = WorldState::new(32, 20);
+        session.world = WorldState::from_simulation(&session.simulation);
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
@@ -617,8 +619,8 @@ impl Game {
             campaign.world.height as usize,
         );
         self.session = GameSession::new(&self.data.config);
-        self.session.world = WorldState::new(width, height);
         self.session.simulation = campaign.world;
+        self.session.world = WorldState::from_simulation(&self.session.simulation);
         self.session
             .simulation
             .set_sources_enabled(id != MissionId::L01FirstFlow);
