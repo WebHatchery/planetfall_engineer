@@ -222,7 +222,8 @@ impl SimulationWorld {
             if assigned < budget { if let Some((dest_pos, _)) = self.neighbors(source_pos).first().copied() { let amount = budget - assigned; let (fluid, temp, contamination) = mixture_for(source, amount); transfers.push((source_index, self.index(dest_pos).unwrap(), fluid, amount, temp, contamination)); } }
         }}
         for (source, destination, fluid, amount, temp, contamination) in transfers {
-            let moved = amount.min(CELL_CAPACITY_VU.saturating_sub(self.cells[destination].surface_volume()));
+            let available = self.cells[source].surface.iter().find(|entry| entry.fluid == fluid).map(|entry| entry.volume_vu).unwrap_or(0);
+            let moved = amount.min(available).min(CELL_CAPACITY_VU.saturating_sub(self.cells[destination].surface_volume()));
             if moved > 0 { remove_fluid(&mut self.cells[source].surface, fluid, moved); self.cells[destination].add_surface(FluidEntry { fluid, volume_vu: moved, temperature_dk: temp, contamination_bp: contamination }); }
         }
     }
@@ -231,7 +232,8 @@ impl SimulationWorld {
         let snapshot = self.cells.clone(); let mut moves = Vec::new();
         for y in 0..self.height { for x in 0..self.width { let pos = CellPos { x, y }; let source_index = self.index(pos).unwrap(); let source = &snapshot[source_index]; let Some(steam) = source.airborne.iter().find(|m| m.fluid == FluidId::Steam) else { continue; }; for (dest, _) in self.neighbors(pos) { let di = self.index(dest).unwrap(); let target = &snapshot[di]; if target.airborne_volume() >= source.airborne_volume() || target_airborne_blocked(di) { continue; } let amount = ((source.airborne_volume() - target.airborne_volume()) / 5).min(steam.volume_vu).min(FluidId::Steam.max_transfer()); if amount > 0 { moves.push((source_index, di, amount)); } } }}
         for (source, destination, amount) in moves {
-            let moved = amount.min(CELL_CAPACITY_VU.saturating_sub(self.cells[destination].airborne_volume()));
+            let available = self.cells[source].airborne.iter().find(|entry| entry.fluid == FluidId::Steam).map(|entry| entry.volume_vu).unwrap_or(0);
+            let moved = amount.min(available).min(CELL_CAPACITY_VU.saturating_sub(self.cells[destination].airborne_volume()));
             if moved > 0 { remove_fluid(&mut self.cells[source].airborne, FluidId::Steam, moved); self.cells[destination].add_airborne(FluidEntry::new(FluidId::Steam, moved)); }
         }
         for index in 0..self.cells.len() { if self.cells[index].airborne_volume() > 6_000 { let pos = CellPos { x: index as u16 % self.width, y: index as u16 / self.width }; self.events.push(SimEvent::HighPressureSteam { cell: pos }); } }

@@ -200,3 +200,9 @@ target, and index entry here. A new fluid change is incomplete unless it
 activates its reserved bay (or adds a named new bay if outside the GDD set),
 defines terrain behavior, covers every pairwise interaction, and updates the
 laboratory replay hash.
+
+The current slice exposes `lab_fluids_all` through F1 and the capture scene
+`lab_fluids_all`: its automatic 300-tick result is loaded into the production
+orthographic 3D world, remains selectable and inspectable, and F1 returns to
+the preserved campaign session. The lab report requires reserved-bay emptiness,
+reaction events, deterministic hash output, and zero material-balance error.

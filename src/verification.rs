@@ -31,6 +31,7 @@ pub struct LabReport {
     pub active_bays: usize,
     pub reserved_bays_empty: bool,
     pub reaction_events: usize,
+    pub mass_balance_ok: bool,
     pub passed: bool,
 }
 
@@ -85,7 +86,7 @@ impl FluidsLab {
             let index = self.world.index(bay.origin).unwrap();
             self.world.cells[index].surface.is_empty() && self.world.cells[index].airborne.is_empty()
         });
-        LabReport { tick: self.world.tick, state_hash: state_hash(&self.world), active_bays: LAB_BAYS.iter().filter(|bay| bay.fluid.is_some()).count(), reserved_bays_empty, reaction_events, passed: reserved_bays_empty && self.world.tick == 300 && self.world.ledger.injected > 0 }
+        LabReport { tick: self.world.tick, state_hash: state_hash(&self.world), active_bays: LAB_BAYS.iter().filter(|bay| bay.fluid.is_some()).count(), reserved_bays_empty, reaction_events, mass_balance_ok: self.world.mass_balance_error() == 0, passed: reserved_bays_empty && self.world.tick == 300 && self.world.ledger.injected > 0 && self.world.mass_balance_error() == 0 }
     }
 }
 

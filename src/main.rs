@@ -35,6 +35,7 @@ async fn main() {
     // prototype with a single boot state, so the capture photographs
     // whatever the boot flow lands on.
     if let Some(config) = capture::CaptureConfig::from_env("PLANETFALL_ENGINEER") {
+        game.begin_capture_scene(&config.scene);
         capture::run_capture(&config, |dt| {
             game.update(dt);
             game.draw();

@@ -1,13 +1,16 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CommandKind, MissionId, MissionPhase}, replay::run_all_references, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
+use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CommandKind, MissionId, MissionPhase, MissionState}, replay::run_all_references, simulation::{FluidId, TerrainAction, SimulationWorld}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
 use macroquad_toolkit::render3d::picking::{screen_ray, Aabb3};
 use crate::ui::{self, UiContext};
 
-pub struct Game { pub data: GameData, pub session: GameSession, checkpoint_session: Option<GameSession>, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
+pub struct Game { pub data: GameData, pub session: GameSession, checkpoint_session: Option<GameSession>, saved_campaign_session: Option<GameSession>, verification_mode: Option<VerificationMode>, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
+
+#[derive(Debug, Clone, Copy)]
+enum VerificationMode { Lab }
 
 #[derive(Debug, Clone, Copy)]
 struct FoundationCamera { target: Vec2, yaw: u8, zoom: f32 }
@@ -52,11 +55,16 @@ impl Game {
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
-        Self { data, session, checkpoint_session: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
+        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
+    }
+
+    pub fn begin_capture_scene(&mut self, scene: &str) {
+        if scene.starts_with("lab_fluids_all") { self.toggle_lab_mode(); }
+        if scene.contains("failure") { self.session.mission.fail("capture failure/recovery fixture"); self.notice = "Failure fixture — F12 restores checkpoint or restarts".into(); }
     }
 
     pub fn update(&mut self, dt: f32) {
-        if self.camera.update(dt, self.data.config.world_width, self.data.config.world_height) { let _ = self.session.mission.admit(CommandKind::Camera); }
+        if self.camera.update(dt, self.session.simulation.width as usize, self.session.simulation.height as usize) { let _ = self.session.mission.admit(CommandKind::Camera); }
         if is_mouse_button_pressed(MouseButton::Left) { self.select_from_pointer(); }
         if is_key_pressed(KeyCode::Space) { self.set_time(match self.session.time_control { TimeControl::Paused => TimeControl::OneX, TimeControl::OneX => TimeControl::Paused, _ => TimeControl::Paused }); }
         if is_key_pressed(KeyCode::Key1) { self.set_time(TimeControl::OneX); }
@@ -74,7 +82,7 @@ impl Game {
         if is_key_pressed(KeyCode::I) && self.admit(CommandKind::Inspect) { self.notice = format!("Inspecting cell {}, {}", self.session.selected.x, self.session.selected.y); }
         if is_key_pressed(KeyCode::L) { self.session.simulation.inject(self.session.selected, FluidId::Lava, 500); }
         if is_key_pressed(KeyCode::G) { self.session.simulation.inject(self.session.selected, FluidId::ToxicSlurry, 500); }
-        if is_key_pressed(KeyCode::F1) { let report = self.lab.automatic_scenario(); self.notice = format!("lab_fluids_all {} tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash); }
+        if is_key_pressed(KeyCode::F1) { self.toggle_lab_mode(); }
         if is_key_pressed(KeyCode::F2) { self.notice = run_all_showcases(); }
         if is_key_pressed(KeyCode::F3) { self.notice = campaign_summary(); }
         if is_key_pressed(KeyCode::N) { self.select_next_campaign(); }
@@ -197,6 +205,29 @@ impl Game {
         self.notice = format!("{} {reason}", id.name());
     }
 
+    fn toggle_lab_mode(&mut self) {
+        if let Some(campaign) = self.saved_campaign_session.take() {
+            self.session = campaign;
+            self.verification_mode = None;
+            self.camera = FoundationCamera::new(self.session.simulation.width as usize, self.session.simulation.height as usize);
+            self.notice = "Returned to campaign session".into();
+            return;
+        }
+        let campaign = self.session.clone();
+        let report = self.lab.automatic_scenario();
+        self.session.simulation = self.lab.world.clone();
+        self.session.world = world_state_for(&self.session.simulation);
+        self.session.mission = MissionState::new(MissionId::L02HoldingLine);
+        self.session.mission.start();
+        self.session.tick = self.session.simulation.tick;
+        self.session.selected = CellPos { x: self.session.simulation.width / 2, y: self.session.simulation.height / 2 };
+        self.session.time_control = TimeControl::Paused;
+        self.saved_campaign_session = Some(campaign);
+        self.verification_mode = Some(VerificationMode::Lab);
+        self.camera = FoundationCamera::new(self.session.simulation.width as usize, self.session.simulation.height as usize);
+        self.notice = format!("lab_fluids_all {} — F1 return — tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash);
+    }
+
     fn set_time(&mut self, time: TimeControl) {
         let command = if time == TimeControl::Paused { CommandKind::SetPaused } else { CommandKind::SetTimeRunning };
         if self.admit(command) { self.session.time_control = time; }
@@ -218,7 +249,7 @@ impl Game {
         self.draw_world();
         set_default_camera();
         begin_virtual_ui_frame(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
-        ui::draw_hud(UiContext { data: &self.data, session: &self.session, camera_yaw: self.camera.yaw, camera_zoom: self.camera.zoom, notice: &self.notice, loaded_assets: self.assets.len() });
+        ui::draw_hud(UiContext { session: &self.session, camera_yaw: self.camera.yaw, camera_zoom: self.camera.zoom, notice: &self.notice, loaded_assets: self.assets.len(), verification_label: self.verification_mode.map(|mode| match mode { VerificationMode::Lab => "LAB_FLUIDS_ALL" }) });
         end_virtual_ui_frame();
     }
 
@@ -252,5 +283,11 @@ impl Game {
 }
 
 fn fluid_color(fluid: FluidId) -> Color { match fluid { FluidId::Water => Color::new(0.12, 0.48, 0.9, 0.78), FluidId::Lava => Color::new(0.95, 0.22, 0.06, 0.9), FluidId::ToxicSlurry => Color::new(0.62, 0.72, 0.16, 0.86), FluidId::Steam => Color::new(0.76, 0.86, 0.92, 0.38) } }
+
+fn world_state_for(simulation: &SimulationWorld) -> WorldState {
+    let mut world = WorldState::new(simulation.width as usize, simulation.height as usize);
+    for (cell, sim_cell) in world.cells.iter_mut().zip(&simulation.cells) { cell.height_hu = sim_cell.height_hu; cell.sealed = sim_cell.sealed; }
+    world
+}
 
 fn draw_grid_lines() { /* Depth-tested cube silhouettes provide the stepped grid in R0. */ }

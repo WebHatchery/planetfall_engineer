@@ -124,7 +124,9 @@ the objective result, failure reason when present, and the valid next action.
 
 Release evidence is captured under `docs/verification/` at 1280×720,
 1024×768, and 800×600. `catalog_thumbnail.png` is a current title-screen
-capture and is included by `publish.ps1`.
+capture and is included by `publish.ps1`. The capture harness accepts the
+`lab_fluids_all` scene name to render the automatic laboratory through the same
+orthographic 3D world path; F1 returns to the campaign during free play.
 
 The initial orthographic zoom is derived from the authored map dimensions, so
 the 32×20 L01 world remains fully framed at the required viewport sizes.
