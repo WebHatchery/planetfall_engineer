@@ -60,6 +60,8 @@ impl Game {
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
         if scene.starts_with("lab_fluids_all") { self.toggle_lab_mode(); }
+        if scene.starts_with("campaign_l02") { self.load_mission(MissionId::L02HoldingLine, "capture briefing"); }
+        if scene.starts_with("campaign_l03") { self.load_mission(MissionId::L03Firebreak, "capture briefing"); }
         if let Some(showcase) = SHOWCASE_MAPS.iter().find(|map| scene == map.map_id || scene.starts_with(&format!("{}_", map.map_id))) { self.enter_showcase(showcase.device); }
         if scene.contains("failure") { self.session.mission.fail("capture failure/recovery fixture"); self.notice = "Failure fixture — F12 restores checkpoint or restarts".into(); }
     }

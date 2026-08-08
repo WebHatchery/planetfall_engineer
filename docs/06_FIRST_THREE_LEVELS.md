@@ -195,3 +195,8 @@ pending rock/vitrified products, rather than counting the water input used to
 make them. Its deterministic reference stream supplies two reaction pockets,
 replays through the same fixed-tick engine, and requires exact material
 conservation after terrain products are formed into the heightfield.
+
+Capture scenes `campaign_l01_first_flow`, `campaign_l02_holding_line`, and
+`campaign_l03_firebreak` seed each authored briefing through the production
+orthographic renderer; their current 1280×720 evidence is stored under
+`docs/verification/` with the corresponding map dimensions visible in the HUD.
