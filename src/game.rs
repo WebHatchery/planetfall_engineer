@@ -139,6 +139,10 @@ impl Game {
             self.session.time_control = TimeControl::OneX;
             self.notice = "Authored campaign source active — observe the live material loop".into();
         }
+        if scene.contains("yaw2") {
+            self.camera.yaw = 2;
+            self.notice = "Opposing camera quarter capture".into();
+        }
         if let Some(showcase) = SHOWCASE_MAPS
             .iter()
             .find(|map| scene == map.map_id || scene.starts_with(&format!("{}_", map.map_id)))
