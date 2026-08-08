@@ -186,7 +186,8 @@ impl SimulationWorld {
             let limit = source.surface.iter().map(|m| m.fluid.max_transfer()).min().unwrap_or(0);
             let options: Vec<_> = self.neighbors(source_pos).into_iter().filter_map(|(dest_pos, direction)| {
                 let dest = &snapshot[self.index(dest_pos).unwrap()]; let delta = source.surface_head_hu() - dest.surface_head_hu();
-                if delta <= 1 || dest.sealed || dest.surface_volume() >= CELL_CAPACITY_VU { None } else { Some((dest_pos, direction, delta.max(0) as u32 / 4)) }
+                let gate_factor = self.devices.surface_flow_factor(source_pos, dest_pos);
+                if delta <= 1 || dest.sealed || dest.surface_volume() >= CELL_CAPACITY_VU || gate_factor == 0 { None } else { Some((dest_pos, direction, (delta.max(0) as u32 / 4).saturating_mul(gate_factor) / 10_000) ) }
             }).collect();
             let total_weight: u32 = options.iter().map(|o| o.2).sum(); if total_weight == 0 { continue; }
             let budget = total.min(limit); let mut assigned = 0;

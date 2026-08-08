@@ -40,6 +40,9 @@ engineering contract; the GDD remains the source of product intent.
 - Active device behavior includes rotated pump transfer, reservoir capacity,
   spillway threshold/rate, filter contamination removal, turbine power output,
   sensor threshold state, and rune-relay flow/power gating.
+- Floodgates now control their authored surface edge at 0%, 50%, and 100%;
+  `J/K/H` set the selected gate, and the inspector readout shows setting and
+  active state alongside queued-plan budget.
 - Deterministic placement validation for bounds, overlap, protected terrain,
   budget, and rotation, plus renderer-independent device showcase fixtures.
 - Build-plan queue with budget reservation, atomic commit, cancellation, and

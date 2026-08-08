@@ -82,6 +82,10 @@ impl Game {
         if is_key_pressed(KeyCode::B) { self.queue_device(DeviceId::Channel); }
         if is_key_pressed(KeyCode::P) { self.queue_device(DeviceId::Pipe); }
         if is_key_pressed(KeyCode::O) { self.queue_device(DeviceId::Pump); }
+        if is_key_pressed(KeyCode::F) { self.queue_device(DeviceId::Floodgate); }
+        if is_key_pressed(KeyCode::J) { self.set_gate(0); }
+        if is_key_pressed(KeyCode::K) { self.set_gate(5_000); }
+        if is_key_pressed(KeyCode::H) { self.set_gate(10_000); }
         if is_key_pressed(KeyCode::Enter) { self.commit_build_plan(); }
         if is_key_pressed(KeyCode::Backspace) { self.cancel_build_plan(); }
         if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
@@ -127,6 +131,13 @@ impl Game {
         let cancelled = devices.cancel_last_plan();
         self.session.simulation.devices = devices;
         self.notice = if cancelled { "Last build plan cancelled" } else { "No queued build plan" }.into();
+    }
+
+    fn set_gate(&mut self, setting_bp: u16) {
+        let mut devices = std::mem::take(&mut self.session.simulation.devices);
+        let changed = devices.set_selected_gate(self.session.selected, setting_bp);
+        self.session.simulation.devices = devices;
+        self.notice = if changed { format!("Floodgate set to {}%", setting_bp / 100) } else { "No floodgate selected".into() };
     }
 
     pub fn draw(&mut self) {
