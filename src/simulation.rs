@@ -401,7 +401,11 @@ impl SimulationWorld {
                 if total_weight == 0 {
                     continue;
                 }
-                let budget = total.min(limit);
+                // The hydraulic gradient limits how much can move this tick.
+                // Spending the full material cap for any non-zero slope made
+                // shallow pools leap between alternating cells and rendered
+                // broad flows as a checkerboard.
+                let budget = total.min(limit).min(total_weight);
                 let mut assigned = 0;
                 for &(dest_pos, _, weight) in &options {
                     let amount = (budget as u64 * weight as u64 / total_weight as u64) as u32;
@@ -469,21 +473,40 @@ impl SimulationWorld {
                 let Some(steam) = source.airborne.iter().find(|m| m.fluid == FluidId::Steam) else {
                     continue;
                 };
-                for (dest, _) in self.neighbors(pos) {
-                    let di = self.index(dest).unwrap();
-                    let target = &snapshot[di];
-                    if target.airborne_volume() >= source.airborne_volume()
-                        || target.sealed
-                        || self.definitions[di].gas_blocked
-                    {
-                        continue;
-                    }
-                    let amount = ((source.airborne_volume() - target.airborne_volume()) / 5)
-                        .min(steam.volume_vu)
-                        .min(FluidId::Steam.max_transfer());
+                let options: Vec<_> = self
+                    .neighbors(pos)
+                    .into_iter()
+                    .filter_map(|(dest, _)| {
+                        let di = self.index(dest).unwrap();
+                        let target = &snapshot[di];
+                        if target.airborne_volume() >= source.airborne_volume()
+                            || target.sealed
+                            || self.definitions[di].gas_blocked
+                        {
+                            return None;
+                        }
+                        let raw = (source.airborne_volume() - target.airborne_volume()) / 5;
+                        (raw > 0).then_some((di, raw))
+                    })
+                    .collect();
+                let total_weight: u32 = options.iter().map(|option| option.1).sum();
+                let budget = steam
+                    .volume_vu
+                    .min(FluidId::Steam.max_transfer())
+                    .min(total_weight);
+                if budget == 0 {
+                    continue;
+                }
+                let mut assigned = 0;
+                for &(destination, weight) in &options {
+                    let amount = (budget as u64 * weight as u64 / total_weight as u64) as u32;
+                    assigned += amount;
                     if amount > 0 {
-                        moves.push((source_index, di, amount));
+                        moves.push((source_index, destination, amount));
                     }
+                }
+                if assigned < budget {
+                    moves.push((source_index, options[0].0, budget - assigned));
                 }
             }
         }
@@ -754,6 +777,41 @@ mod tests {
         world.tick();
         assert_eq!(volume(&world.cells[0].surface, FluidId::Water), 600);
         assert_eq!(volume(&world.cells[1].surface, FluidId::Water), 400);
+    }
+
+    #[test]
+    fn shallow_surface_gradient_moves_only_the_hydraulic_proposal() {
+        let mut world = SimulationWorld::new(2, 1);
+        world.cells[0].height_hu = 0;
+        world.cells[1].height_hu = 0;
+        world.inject(pos(0, 0), FluidId::Water, 20);
+        world.inject(pos(1, 0), FluidId::Water, 4);
+        world.flow_surface();
+        assert_eq!(volume(&world.cells[0].surface, FluidId::Water), 16);
+        assert_eq!(volume(&world.cells[1].surface, FluidId::Water), 8);
+    }
+
+    #[test]
+    fn steam_competing_transfers_share_one_material_cap() {
+        let mut world = SimulationWorld::new(3, 3);
+        for definition in &mut world.definitions {
+            definition.ambient_temperature_dk = WATER_BOIL_DK + 100;
+        }
+        world.inject(pos(1, 1), FluidId::Steam, 2_000);
+        world.flow_steam();
+        let center = volume(&world.cells[4].airborne, FluidId::Steam);
+        let neighbors: Vec<u32> = [pos(1, 0), pos(2, 1), pos(1, 2), pos(0, 1)]
+            .into_iter()
+            .map(|position| {
+                volume(
+                    &world.cells[world.index(position).unwrap()].airborne,
+                    FluidId::Steam,
+                )
+            })
+            .collect();
+        assert_eq!(center, 1_700);
+        assert_eq!(neighbors.iter().sum::<u32>(), 300);
+        assert!(neighbors.iter().all(|amount| (74..=76).contains(amount)));
     }
     #[test]
     fn mixed_surface_transfer_preserves_material_proportions() {
