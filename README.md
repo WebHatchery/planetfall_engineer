@@ -129,6 +129,9 @@ the objective result, failure reason when present, and the valid next action.
 Authored hazard timers now enforce the L01 protected-beacon, L02 camp-zone,
 and L03 ancient-foundation failure predicates, with failure taking precedence
 over same-tick success.
+Escape opens a pause menu that freezes commands and simulation while exposing
+resume, save, load, and mission-reset actions; the `pause_menu` capture records
+the production overlay.
 The `failure_recovery` capture scene exercises the terminal recovery panel and
 is stored with the campaign and showcase evidence.
 The verification suite also runs a 64×48 four-material, 10,000-tick synthetic

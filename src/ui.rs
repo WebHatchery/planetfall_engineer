@@ -19,6 +19,7 @@ pub struct UiContext<'a> {
     pub notice: &'a str,
     pub loaded_assets: usize,
     pub verification_label: Option<&'a str>,
+    pub pause_menu: bool,
 }
 
 pub fn draw_hud(ctx: UiContext<'_>) {
@@ -244,6 +245,9 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     ) {
         draw_terminal_panel(ctx.session);
     }
+    if ctx.pause_menu {
+        draw_pause_menu();
+    }
 }
 
 fn time_name(time: TimeControl) -> &'static str {
@@ -346,6 +350,54 @@ fn draw_terminal_panel(session: &GameSession) {
         336.0,
         396.0,
         TextStyle::new(15.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
+    );
+}
+
+fn draw_pause_menu() {
+    draw_rectangle(
+        420.0,
+        178.0,
+        440.0,
+        250.0,
+        Color::new(0.03, 0.045, 0.07, 0.98),
+    );
+    draw_rectangle_lines(
+        420.0,
+        178.0,
+        440.0,
+        250.0,
+        2.0,
+        Color::new(0.95, 0.8, 0.35, 1.0),
+    );
+    draw_ui_text_ex(
+        "SURVEY PAUSED",
+        478.0,
+        224.0,
+        TextStyle::new(28.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        "Simulation and commands are frozen",
+        478.0,
+        258.0,
+        TextStyle::new(16.0, Color::new(0.76, 0.82, 0.86, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        "Escape  resume survey",
+        478.0,
+        304.0,
+        TextStyle::new(16.0, WHITE).params(),
+    );
+    draw_ui_text_ex(
+        "F5  save checkpoint     F9  load checkpoint",
+        478.0,
+        334.0,
+        TextStyle::new(16.0, WHITE).params(),
+    );
+    draw_ui_text_ex(
+        "F12  reset mission",
+        478.0,
+        364.0,
+        TextStyle::new(16.0, WHITE).params(),
     );
 }
 

@@ -26,6 +26,7 @@ pub struct Game {
     pub(crate) camera: FoundationCamera,
     pub(crate) lab: FluidsLab,
     pub(crate) notice: String,
+    pub(crate) pause_menu: bool,
     pub(crate) placement_device: DeviceId,
     pub(crate) placement_rotation: u8,
 }
@@ -121,7 +122,7 @@ impl Game {
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
-        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), placement_device: DeviceId::Channel, placement_rotation: 0 }
+        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0 }
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
@@ -146,9 +147,40 @@ impl Game {
                 .fail("capture failure/recovery fixture");
             self.notice = "Failure fixture — F12 restores checkpoint or restarts".into();
         }
+        if scene.contains("pause") {
+            self.pause_menu = true;
+            self.session.time_control = TimeControl::Paused;
+            self.notice = "Pause menu capture fixture".into();
+        }
     }
 
     pub fn update(&mut self, dt: f32) {
+        if is_key_pressed(KeyCode::Escape) {
+            self.pause_menu = !self.pause_menu;
+            if self.pause_menu {
+                self.session.time_control = TimeControl::Paused;
+                self.notice = "Pause menu open — Escape resumes survey".into();
+            }
+        }
+        if self.pause_menu {
+            if is_key_pressed(KeyCode::F12) {
+                self.reset_mission();
+                self.pause_menu = false;
+            } else if is_key_pressed(KeyCode::F5) {
+                self.notice = save_session(&self.session, &self.data.config)
+                    .map(|_| "Checkpoint saved from pause menu".into())
+                    .unwrap_or_else(|e| e);
+            } else if is_key_pressed(KeyCode::F9) {
+                match load_session(&self.data.config) {
+                    Ok(s) => {
+                        self.session = s;
+                        self.notice = "Checkpoint loaded from pause menu".into();
+                    }
+                    Err(e) => self.notice = e,
+                }
+            }
+            return;
+        }
         if self.camera.update(
             dt,
             self.session.simulation.width as usize,
@@ -652,6 +684,7 @@ impl Game {
                     DeviceId::RuneRelay => "DEVICE_RUNE_RELAY",
                 },
             }),
+            pause_menu: self.pause_menu,
         });
         end_virtual_ui_frame();
     }
