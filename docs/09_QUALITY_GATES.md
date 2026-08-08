@@ -100,6 +100,8 @@ At every size:
 Mission alert state is authoritative and text-labeled at four levels: clear,
 advisory, warning, and critical. Hazard failure timers remain separate from
 the display level, so a warning can be inspected before a terminal failure.
+The engineering readout labels selected surface depth, heat, contamination, and
+device status as authoritative values.
 The L02 and L03 authored source-rate surges are applied at their documented
 ticks and are covered by schedule tests plus deterministic scenario replay.
 

@@ -126,7 +126,8 @@ viewport-aware screen rays and AABB hits.
 
 The live HUD now identifies the authored campaign level and mission phase and
 shows objective progress plus the current tutorial step alongside the selected
-cell and device readout.
+cell and device readout. The engineering readout explicitly reports selected
+surface depth, material heat, contamination, and device status.
 It also names the deterministic alert level (`CLEAR`, `ADVISORY`, `WARNING`,
 or `CRITICAL`) so forecast pressure and hazard escalation are readable without
 depending on color alone.

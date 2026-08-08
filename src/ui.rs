@@ -116,6 +116,13 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     );
     let selected =
         &ctx.session.simulation.cells[ctx.session.simulation.index(ctx.session.selected).unwrap()];
+    let selected_definition = &ctx.session.simulation.definitions
+        [ctx.session.simulation.index(ctx.session.selected).unwrap()];
+    let heat_dk = selected
+        .surface
+        .first()
+        .map(|material| material.temperature_dk)
+        .unwrap_or(selected_definition.ambient_temperature_dk);
     let device_readout = ctx
         .session
         .simulation
@@ -206,7 +213,11 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         style.params(),
     );
     draw_ui_text_ex(
-        &format!("Surface {} vU", selected.surface_volume()),
+        &format!(
+            "Depth {} vU  Heat {} dK",
+            selected.surface_volume(),
+            heat_dk
+        ),
         1024.0,
         244.0,
         style.params(),
