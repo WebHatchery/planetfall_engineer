@@ -52,7 +52,14 @@ engineering contract; the GDD remains the source of product intent.
   deterministic tutorial tests.
 - Runtime controls: `F3` shows the campaign sequence, `F4` skips the tutorial,
   `F6` records a checkpoint, `F7` exercises failure recovery, and `F8` reports
-  a tutorial command admission.
+  a tutorial command admission. `F10` loads the current campaign's deterministic
+  reference-material fixture.
+
+Campaign constructors now author the exact L01/L02/L03 map sizes, budgets,
+ambient temperatures, protected zones, basins/shelves, and reference tick
+ranges from `docs/06_FIRST_THREE_LEVELS.md`. A clean launch opens authored L01
+(`32×20`); L02 and L03 remain campaign progression content rather than generic
+template maps.
 
 ## 3D Vertical-Slice Presentation
 

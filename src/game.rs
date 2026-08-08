@@ -1,6 +1,6 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CampaignProgress, CommandKind, MissionId, MissionPhase, MissionState}, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl}, verification::FluidsLab};
+use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CampaignProgress, CommandKind, MissionId, MissionPhase, MissionState}, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
@@ -42,12 +42,15 @@ impl Game {
         assets.set_placeholder_texture_direct(Texture2D::from_image(&placeholder));
         let _ = assets.load_asset_pack("assets.zip").await;
         let _ = assets.load_texture_configs(&data.texture_manifest).await;
-        let session = GameSession::new(&data.config);
+        let mut session = GameSession::new(&data.config);
+        let campaign = load_campaign(MissionId::L01FirstFlow);
+        session.simulation = campaign.world;
+        session.world = WorldState::new(32, 20);
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let mut mission = MissionState::new(MissionId::L01FirstFlow);
         mission.start();
         let (width, height) = MissionId::L01FirstFlow.map_size();
-        Self { data, session, assets, camera, lab: FluidsLab::new(), mission, campaign: CampaignProgress::default(), notice: format!("First Flow briefing active — {width}×{height} — simulation paused") }
+        Self { data, session, assets, camera, lab: FluidsLab::new(), mission, campaign: CampaignProgress::default(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
     }
 
     pub fn update(&mut self, dt: f32) {
@@ -73,6 +76,7 @@ impl Game {
         if is_key_pressed(KeyCode::F6) { self.mission.checkpoint(); self.notice = format!("Mission checkpoint recorded at tick {}", self.mission.checkpoint_tick); }
         if is_key_pressed(KeyCode::F7) { self.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
         if is_key_pressed(KeyCode::F8) { let admission = self.mission.admit(CommandKind::DismissPrompt); self.notice = format!("Tutorial command: {admission:?}"); }
+        if is_key_pressed(KeyCode::F10) { let mut campaign = load_campaign(self.mission.id); seed_reference_materials(&mut campaign); self.session.simulation = campaign.world; self.notice = "Reference material fixture loaded".into(); }
         if is_key_pressed(KeyCode::C) { if let Some(entity_id) = self.session.simulation.devices.devices.iter().find(|device| device.anchor == self.session.selected).map(|device| device.entity_id) { self.session.simulation.devices.remove(entity_id); self.notice = "Device removed and budget released".into(); } }
         if is_key_pressed(KeyCode::B) { self.place_device(DeviceId::Channel); }
         if is_key_pressed(KeyCode::P) { self.place_device(DeviceId::Pipe); }
