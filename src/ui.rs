@@ -21,7 +21,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     draw_ui_text_ex(&format!("SURVEY CURSOR  {}, {}", ctx.session.selected.x, ctx.session.selected.y), 44.0, 634.0, TextStyle::new(18.0, Color::new(0.95, 0.8, 0.35, 1.0)).params());
     draw_ui_text_ex(ctx.notice, 44.0, 660.0, TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params());
     draw_ui_text_ex("Click select   WASD pan   Q/E rotate   +/- zoom   Arrows survey   N next level   F1 lab   F2 showcase/return   V next device   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5/F6/F9/F12 save/checkpoint/load/reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
-    draw_rectangle(1010.0, 104.0, 238.0, 214.0, Color::new(0.04, 0.06, 0.09, 0.9));
+    draw_rectangle(1010.0, 104.0, 238.0, 356.0, Color::new(0.04, 0.06, 0.09, 0.9));
     draw_ui_text_ex("ENGINEERING READOUT", 1024.0, 130.0, TextStyle::new(14.0, Color::new(0.8, 0.68, 0.4, 1.0)).params());
     let selected = &ctx.session.simulation.cells[ctx.session.simulation.index(ctx.session.selected).unwrap()];
     let device_readout = ctx.session.simulation.devices.devices.iter().find(|device| device.anchor == ctx.session.selected).map(|device| format!("Device {} {}% {}", device.device.name(), device.setting_bp / 100, if device.active { "ACTIVE" } else { "IDLE" })).unwrap_or_else(|| "Device none".into());
@@ -36,6 +36,16 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     draw_ui_text_ex(&format!("Ground {} bp", selected.ground_contamination_bp), 1024.0, 244.0, style.params());
     draw_ui_text_ex(&device_readout, 1024.0, 262.0, style.params());
     draw_ui_text_ex(&format!("Queue {} / {} credits", ctx.session.simulation.devices.queued.len(), ctx.session.simulation.devices.reserved_budget), 1024.0, 280.0, style.params());
+    draw_ui_text_ex("BUILD PALETTE // click to queue", 1024.0, 312.0, TextStyle::new(12.0, Color::new(0.8, 0.68, 0.4, 1.0)).params());
+    for (index, device) in crate::devices::DeviceId::ALL.into_iter().enumerate() {
+        let column = index % 2;
+        let row = index / 2;
+        let x = 1018.0 + column as f32 * 114.0;
+        let y = 326.0 + row as f32 * 26.0;
+        draw_rectangle(x, y, 108.0, 22.0, Color::new(0.10, 0.13, 0.17, 0.95));
+        draw_rectangle_lines(x, y, 108.0, 22.0, 1.0, Color::new(0.28, 0.38, 0.44, 0.9));
+        draw_ui_text_ex(device.name(), x + 7.0, y + 15.0, TextStyle::new(11.0, Color::new(0.76, 0.82, 0.86, 1.0)).params());
+    }
     if matches!(ctx.session.mission.phase, MissionPhase::Success | MissionPhase::Failure | MissionPhase::Debrief) { draw_terminal_panel(ctx.session); }
 }
 

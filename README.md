@@ -130,6 +130,9 @@ orthographic 3D world path; F1 returns to the campaign during free play.
 Capture scenes named `device_channel` through `device_rune_relay` seed the
 corresponding executable showcase; F2 opens the channel showcase in free play
 and V cycles the ten authored device maps without losing the campaign session.
+The HUD build palette lists all ten placeables and its mouse hit regions queue
+the same validated plans as the keyboard bindings, including visible rejection
+notices for tutorial, budget, bounds, protected-cell, and overlap failures.
 
 The initial orthographic zoom is derived from the authored map dimensions, so
 the 32×20 L01 world remains fully framed at the required viewport sizes.

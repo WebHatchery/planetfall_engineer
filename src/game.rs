@@ -68,7 +68,7 @@ impl Game {
 
     pub fn update(&mut self, dt: f32) {
         if self.camera.update(dt, self.session.simulation.width as usize, self.session.simulation.height as usize) { let _ = self.session.mission.admit(CommandKind::Camera); }
-        if is_mouse_button_pressed(MouseButton::Left) { self.select_from_pointer(); }
+        if is_mouse_button_pressed(MouseButton::Left) && !self.handle_palette_click() { self.select_from_pointer(); }
         if is_key_pressed(KeyCode::Space) { self.set_time(match self.session.time_control { TimeControl::Paused => TimeControl::OneX, TimeControl::OneX => TimeControl::Paused, _ => TimeControl::Paused }); }
         if is_key_pressed(KeyCode::Key1) { self.set_time(TimeControl::OneX); }
         if is_key_pressed(KeyCode::Key2) { self.set_time(TimeControl::TwoX); }
@@ -137,6 +137,20 @@ impl Game {
         }}
         for device in &self.session.simulation.devices.devices { let (width, height) = device.device.footprint(); let cell = &self.session.simulation.cells[self.session.simulation.index(device.anchor).unwrap()]; let base = cell.height_hu as f32 * 0.0005; if let Some(distance) = Aabb3::from_center_size(vec3(device.anchor.x as f32 + width as f32 * 0.5, base + 0.35, device.anchor.y as f32 + height as f32 * 0.5), vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72)).intersect(ray) { if closest.is_none_or(|(_, current)| distance < current) { closest = Some((device.anchor, distance)); } } }
         if let Some((selected, _)) = closest { self.session.selected = selected; let _ = self.session.mission.admit(CommandKind::Select); self.notice = format!("Survey target selected: {}, {}", selected.x, selected.y); }
+    }
+
+    fn handle_palette_click(&mut self) -> bool {
+        let (mouse_x, mouse_y) = mouse_position();
+        let scale_x = screen_width() / ui::LOGICAL_WIDTH;
+        let scale_y = screen_height() / ui::LOGICAL_HEIGHT;
+        let x = mouse_x / scale_x;
+        let y = mouse_y / scale_y;
+        if !(1018.0..1248.0).contains(&x) || !(326.0..456.0).contains(&y) { return false; }
+        let column = if x < 1132.0 { 0 } else { 1 };
+        let row = ((y - 326.0) / 26.0) as usize;
+        let index = row * 2 + column;
+        if let Some(device) = DeviceId::ALL.get(index).copied() { self.queue_device(device); }
+        true
     }
 
     fn queue_device(&mut self, device: DeviceId) {
