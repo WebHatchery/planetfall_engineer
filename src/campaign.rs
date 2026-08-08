@@ -117,6 +117,23 @@ pub fn seed_reference_materials(map: &mut CampaignMap) {
     }
 }
 
+pub fn apply_scheduled_events(world: &mut SimulationWorld, id: MissionId) {
+    let (start_tick, end_tick, surge_rate) = match id {
+        MissionId::L02HoldingLine => (900, 1_200, 400),
+        MissionId::L03Firebreak => (1_000, 1_250, 220),
+        MissionId::L01FirstFlow => return,
+    };
+    if world.tick == start_tick {
+        if let Some(source) = world.sources.first_mut() {
+            source.rate_vu = surge_rate;
+        }
+    } else if world.tick == end_tick {
+        if let Some(source) = world.sources.first_mut() {
+            source.rate_vu = 100;
+        }
+    }
+}
+
 fn cell_mut(world: &mut SimulationWorld, pos: CellPos) -> &mut crate::simulation::SimCell {
     let index = world
         .index(pos)
@@ -175,5 +192,17 @@ mod tests {
             serde_json::to_vec(&first.world).unwrap(),
             serde_json::to_vec(&second.world).unwrap()
         );
+    }
+
+    #[test]
+    fn authored_source_surges_begin_and_end_on_schedule() {
+        let mut map = load_campaign(MissionId::L02HoldingLine);
+        assert_eq!(map.world.sources[0].rate_vu, 100);
+        map.world.tick = 900;
+        apply_scheduled_events(&mut map.world, MissionId::L02HoldingLine);
+        assert_eq!(map.world.sources[0].rate_vu, 400);
+        map.world.tick = 1_200;
+        apply_scheduled_events(&mut map.world, MissionId::L02HoldingLine);
+        assert_eq!(map.world.sources[0].rate_vu, 100);
     }
 }

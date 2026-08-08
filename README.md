@@ -126,6 +126,10 @@ cell and device readout.
 It also names the deterministic alert level (`CLEAR`, `ADVISORY`, `WARNING`,
 or `CRITICAL`) so forecast pressure and hazard escalation are readable without
 depending on color alone.
+The authored L02 source rises from 100 to 400 `vU`/tick at simulation tick 900
+and returns at 1,200; L03 rises from 100 to 220 at tick 1,000 and returns at
+1,250. These events run in the same authoritative tick path as the replay
+harness.
 
 Terminal success and failure now open a readable debrief/recovery panel with
 the objective result, failure reason when present, and the valid next action.

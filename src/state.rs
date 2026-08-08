@@ -134,6 +134,7 @@ impl GameSession {
 
     pub fn tick(&mut self) {
         self.tick = self.tick.saturating_add(1);
+        crate::campaign::apply_scheduled_events(&mut self.simulation, self.mission.id);
         self.simulation.tick();
         for (cell, sim_cell) in self.world.cells.iter_mut().zip(&self.simulation.cells) {
             cell.height_hu = sim_cell.height_hu;

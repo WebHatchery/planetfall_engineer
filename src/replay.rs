@@ -1,7 +1,7 @@
 //! Deterministic campaign and failure-path replay harness.
 
 use crate::{
-    campaign::{load_campaign, seed_reference_materials},
+    campaign::{apply_scheduled_events, load_campaign, seed_reference_materials},
     mission::{MissionId, MissionPhase, MissionState},
     simulation::{FluidId, SimulationWorld},
     state::CellPos,
@@ -136,6 +136,7 @@ fn tick_scenario(
             }
         }
     }
+    apply_scheduled_events(world, id);
     world.tick();
     mission.on_tick(world);
 }

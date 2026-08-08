@@ -100,6 +100,8 @@ At every size:
 Mission alert state is authoritative and text-labeled at four levels: clear,
 advisory, warning, and critical. Hazard failure timers remain separate from
 the display level, so a warning can be inspected before a terminal failure.
+The L02 and L03 authored source-rate surges are applied at their documented
+ticks and are covered by schedule tests plus deterministic scenario replay.
 
 Captures live under `docs/verification/` with stable names
 `<map_or_screen>_<width>x<height>.png`. `catalog_thumbnail.png` at repository
