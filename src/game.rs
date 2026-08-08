@@ -1,42 +1,106 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{showcase_world, run_all_showcases, DeviceId, SHOWCASE_MAPS}, mission::{campaign_summary, CommandKind, MissionId, MissionPhase, MissionState}, replay::run_all_references, simulation::{FluidId, TerrainAction, SimulationWorld}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
+use crate::ui::{self, UiContext};
+use crate::{
+    campaign::{load_campaign, seed_reference_materials},
+    data::GameData,
+    devices::{run_all_showcases, DeviceId, SHOWCASE_MAPS},
+    mission::{campaign_summary, CommandKind, MissionId, MissionPhase},
+    replay::run_all_references,
+    simulation::{FluidId, TerrainAction},
+    state::{load_session, save_session, CellPos, GameSession, TimeControl, WorldState},
+    verification::FluidsLab,
+};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
 use macroquad_toolkit::render3d::picking::{screen_ray, Aabb3};
-use crate::ui::{self, UiContext};
 
-pub struct Game { pub data: GameData, pub session: GameSession, checkpoint_session: Option<GameSession>, saved_campaign_session: Option<GameSession>, verification_mode: Option<VerificationMode>, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
+pub struct Game {
+    pub(crate) data: GameData,
+    pub(crate) session: GameSession,
+    pub(crate) checkpoint_session: Option<GameSession>,
+    pub(crate) saved_campaign_session: Option<GameSession>,
+    pub(crate) verification_mode: Option<VerificationMode>,
+    pub(crate) assets: AssetManager,
+    pub(crate) camera: FoundationCamera,
+    pub(crate) lab: FluidsLab,
+    pub(crate) notice: String,
+}
 
 #[derive(Debug, Clone, Copy)]
-enum VerificationMode { Lab, Showcase(DeviceId) }
+pub(crate) enum VerificationMode {
+    Lab,
+    Showcase(DeviceId),
+}
 
 #[derive(Debug, Clone, Copy)]
-struct FoundationCamera { target: Vec2, yaw: u8, zoom: f32 }
+pub(crate) struct FoundationCamera {
+    target: Vec2,
+    yaw: u8,
+    zoom: f32,
+}
 
 impl FoundationCamera {
-    fn new(width: usize, height: usize) -> Self { Self { target: vec2(width as f32 / 2.0, height as f32 / 2.0), yaw: 0, zoom: width.max(height) as f32 } }
+    pub(crate) fn new(width: usize, height: usize) -> Self {
+        Self {
+            target: vec2(width as f32 / 2.0, height as f32 / 2.0),
+            yaw: 0,
+            zoom: width.max(height) as f32,
+        }
+    }
     fn update(&mut self, dt: f32, width: usize, height: usize) -> bool {
         let before = (self.target, self.yaw, self.zoom);
         let speed = dt * self.zoom * 0.8;
-        if is_key_down(KeyCode::A) { self.target.x -= speed; }
-        if is_key_down(KeyCode::D) { self.target.x += speed; }
-        if is_key_down(KeyCode::W) { self.target.y -= speed; }
-        if is_key_down(KeyCode::S) { self.target.y += speed; }
-        self.target.x = self.target.x.clamp(0.0, width as f32); self.target.y = self.target.y.clamp(0.0, height as f32);
-        if is_key_pressed(KeyCode::Q) { self.yaw = (self.yaw + 3) % 4; }
-        if is_key_pressed(KeyCode::E) { self.yaw = (self.yaw + 1) % 4; }
-        if is_key_pressed(KeyCode::Minus) { self.zoom = (self.zoom + 4.0).min(54.0); }
-        if is_key_pressed(KeyCode::Equal) { self.zoom = (self.zoom - 4.0).max(12.0); }
+        if is_key_down(KeyCode::A) {
+            self.target.x -= speed;
+        }
+        if is_key_down(KeyCode::D) {
+            self.target.x += speed;
+        }
+        if is_key_down(KeyCode::W) {
+            self.target.y -= speed;
+        }
+        if is_key_down(KeyCode::S) {
+            self.target.y += speed;
+        }
+        self.target.x = self.target.x.clamp(0.0, width as f32);
+        self.target.y = self.target.y.clamp(0.0, height as f32);
+        if is_key_pressed(KeyCode::Q) {
+            self.yaw = (self.yaw + 3) % 4;
+        }
+        if is_key_pressed(KeyCode::E) {
+            self.yaw = (self.yaw + 1) % 4;
+        }
+        if is_key_pressed(KeyCode::Minus) {
+            self.zoom = (self.zoom + 4.0).min(54.0);
+        }
+        if is_key_pressed(KeyCode::Equal) {
+            self.zoom = (self.zoom - 4.0).max(12.0);
+        }
         before != (self.target, self.yaw, self.zoom)
     }
     fn camera3d(&self) -> Camera3D {
         let angle = self.yaw as f32 * std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4;
         let distance = self.zoom * 1.65;
         let target = vec3(self.target.x, 0.0, self.target.y);
-        let viewport_scale = (screen_width() / ui::LOGICAL_WIDTH).min(screen_height() / ui::LOGICAL_HEIGHT).max(0.5);
-        Camera3D { position: target + vec3(angle.cos() * distance, distance * 0.82, angle.sin() * distance), target, up: vec3(0.0, 1.0, 0.0), projection: Projection::Orthographics, fovy: self.zoom / viewport_scale, aspect: Some(screen_width() / screen_height()), ..Default::default() }
+        let viewport_scale = (screen_width() / ui::LOGICAL_WIDTH)
+            .min(screen_height() / ui::LOGICAL_HEIGHT)
+            .max(0.5);
+        Camera3D {
+            position: target
+                + vec3(
+                    angle.cos() * distance,
+                    distance * 0.82,
+                    angle.sin() * distance,
+                ),
+            target,
+            up: vec3(0.0, 1.0, 0.0),
+            projection: Projection::Orthographics,
+            fovy: self.zoom / viewport_scale,
+            aspect: Some(screen_width() / screen_height()),
+            ..Default::default()
+        }
     }
 }
 
@@ -59,84 +123,322 @@ impl Game {
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
-        if scene.starts_with("lab_fluids_all") { self.toggle_lab_mode(); }
-        if scene.starts_with("campaign_l02") { self.load_mission(MissionId::L02HoldingLine, "capture briefing"); }
-        if scene.starts_with("campaign_l03") { self.load_mission(MissionId::L03Firebreak, "capture briefing"); }
-        if let Some(showcase) = SHOWCASE_MAPS.iter().find(|map| scene == map.map_id || scene.starts_with(&format!("{}_", map.map_id))) { self.enter_showcase(showcase.device); }
-        if scene.contains("failure") { self.session.mission.fail("capture failure/recovery fixture"); self.notice = "Failure fixture — F12 restores checkpoint or restarts".into(); }
+        if scene.starts_with("lab_fluids_all") {
+            self.toggle_lab_mode();
+        }
+        if scene.starts_with("campaign_l02") {
+            self.load_mission(MissionId::L02HoldingLine, "capture briefing");
+        }
+        if scene.starts_with("campaign_l03") {
+            self.load_mission(MissionId::L03Firebreak, "capture briefing");
+        }
+        if let Some(showcase) = SHOWCASE_MAPS
+            .iter()
+            .find(|map| scene == map.map_id || scene.starts_with(&format!("{}_", map.map_id)))
+        {
+            self.enter_showcase(showcase.device);
+        }
+        if scene.contains("failure") {
+            self.session
+                .mission
+                .fail("capture failure/recovery fixture");
+            self.notice = "Failure fixture — F12 restores checkpoint or restarts".into();
+        }
     }
 
     pub fn update(&mut self, dt: f32) {
-        if self.camera.update(dt, self.session.simulation.width as usize, self.session.simulation.height as usize) { let _ = self.session.mission.admit(CommandKind::Camera); }
-        if is_mouse_button_pressed(MouseButton::Left) && !self.handle_palette_click() { self.select_from_pointer(); }
-        if is_key_pressed(KeyCode::Space) { self.set_time(match self.session.time_control { TimeControl::Paused => TimeControl::OneX, TimeControl::OneX => TimeControl::Paused, _ => TimeControl::Paused }); }
-        if is_key_pressed(KeyCode::Key1) { self.set_time(TimeControl::OneX); }
-        if is_key_pressed(KeyCode::Key2) { self.set_time(TimeControl::TwoX); }
-        if is_key_pressed(KeyCode::Key4) { self.set_time(TimeControl::FourX); }
+        if self.camera.update(
+            dt,
+            self.session.simulation.width as usize,
+            self.session.simulation.height as usize,
+        ) {
+            let _ = self.session.mission.admit(CommandKind::Camera);
+        }
+        if is_mouse_button_pressed(MouseButton::Left) && !self.handle_palette_click() {
+            self.select_from_pointer();
+        }
+        if is_key_pressed(KeyCode::Space) {
+            self.set_time(match self.session.time_control {
+                TimeControl::Paused => TimeControl::OneX,
+                TimeControl::OneX => TimeControl::Paused,
+                _ => TimeControl::Paused,
+            });
+        }
+        if is_key_pressed(KeyCode::Key1) {
+            self.set_time(TimeControl::OneX);
+        }
+        if is_key_pressed(KeyCode::Key2) {
+            self.set_time(TimeControl::TwoX);
+        }
+        if is_key_pressed(KeyCode::Key4) {
+            self.set_time(TimeControl::FourX);
+        }
         let mut cursor_moved = false;
-        if is_key_pressed(KeyCode::Up) { self.session.move_selected(0, -1); cursor_moved = true; }
-        if is_key_pressed(KeyCode::Down) { self.session.move_selected(0, 1); cursor_moved = true; }
-        if is_key_pressed(KeyCode::Left) { self.session.move_selected(-1, 0); cursor_moved = true; }
-        if is_key_pressed(KeyCode::Right) { self.session.move_selected(1, 0); cursor_moved = true; }
-        if cursor_moved { let _ = self.session.mission.admit(CommandKind::Select); }
-        if is_key_pressed(KeyCode::X) { self.apply_terrain(TerrainAction::Excavate); }
-        if is_key_pressed(KeyCode::R) { self.apply_terrain(TerrainAction::Raise); }
-        if is_key_pressed(KeyCode::T) { self.apply_terrain(TerrainAction::Seal); }
-        if is_key_pressed(KeyCode::I) && self.admit(CommandKind::Inspect) { self.notice = format!("Inspecting cell {}, {}", self.session.selected.x, self.session.selected.y); }
-        if is_key_pressed(KeyCode::L) { self.session.simulation.inject(self.session.selected, FluidId::Lava, 500); }
-        if is_key_pressed(KeyCode::G) { self.session.simulation.inject(self.session.selected, FluidId::ToxicSlurry, 500); }
-        if is_key_pressed(KeyCode::F1) { self.toggle_lab_mode(); }
-        if is_key_pressed(KeyCode::F2) { if self.verification_mode.is_some() { self.restore_campaign_session(); } else { self.enter_showcase(DeviceId::Channel); } }
-        if is_key_pressed(KeyCode::V) { if let Some(VerificationMode::Showcase(current)) = self.verification_mode { let next = DeviceId::ALL[(DeviceId::ALL.iter().position(|device| *device == current).unwrap_or(0) + 1) % DeviceId::ALL.len()]; self.enter_showcase(next); } }
-        if is_key_pressed(KeyCode::F3) { self.notice = campaign_summary(); }
-        if is_key_pressed(KeyCode::N) { self.select_next_campaign(); }
-        if is_key_pressed(KeyCode::F4) { self.session.mission.skip_tutorial(); let complete = self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()); if complete { self.session.simulation.set_sources_enabled(true); } self.notice = if complete { "Tutorial skipped — L01 build kit unlocked; source enabled" } else { "Tutorial skip unavailable" }.into(); }
-        if is_key_pressed(KeyCode::F6) { self.session.mission.checkpoint(); self.checkpoint_session = Some(self.session.clone()); self.notice = format!("Mission checkpoint recorded at tick {}", self.session.mission.checkpoint_tick); }
-        if is_key_pressed(KeyCode::F7) { self.session.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
-        if is_key_pressed(KeyCode::F12) { self.reset_mission(); }
-        if is_key_pressed(KeyCode::F8) { let admission = self.session.mission.admit(CommandKind::DismissPrompt); self.notice = format!("{} — tutorial command: {admission:?}", run_all_showcases()); }
-        if is_key_pressed(KeyCode::F10) { let mut campaign = load_campaign(self.session.mission.id); seed_reference_materials(&mut campaign); self.session.simulation = campaign.world; self.notice = "Reference material fixture loaded".into(); }
-        if is_key_pressed(KeyCode::F11) { self.notice = run_all_references(); }
-        if is_key_pressed(KeyCode::C) { if let Some(entity_id) = self.session.simulation.devices.devices.iter().find(|device| device.anchor == self.session.selected).map(|device| device.entity_id) { self.session.simulation.devices.remove(entity_id); self.notice = "Device removed and budget released".into(); } }
-        if is_key_pressed(KeyCode::B) { self.queue_device(DeviceId::Channel); }
-        if is_key_pressed(KeyCode::P) { self.queue_device(DeviceId::Pipe); }
-        if is_key_pressed(KeyCode::O) { self.queue_device(DeviceId::Pump); }
-        if is_key_pressed(KeyCode::F) { self.queue_device(DeviceId::Floodgate); }
-        if is_key_pressed(KeyCode::J) { self.set_gate(0); }
-        if is_key_pressed(KeyCode::K) { self.set_gate(5_000); }
-        if is_key_pressed(KeyCode::H) { self.set_gate(10_000); }
-        if is_key_pressed(KeyCode::Enter) { if self.session.simulation.devices.queued.is_empty() { let _ = self.admit(CommandKind::DismissPrompt); } else { self.commit_build_plan(); } }
-        if is_key_pressed(KeyCode::Backspace) { self.cancel_build_plan(); }
-        if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
-        if is_key_pressed(KeyCode::F9) { match load_session(&self.data.config) { Ok(s) => { self.session = s; self.notice = "Checkpoint loaded".into(); }, Err(e) => self.notice = e } }
+        if is_key_pressed(KeyCode::Up) {
+            self.session.move_selected(0, -1);
+            cursor_moved = true;
+        }
+        if is_key_pressed(KeyCode::Down) {
+            self.session.move_selected(0, 1);
+            cursor_moved = true;
+        }
+        if is_key_pressed(KeyCode::Left) {
+            self.session.move_selected(-1, 0);
+            cursor_moved = true;
+        }
+        if is_key_pressed(KeyCode::Right) {
+            self.session.move_selected(1, 0);
+            cursor_moved = true;
+        }
+        if cursor_moved {
+            let _ = self.session.mission.admit(CommandKind::Select);
+        }
+        if is_key_pressed(KeyCode::X) {
+            self.apply_terrain(TerrainAction::Excavate);
+        }
+        if is_key_pressed(KeyCode::R) {
+            self.apply_terrain(TerrainAction::Raise);
+        }
+        if is_key_pressed(KeyCode::T) {
+            self.apply_terrain(TerrainAction::Seal);
+        }
+        if is_key_pressed(KeyCode::I) && self.admit(CommandKind::Inspect) {
+            self.notice = format!(
+                "Inspecting cell {}, {}",
+                self.session.selected.x, self.session.selected.y
+            );
+        }
+        if is_key_pressed(KeyCode::L) {
+            self.session
+                .simulation
+                .inject(self.session.selected, FluidId::Lava, 500);
+        }
+        if is_key_pressed(KeyCode::G) {
+            self.session
+                .simulation
+                .inject(self.session.selected, FluidId::ToxicSlurry, 500);
+        }
+        if is_key_pressed(KeyCode::F1) {
+            self.toggle_lab_mode();
+        }
+        if is_key_pressed(KeyCode::F2) {
+            if self.verification_mode.is_some() {
+                self.restore_campaign_session();
+            } else {
+                self.enter_showcase(DeviceId::Channel);
+            }
+        }
+        if is_key_pressed(KeyCode::V) {
+            if let Some(VerificationMode::Showcase(current)) = self.verification_mode {
+                let next = DeviceId::ALL[(DeviceId::ALL
+                    .iter()
+                    .position(|device| *device == current)
+                    .unwrap_or(0)
+                    + 1)
+                    % DeviceId::ALL.len()];
+                self.enter_showcase(next);
+            }
+        }
+        if is_key_pressed(KeyCode::F3) {
+            self.notice = campaign_summary();
+        }
+        if is_key_pressed(KeyCode::N) {
+            self.select_next_campaign();
+        }
+        if is_key_pressed(KeyCode::F4) {
+            self.session.mission.skip_tutorial();
+            let complete = self
+                .session
+                .mission
+                .tutorial
+                .as_ref()
+                .is_some_and(|tutorial| tutorial.is_complete());
+            if complete {
+                self.session.simulation.set_sources_enabled(true);
+            }
+            self.notice = if complete {
+                "Tutorial skipped — L01 build kit unlocked; source enabled"
+            } else {
+                "Tutorial skip unavailable"
+            }
+            .into();
+        }
+        if is_key_pressed(KeyCode::F6) {
+            self.session.mission.checkpoint();
+            self.checkpoint_session = Some(self.session.clone());
+            self.notice = format!(
+                "Mission checkpoint recorded at tick {}",
+                self.session.mission.checkpoint_tick
+            );
+        }
+        if is_key_pressed(KeyCode::F7) {
+            self.session.mission.fail("manual failure-path check");
+            self.notice = "Mission failed — reset to checkpoint".into();
+        }
+        if is_key_pressed(KeyCode::F12) {
+            self.reset_mission();
+        }
+        if is_key_pressed(KeyCode::F8) {
+            let admission = self.session.mission.admit(CommandKind::DismissPrompt);
+            self.notice = format!("{} — tutorial command: {admission:?}", run_all_showcases());
+        }
+        if is_key_pressed(KeyCode::F10) {
+            let mut campaign = load_campaign(self.session.mission.id);
+            seed_reference_materials(&mut campaign);
+            self.session.simulation = campaign.world;
+            self.notice = "Reference material fixture loaded".into();
+        }
+        if is_key_pressed(KeyCode::F11) {
+            self.notice = run_all_references();
+        }
+        if is_key_pressed(KeyCode::C) {
+            if let Some(entity_id) = self
+                .session
+                .simulation
+                .devices
+                .devices
+                .iter()
+                .find(|device| device.anchor == self.session.selected)
+                .map(|device| device.entity_id)
+            {
+                self.session.simulation.devices.remove(entity_id);
+                self.notice = "Device removed and budget released".into();
+            }
+        }
+        if is_key_pressed(KeyCode::B) {
+            self.queue_device(DeviceId::Channel);
+        }
+        if is_key_pressed(KeyCode::P) {
+            self.queue_device(DeviceId::Pipe);
+        }
+        if is_key_pressed(KeyCode::O) {
+            self.queue_device(DeviceId::Pump);
+        }
+        if is_key_pressed(KeyCode::F) {
+            self.queue_device(DeviceId::Floodgate);
+        }
+        if is_key_pressed(KeyCode::J) {
+            self.set_gate(0);
+        }
+        if is_key_pressed(KeyCode::K) {
+            self.set_gate(5_000);
+        }
+        if is_key_pressed(KeyCode::H) {
+            self.set_gate(10_000);
+        }
+        if is_key_pressed(KeyCode::Enter) {
+            if self.session.simulation.devices.queued.is_empty() {
+                let _ = self.admit(CommandKind::DismissPrompt);
+            } else {
+                self.commit_build_plan();
+            }
+        }
+        if is_key_pressed(KeyCode::Backspace) {
+            self.cancel_build_plan();
+        }
+        if is_key_pressed(KeyCode::F5) {
+            self.notice = save_session(&self.session, &self.data.config)
+                .map(|_| "Checkpoint saved".into())
+                .unwrap_or_else(|e| e);
+        }
+        if is_key_pressed(KeyCode::F9) {
+            match load_session(&self.data.config) {
+                Ok(s) => {
+                    self.session = s;
+                    self.notice = "Checkpoint loaded".into();
+                }
+                Err(e) => self.notice = e,
+            }
+        }
         let ticks = self.session.update(dt);
         if ticks > 0 {
             self.session.mission.on_tick(&self.session.simulation);
             if self.session.mission.phase == MissionPhase::Success {
-                self.session.campaign.record_success(self.session.mission.id, self.session.mission.tick);
-                self.notice = format!("Mission success — {} complete; press N for the next unlocked level", self.session.mission.id.name());
-            } else { self.notice = format!("Simulation advanced {ticks} tick(s)"); }
+                self.session
+                    .campaign
+                    .record_success(self.session.mission.id, self.session.mission.tick);
+                self.notice = format!(
+                    "Mission success — {} complete; press N for the next unlocked level",
+                    self.session.mission.id.name()
+                );
+            } else {
+                self.notice = format!("Simulation advanced {ticks} tick(s)");
+            }
         }
     }
 
     fn apply_terrain(&mut self, action: TerrainAction) {
-        let command = if action == TerrainAction::Excavate { CommandKind::QueueExcavate } else { CommandKind::SelectTerrain };
-        if !self.admit(command) { return; }
-        self.notice = self.session.simulation.terrain_edit(self.session.selected, action).map(|_| "Terrain edit committed".into()).unwrap_or_else(|error| format!("Terrain edit rejected: {error:?}"));
-        if let Some(index) = self.session.simulation.index(self.session.selected) { self.session.world.cells[index].height_hu = self.session.simulation.cells[index].height_hu; self.session.world.cells[index].sealed = self.session.simulation.cells[index].sealed; }
+        let command = if action == TerrainAction::Excavate {
+            CommandKind::QueueExcavate
+        } else {
+            CommandKind::SelectTerrain
+        };
+        if !self.admit(command) {
+            return;
+        }
+        self.notice = self
+            .session
+            .simulation
+            .terrain_edit(self.session.selected, action)
+            .map(|_| "Terrain edit committed".into())
+            .unwrap_or_else(|error| format!("Terrain edit rejected: {error:?}"));
+        if let Some(index) = self.session.simulation.index(self.session.selected) {
+            self.session.world.cells[index].height_hu =
+                self.session.simulation.cells[index].height_hu;
+            self.session.world.cells[index].sealed = self.session.simulation.cells[index].sealed;
+        }
     }
 
     fn select_from_pointer(&mut self) {
         let (mouse_x, mouse_y) = mouse_position();
-        if !(82.0..=604.0).contains(&mouse_y) || mouse_x > 1_000.0 { return; }
+        if !(82.0..=604.0).contains(&mouse_y) || mouse_x > 1_000.0 {
+            return;
+        }
         let ray = screen_ray(&self.camera.camera3d(), vec2(mouse_x, mouse_y), None);
         let mut closest: Option<(CellPos, f32)> = None;
-        for y in 0..self.session.simulation.height { for x in 0..self.session.simulation.width {
-            let pos = CellPos { x, y }; let cell = &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()]; let height = (cell.height_hu as f32 * 0.0005).max(0.12);
-            if let Some(distance) = Aabb3::from_center_size(vec3(x as f32 + 0.5, height * 0.5, y as f32 + 0.5), vec3(0.96, height, 0.96)).intersect(ray) { if closest.is_none_or(|(_, current)| distance < current) { closest = Some((pos, distance)); } }
-        }}
-        for device in &self.session.simulation.devices.devices { let (width, height) = device.device.footprint(); let cell = &self.session.simulation.cells[self.session.simulation.index(device.anchor).unwrap()]; let base = cell.height_hu as f32 * 0.0005; if let Some(distance) = Aabb3::from_center_size(vec3(device.anchor.x as f32 + width as f32 * 0.5, base + 0.35, device.anchor.y as f32 + height as f32 * 0.5), vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72)).intersect(ray) { if closest.is_none_or(|(_, current)| distance < current) { closest = Some((device.anchor, distance)); } } }
-        if let Some((selected, _)) = closest { self.session.selected = selected; let _ = self.session.mission.admit(CommandKind::Select); self.notice = format!("Survey target selected: {}, {}", selected.x, selected.y); }
+        for y in 0..self.session.simulation.height {
+            for x in 0..self.session.simulation.width {
+                let pos = CellPos { x, y };
+                let cell =
+                    &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()];
+                let height = (cell.height_hu as f32 * 0.0005).max(0.12);
+                if let Some(distance) = Aabb3::from_center_size(
+                    vec3(x as f32 + 0.5, height * 0.5, y as f32 + 0.5),
+                    vec3(0.96, height, 0.96),
+                )
+                .intersect(ray)
+                {
+                    if closest.is_none_or(|(_, current)| distance < current) {
+                        closest = Some((pos, distance));
+                    }
+                }
+            }
+        }
+        for device in &self.session.simulation.devices.devices {
+            let (width, height) = device.device.footprint();
+            let cell = &self.session.simulation.cells
+                [self.session.simulation.index(device.anchor).unwrap()];
+            let base = cell.height_hu as f32 * 0.0005;
+            if let Some(distance) = Aabb3::from_center_size(
+                vec3(
+                    device.anchor.x as f32 + width as f32 * 0.5,
+                    base + 0.35,
+                    device.anchor.y as f32 + height as f32 * 0.5,
+                ),
+                vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72),
+            )
+            .intersect(ray)
+            {
+                if closest.is_none_or(|(_, current)| distance < current) {
+                    closest = Some((device.anchor, distance));
+                }
+            }
+        }
+        if let Some((selected, _)) = closest {
+            self.session.selected = selected;
+            let _ = self.session.mission.admit(CommandKind::Select);
+            self.notice = format!("Survey target selected: {}, {}", selected.x, selected.y);
+        }
     }
 
     fn handle_palette_click(&mut self) -> bool {
@@ -145,43 +447,77 @@ impl Game {
         let scale_y = screen_height() / ui::LOGICAL_HEIGHT;
         let x = mouse_x / scale_x;
         let y = mouse_y / scale_y;
-        if !(1018.0..1248.0).contains(&x) || !(326.0..456.0).contains(&y) { return false; }
+        if !(1018.0..1248.0).contains(&x) || !(326.0..456.0).contains(&y) {
+            return false;
+        }
         let column = if x < 1132.0 { 0 } else { 1 };
         let row = ((y - 326.0) / 26.0) as usize;
         let index = row * 2 + column;
-        if let Some(device) = DeviceId::ALL.get(index).copied() { self.queue_device(device); }
+        if let Some(device) = DeviceId::ALL.get(index).copied() {
+            self.queue_device(device);
+        }
         true
     }
 
     fn queue_device(&mut self, device: DeviceId) {
-        if !self.admit(CommandKind::QueueDevice(device)) { return; }
+        if !self.admit(CommandKind::QueueDevice(device)) {
+            return;
+        }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let result = devices.queue(&self.session.simulation, device, self.session.selected, 0, 100);
+        let result = devices.queue(
+            &self.session.simulation,
+            device,
+            self.session.selected,
+            0,
+            100,
+        );
         self.session.simulation.devices = devices;
-        self.notice = result.map(|id| format!("Queued {} plan #{id} — Enter commit, Backspace cancel", device.name())).unwrap_or_else(|error| format!("Queue rejected: {error:?}"));
+        self.notice = result
+            .map(|id| {
+                format!(
+                    "Queued {} plan #{id} — Enter commit, Backspace cancel",
+                    device.name()
+                )
+            })
+            .unwrap_or_else(|error| format!("Queue rejected: {error:?}"));
     }
 
     fn commit_build_plan(&mut self) {
-        if !self.admit(CommandKind::CommitPlan) { return; }
+        if !self.admit(CommandKind::CommitPlan) {
+            return;
+        }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
         let result = devices.commit_plan(&self.session.simulation, 100);
         self.session.simulation.devices = devices;
-        self.notice = result.map(|entities| format!("Committed {} build plan(s)", entities.len())).unwrap_or_else(|error| format!("Plan commit rejected: {error:?}"));
+        self.notice = result
+            .map(|entities| format!("Committed {} build plan(s)", entities.len()))
+            .unwrap_or_else(|error| format!("Plan commit rejected: {error:?}"));
     }
 
     fn cancel_build_plan(&mut self) {
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
         let cancelled = devices.cancel_last_plan();
         self.session.simulation.devices = devices;
-        self.notice = if cancelled { "Last build plan cancelled" } else { "No queued build plan" }.into();
+        self.notice = if cancelled {
+            "Last build plan cancelled"
+        } else {
+            "No queued build plan"
+        }
+        .into();
     }
 
     fn set_gate(&mut self, setting_bp: u16) {
-        if !self.admit(CommandKind::SetGate(setting_bp)) { return; }
+        if !self.admit(CommandKind::SetGate(setting_bp)) {
+            return;
+        }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
         let changed = devices.set_selected_gate(self.session.selected, setting_bp);
         self.session.simulation.devices = devices;
-        self.notice = if changed { format!("Floodgate set to {}%", setting_bp / 100) } else { "No floodgate selected".into() };
+        self.notice = if changed {
+            format!("Floodgate set to {}%", setting_bp / 100)
+        } else {
+            "No floodgate selected".into()
+        };
     }
 
     fn reset_mission(&mut self) {
@@ -190,7 +526,10 @@ impl Game {
             self.session = checkpoint;
             self.session.campaign = campaign;
             self.session.time_control = TimeControl::Paused;
-            self.notice = format!("Checkpoint restored at tick {}", self.session.mission.checkpoint_tick);
+            self.notice = format!(
+                "Checkpoint restored at tick {}",
+                self.session.mission.checkpoint_tick
+            );
             return;
         }
         let id = self.session.mission.id;
@@ -199,79 +538,72 @@ impl Game {
 
     fn select_next_campaign(&mut self) {
         let current = self.session.mission.id.sequence();
-        let next = MissionId::ALL.into_iter().find(|id| id.sequence() > current && self.session.campaign.unlocked[id.sequence() - 1]);
+        let next = MissionId::ALL.into_iter().find(|id| {
+            id.sequence() > current && self.session.campaign.unlocked[id.sequence() - 1]
+        });
         match next {
             Some(id) => self.load_mission(id, "selected from campaign progression"),
-            None => self.notice = format!("No later campaign level is unlocked — {}", campaign_summary()),
+            None => {
+                self.notice = format!(
+                    "No later campaign level is unlocked — {}",
+                    campaign_summary()
+                )
+            }
         }
     }
 
     fn load_mission(&mut self, id: MissionId, reason: &str) {
         let campaign_progress = self.session.campaign.clone();
         let campaign = load_campaign(id);
-        let (width, height) = (campaign.world.width as usize, campaign.world.height as usize);
+        let (width, height) = (
+            campaign.world.width as usize,
+            campaign.world.height as usize,
+        );
         self.session = GameSession::new(&self.data.config);
         self.session.world = WorldState::new(width, height);
         self.session.simulation = campaign.world;
         self.session.mission = crate::mission::MissionState::new(id);
         self.session.mission.start();
         self.session.campaign = campaign_progress;
-        self.session.selected = CellPos { x: (width / 2) as u16, y: (height / 2) as u16 };
+        self.session.selected = CellPos {
+            x: (width / 2) as u16,
+            y: (height / 2) as u16,
+        };
         self.session.time_control = TimeControl::Paused;
         self.camera = FoundationCamera::new(width, height);
         self.checkpoint_session = None;
         self.notice = format!("{} {reason}", id.name());
     }
 
-    fn toggle_lab_mode(&mut self) {
-        if let Some(campaign) = self.saved_campaign_session.take() {
-            self.restore_campaign(campaign);
-            return;
-        }
-        let campaign = self.session.clone();
-        let report = self.lab.automatic_scenario();
-        self.session.simulation = self.lab.world.clone();
-        self.session.world = world_state_for(&self.session.simulation);
-        self.session.mission = MissionState::new(MissionId::L02HoldingLine);
-        self.session.mission.start();
-        self.session.tick = self.session.simulation.tick;
-        self.session.selected = CellPos { x: self.session.simulation.width / 2, y: self.session.simulation.height / 2 };
-        self.session.time_control = TimeControl::Paused;
-        self.saved_campaign_session = Some(campaign);
-        self.verification_mode = Some(VerificationMode::Lab);
-        self.camera = FoundationCamera::new(self.session.simulation.width as usize, self.session.simulation.height as usize);
-        self.notice = format!("lab_fluids_all {} — F1 return — tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash);
-    }
-
-    fn enter_showcase(&mut self, device: DeviceId) {
-        if self.saved_campaign_session.is_none() { self.saved_campaign_session = Some(self.session.clone()); }
-        self.session.simulation = showcase_world(device);
-        self.session.world = world_state_for(&self.session.simulation);
-        self.session.mission = MissionState::new(MissionId::L02HoldingLine);
-        self.session.mission.start();
-        self.session.tick = self.session.simulation.tick;
-        self.session.selected = CellPos { x: 16, y: 9 };
-        self.session.time_control = TimeControl::Paused;
-        self.verification_mode = Some(VerificationMode::Showcase(device));
-        self.camera = FoundationCamera::new(32, 18);
-        self.notice = format!("device_{} — F2 return — V next showcase", device.name());
-    }
-
-    fn restore_campaign_session(&mut self) { if let Some(campaign) = self.saved_campaign_session.take() { self.restore_campaign(campaign); } }
-    fn restore_campaign(&mut self, campaign: GameSession) { self.session = campaign; self.verification_mode = None; self.camera = FoundationCamera::new(self.session.simulation.width as usize, self.session.simulation.height as usize); self.notice = "Returned to campaign session".into(); }
-
     fn set_time(&mut self, time: TimeControl) {
-        let command = if time == TimeControl::Paused { CommandKind::SetPaused } else { CommandKind::SetTimeRunning };
-        if self.admit(command) { self.session.time_control = time; }
+        let command = if time == TimeControl::Paused {
+            CommandKind::SetPaused
+        } else {
+            CommandKind::SetTimeRunning
+        };
+        if self.admit(command) {
+            self.session.time_control = time;
+        }
     }
 
     fn admit(&mut self, command: CommandKind) -> bool {
         match self.session.mission.admit(command) {
             crate::mission::Admission::Accepted => {
-                if self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()) { self.session.simulation.set_sources_enabled(true); }
+                if self
+                    .session
+                    .mission
+                    .tutorial
+                    .as_ref()
+                    .is_some_and(|tutorial| tutorial.is_complete())
+                {
+                    self.session.simulation.set_sources_enabled(true);
+                }
                 true
-            },
-            result => { self.notice = format!("Command unavailable: {result:?}"); false }
+            }
+            result => {
+                self.notice = format!("Command unavailable: {result:?}");
+                false
+            }
         }
     }
 
@@ -281,45 +613,123 @@ impl Game {
         self.draw_world();
         set_default_camera();
         begin_virtual_ui_frame(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
-        ui::draw_hud(UiContext { session: &self.session, camera_yaw: self.camera.yaw, camera_zoom: self.camera.zoom, notice: &self.notice, loaded_assets: self.assets.len(), verification_label: self.verification_mode.map(|mode| match mode { VerificationMode::Lab => "LAB_FLUIDS_ALL", VerificationMode::Showcase(device) => match device { DeviceId::Channel => "DEVICE_CHANNEL", DeviceId::Pipe => "DEVICE_PIPE", DeviceId::Pump => "DEVICE_PUMP", DeviceId::Floodgate => "DEVICE_FLOODGATE", DeviceId::Reservoir => "DEVICE_RESERVOIR", DeviceId::Spillway => "DEVICE_SPILLWAY", DeviceId::FlowTurbine => "DEVICE_FLOW_TURBINE", DeviceId::Sensor => "DEVICE_SENSOR", DeviceId::Filter => "DEVICE_FILTER", DeviceId::RuneRelay => "DEVICE_RUNE_RELAY" } }) });
+        ui::draw_hud(UiContext {
+            session: &self.session,
+            camera_yaw: self.camera.yaw,
+            camera_zoom: self.camera.zoom,
+            notice: &self.notice,
+            loaded_assets: self.assets.len(),
+            verification_label: self.verification_mode.map(|mode| match mode {
+                VerificationMode::Lab => "LAB_FLUIDS_ALL",
+                VerificationMode::Showcase(device) => match device {
+                    DeviceId::Channel => "DEVICE_CHANNEL",
+                    DeviceId::Pipe => "DEVICE_PIPE",
+                    DeviceId::Pump => "DEVICE_PUMP",
+                    DeviceId::Floodgate => "DEVICE_FLOODGATE",
+                    DeviceId::Reservoir => "DEVICE_RESERVOIR",
+                    DeviceId::Spillway => "DEVICE_SPILLWAY",
+                    DeviceId::FlowTurbine => "DEVICE_FLOW_TURBINE",
+                    DeviceId::Sensor => "DEVICE_SENSOR",
+                    DeviceId::Filter => "DEVICE_FILTER",
+                    DeviceId::RuneRelay => "DEVICE_RUNE_RELAY",
+                },
+            }),
+        });
         end_virtual_ui_frame();
     }
 
     fn draw_world(&self) {
         let selected = self.session.selected;
-        for y in 0..self.session.world.height { for x in 0..self.session.world.width {
-            let pos = CellPos { x, y }; let cell = &self.session.world.cells[self.session.world.index(pos).unwrap()];
-            let h = cell.height_hu as f32 * 0.0005; let center = vec3(x as f32 + 0.5, h * 0.5, y as f32 + 0.5); let size = vec3(0.96, h.max(0.12), 0.96);
-            let tint = if pos == selected { Color::new(0.82, 0.66, 0.24, 1.0) } else if cell.sealed { Color::new(0.25, 0.29, 0.35, 1.0) } else { Color::new(0.32 + x as f32 * 0.005, 0.24 + y as f32 * 0.004, 0.20, 1.0) };
-            draw_cube(center, size, None, tint); draw_cube_wires(center, size, Color::new(0.08, 0.09, 0.12, 0.55));
-            let sim_cell = &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()];
-            let surface_depth = sim_cell.surface_volume() as f32 * 0.0005;
-            if surface_depth > 0.0 {
-                let surface_center = vec3(x as f32 + 0.5, h + surface_depth * 0.5 + 0.02, y as f32 + 0.5);
-                let surface_color = sim_cell.surface.first().map(|material| fluid_color(material.fluid)).unwrap_or(WHITE);
-                draw_cube(surface_center, vec3(0.88, surface_depth.max(0.04), 0.88), None, surface_color);
+        for y in 0..self.session.world.height {
+            for x in 0..self.session.world.width {
+                let pos = CellPos { x, y };
+                let cell = &self.session.world.cells[self.session.world.index(pos).unwrap()];
+                let h = cell.height_hu as f32 * 0.0005;
+                let center = vec3(x as f32 + 0.5, h * 0.5, y as f32 + 0.5);
+                let size = vec3(0.96, h.max(0.12), 0.96);
+                let tint = if pos == selected {
+                    Color::new(0.82, 0.66, 0.24, 1.0)
+                } else if cell.sealed {
+                    Color::new(0.25, 0.29, 0.35, 1.0)
+                } else {
+                    Color::new(0.32 + x as f32 * 0.005, 0.24 + y as f32 * 0.004, 0.20, 1.0)
+                };
+                draw_cube(center, size, None, tint);
+                draw_cube_wires(center, size, Color::new(0.08, 0.09, 0.12, 0.55));
+                let sim_cell =
+                    &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()];
+                let surface_depth = sim_cell.surface_volume() as f32 * 0.0005;
+                if surface_depth > 0.0 {
+                    let surface_center = vec3(
+                        x as f32 + 0.5,
+                        h + surface_depth * 0.5 + 0.02,
+                        y as f32 + 0.5,
+                    );
+                    let surface_color = sim_cell
+                        .surface
+                        .first()
+                        .map(|material| fluid_color(material.fluid))
+                        .unwrap_or(WHITE);
+                    draw_cube(
+                        surface_center,
+                        vec3(0.88, surface_depth.max(0.04), 0.88),
+                        None,
+                        surface_color,
+                    );
+                }
+                let steam_depth = sim_cell.airborne_volume() as f32 * 0.00035;
+                if steam_depth > 0.0 {
+                    draw_cube(
+                        vec3(x as f32 + 0.5, h + 0.35 + steam_depth * 0.5, y as f32 + 0.5),
+                        vec3(0.7, steam_depth.max(0.08), 0.7),
+                        None,
+                        Color::new(0.76, 0.86, 0.92, 0.38),
+                    );
+                }
             }
-            let steam_depth = sim_cell.airborne_volume() as f32 * 0.00035;
-            if steam_depth > 0.0 { draw_cube(vec3(x as f32 + 0.5, h + 0.35 + steam_depth * 0.5, y as f32 + 0.5), vec3(0.7, steam_depth.max(0.08), 0.7), None, Color::new(0.76, 0.86, 0.92, 0.38)); }
-        }}
+        }
         for device in &self.session.simulation.devices.devices {
             let (width, height) = device.device.footprint();
-            let anchor = &self.session.simulation.cells[self.session.simulation.index(device.anchor).unwrap()];
-            let center = vec3(device.anchor.x as f32 + width as f32 * 0.5, anchor.height_hu as f32 * 0.0005 + 0.35, device.anchor.y as f32 + height as f32 * 0.5);
-            let color = if device.active { Color::new(0.35, 0.92, 0.72, 1.0) } else { Color::new(0.72, 0.52, 0.25, 1.0) };
-            draw_cube(center, vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72), None, color);
-            draw_cube_wires(center, vec3(width as f32 * 0.78, 0.74, height as f32 * 0.78), if device.anchor == selected { WHITE } else { Color::new(0.08, 0.09, 0.12, 0.8) });
+            let anchor = &self.session.simulation.cells
+                [self.session.simulation.index(device.anchor).unwrap()];
+            let center = vec3(
+                device.anchor.x as f32 + width as f32 * 0.5,
+                anchor.height_hu as f32 * 0.0005 + 0.35,
+                device.anchor.y as f32 + height as f32 * 0.5,
+            );
+            let color = if device.active {
+                Color::new(0.35, 0.92, 0.72, 1.0)
+            } else {
+                Color::new(0.72, 0.52, 0.25, 1.0)
+            };
+            draw_cube(
+                center,
+                vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72),
+                None,
+                color,
+            );
+            draw_cube_wires(
+                center,
+                vec3(width as f32 * 0.78, 0.74, height as f32 * 0.78),
+                if device.anchor == selected {
+                    WHITE
+                } else {
+                    Color::new(0.08, 0.09, 0.12, 0.8)
+                },
+            );
         }
         draw_grid_lines();
     }
 }
 
-fn fluid_color(fluid: FluidId) -> Color { match fluid { FluidId::Water => Color::new(0.12, 0.48, 0.9, 0.78), FluidId::Lava => Color::new(0.95, 0.22, 0.06, 0.9), FluidId::ToxicSlurry => Color::new(0.62, 0.72, 0.16, 0.86), FluidId::Steam => Color::new(0.76, 0.86, 0.92, 0.38) } }
-
-fn world_state_for(simulation: &SimulationWorld) -> WorldState {
-    let mut world = WorldState::new(simulation.width as usize, simulation.height as usize);
-    for (cell, sim_cell) in world.cells.iter_mut().zip(&simulation.cells) { cell.height_hu = sim_cell.height_hu; cell.sealed = sim_cell.sealed; }
-    world
+fn fluid_color(fluid: FluidId) -> Color {
+    match fluid {
+        FluidId::Water => Color::new(0.12, 0.48, 0.9, 0.78),
+        FluidId::Lava => Color::new(0.95, 0.22, 0.06, 0.9),
+        FluidId::ToxicSlurry => Color::new(0.62, 0.72, 0.16, 0.86),
+        FluidId::Steam => Color::new(0.76, 0.86, 0.92, 0.38),
+    }
 }
 
-fn draw_grid_lines() { /* Depth-tested cube silhouettes provide the stepped grid in R0. */ }
+fn draw_grid_lines() { /* Depth-tested cube silhouettes provide the stepped grid in R0. */
+}

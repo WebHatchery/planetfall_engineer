@@ -3,17 +3,18 @@
 use macroquad::prelude::*;
 use macroquad_toolkit::capture;
 
-mod data;
-mod content;
 mod campaign;
+mod content;
+mod data;
 mod devices;
 mod game;
+mod game_verification;
 mod mission;
 mod replay;
-mod state;
 mod simulation;
-mod verification;
+mod state;
 mod ui;
+mod verification;
 
 use game::Game;
 

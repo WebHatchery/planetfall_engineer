@@ -30,8 +30,14 @@ impl GameData {
         let config = load_embedded_json(CONFIG_JSON)?;
         let texture_manifest = load_embedded_json(TEXTURES_JSON)?;
         let content = ContentRegistry::load()?;
-        content.validate().map_err(|errors| format!("content validation failed:\n{}", errors.join("\n")))?;
-        Ok(Self { config, texture_manifest, content })
+        content
+            .validate()
+            .map_err(|errors| format!("content validation failed:\n{}", errors.join("\n")))?;
+        Ok(Self {
+            config,
+            texture_manifest,
+            content,
+        })
     }
 }
 

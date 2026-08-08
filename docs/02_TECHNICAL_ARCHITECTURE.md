@@ -103,9 +103,19 @@ Frame order MUST be:
 7. Build a read-only view model, rebuild dirty derived 3D meshes, render the 3D
    world, restore the virtual 2D UI camera, and render HUD once.
 
+Campaign orchestration remains in `game.rs`; the player-facing laboratory and
+device-showcase transitions live in `game_verification.rs` so the runtime
+controller stays below the source-file size gate.
+
 Pause sets simulation time scale to zero. Queued builds may be authored while
 paused but only become world entities on an explicit `CommitPlan` command.
 Committing is allowed while paused; devices do not operate until a later tick.
+
+Save loading validates the schema version, installed content version, and both
+world dimensions before constructing a session. Malformed, future, mismatched,
+or dimension-incompatible saves return an actionable error; the caller keeps
+the current session until the player chooses recovery. The state module tests
+the exact round trip and each rejection path.
 
 ## 5. Command contract
 

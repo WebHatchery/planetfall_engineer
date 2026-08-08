@@ -83,7 +83,10 @@ template maps.
 Save schema version 3 includes simulation, device, mission/tutorial,
 checkpoint, and campaign progression state in the deterministic hash. F5/F9
 round-trip tests prove that mission progress and best completion data survive
-save/load.
+save/load. Loading also rejects malformed data, unsupported future schema
+versions, installed-content version mismatches, and world/simulation dimension
+mismatches with actionable recovery notices while leaving the live session
+untouched.
 
 The campaign replay harness runs L01, L02, and L03 from authored constructors,
 checks terminal stability, resumes from a midpoint snapshot, and compares the
