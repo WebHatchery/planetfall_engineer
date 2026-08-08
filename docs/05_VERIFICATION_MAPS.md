@@ -1,0 +1,189 @@
+# Verification Map Specification
+
+## 1. Purpose
+
+Verification maps are executable technical fixtures with a player-visible
+presentation. They serve three jobs: manual behavior inspection, deterministic
+scenario testing, and automated capture evidence. They do not unlock campaign
+progress, award grades, or contain narrative dependencies.
+
+Every map MUST provide:
+
+- deterministic initial state and fixed camera framing;
+- a short instruction panel listing behavior and controls under test;
+- labeled inputs, output/measurement zones, and expected result ranges;
+- reset, pause, single-tick, 1x, 2x, and 4x controls;
+- live tick, state hash, source/sink totals, and mass-balance readout;
+- an automatic scenario command stream and a free-control mode;
+- pass/fail assertions shown in the map and exercised headlessly;
+- one stable 1280x720 evidence capture after its automatic scenario.
+
+Verification assertions are data records interpreted by tested assertion kinds,
+not arbitrary scripts. Required kinds are `zone_volume_range`,
+`zone_material_present`, `zone_material_absent`, `transfer_total_range`,
+`device_state`, `terrain_height_range`, `contamination_range`, `mass_balance`,
+and `state_hash`.
+
+## 2. All-fluid laboratory: `lab_fluids_all`
+
+### 2.1 Layout
+
+The 64x48 map has a 16x16 central interaction field and nine 10x8 perimeter
+bays, one for every GDD fluid ID. Slice-disabled fluids appear as sealed,
+labeled empty bays with `NOT IMPLEMENTED` status. Enabling a fluid MUST fill
+and activate its existing bay in the same change; the map ID and bay position
+do not change.
+
+| Bay | Fluid ID | Slice state |
+| --- | --- | --- |
+| North-west | `water` | Active |
+| North | `brine` | Reserved |
+| North-east | `lava` | Active |
+| West-north | `steam` | Active |
+| East-north | `cryofluid` | Reserved |
+| West-south | `acid` | Reserved |
+| East-south | `toxic_slurry` | Active |
+| South-west | `nutrient_solution` | Reserved |
+| South-east | `aetheric_condensate` | Reserved |
+
+Each active surface-fluid bay contains the same terrain sequence so behavior is
+comparable:
+
+1. a 4x4 sealed, level source pool at 2,000 `vU` depth;
+2. a three-cell slope dropping 250 `hU` per cell;
+3. a one-step 500 `hU` ridge with a one-cell notch;
+4. adjacent sealed and unsealed 2x2 catch basins;
+5. a drain after the measurement line.
+
+The steam bay replaces the surface pool with a sealed 4x4 hot chamber, a two-
+cell opening, a warm corridor, a cold 2x2 condensation pad, and a water catch
+basin. Terrain never blocks open steam unless its cell is `gas_blocked`.
+
+The central field has four separately resettable lanes:
+
+- `water_lava`: equal 1,000 `vU` pulses meet on level sealed terrain;
+- `lava_slurry`: equal 1,000 `vU` pulses meet on contaminated terrain;
+- `steam_condense`: steam crosses warm-to-cold ambient zones;
+- `non_reaction`: water and slurry mix/dilute without disappearing.
+
+### 2.2 Automatic scenario
+
+The automation runs bays one at a time to keep evidence readable:
+
+1. Reset; release each active bay for 100 ticks; assert its transfer limit,
+   downhill/diffusion behavior, retention, and contamination effect.
+2. Reset; run every central interaction lane for 80 ticks; assert products,
+   reactant decrease, terrain products, and mass accounting.
+3. Reset; run all active bays and lanes together for 300 ticks at 4x; assert
+   invariants and deterministic final hash.
+
+The UI capture uses step 3 at tick 180, centered on the interaction field with
+the fluid legend and assertion panel visible.
+
+### 2.3 Slice acceptance
+
+- Water enters the lower catchment and passes the ridge only through its notch.
+- Lava follows the same gradient no faster than 120 `vU`/tick per source edge.
+- Slurry follows the gradient no faster than 180 `vU`/tick and contaminates
+  only its unsealed basin.
+- Steam spreads independent of elevation and condenses on the cold pad.
+- Water/lava produces steam and rock; lava/slurry produces vitrified terrain;
+  water/slurry remains material-conserving and has weighted contamination.
+- Disabled bays contain no runtime fluid and clearly report reserved status.
+
+## 3. Device showcase contract
+
+Each enabled device owns `device_<device_id>.json`. The primary device may
+appear more than once when its own behavior requires comparison. No other
+placeable device definition may appear in that map. Authored fluid sources,
+drains, terrain walls, power supplies, objective zones, and labeled measurement
+fixtures are allowed and MUST be styled as test fixtures, not machines.
+
+Every showcase follows a common 32x18 shell:
+
+- left third: input/source and starting condition;
+- center third: empty valid placement pad plus one pre-placed primary device;
+- right third: output/measurement zone;
+- bottom strip: expected behavior, current measurements, assertion results;
+- build kit: only the primary device, with unlimited credits;
+- automatic scenario: demonstrates inactive/default, active, and one edge case;
+- free mode: player may place/remove/configure only that device.
+
+## 4. Required slice device maps
+
+### VM-CHANNEL — `device_channel`
+
+Water faces a shallow ridge. One pre-cut channel crosses the ridge; an adjacent
+blank route accepts player channels. Assert channel placement lowers 100 `hU`,
+increases transfer cap by 150 `vU`, and redirects water without creating or
+destroying it. Edge case: reject protected bedrock.
+
+### VM-PIPE — `device_pipe`
+
+A raised dry barrier separates a water source and sink. A prebuilt straight
+pipe route demonstrates connection highlighting; the blank route requires
+rotated segments. Assert capacity 600 `vU` per segment, network connectivity,
+no surface leakage, and disconnected-segment warning. No pump is present;
+fixture pressure provides flow.
+
+### VM-PUMP — `device_pump`
+
+A low pool and high output basin touch opposite sides of a placement pad.
+Assert off/100% settings, 250 `vU` maximum transfer, uphill transport, +100
+`pU`, conservation, and backpressure at a full destination. Fixture inlet and
+outlet adapters are map edges, not pipe devices.
+
+### VM-FLOODGATE — `device_floodgate`
+
+Two identical channels receive water; one has an authored gate. Cycle all five
+open fractions and assert zero transfer when closed plus monotonic transfer at
+25/50/75/100%. Edge case: gate direction rotation changes the blocked edge.
+
+### VM-RESERVOIR — `device_reservoir`
+
+A pulsed fixture source feeds a 2x2 placement pad and measured drain. Assert
+8,000 `vU` capacity, configured accept/hold/release states, no overflow below
+capacity, and backpressure when full. The scenario ends with stored + drained
+volume equal to injected volume.
+
+### VM-SPILLWAY — `device_spillway`
+
+A source raises upstream water above a crest. Assert no transfer below 2,000
+`vU` depth, one-way transfer above it, maximum 500 `vU`/tick, and blocked reverse
+flow. Compare a protected downstream zone that remains dry before threshold.
+
+### VM-FLOW-TURBINE — `device_flow_turbine`
+
+A fixture channel crosses the turbine pad. Run rates of 99, 100, 399, 400, and
+600 `vU`/tick; assert generated power 0, 1, 3, 4, and 4 per tick respectively,
+and unchanged material volume. Edge case: zero flow generates zero power.
+
+### VM-SENSOR — `device_sensor`
+
+A rising fixture pool is adjacent to a sensor; its link target is a labeled
+binary test lamp/flow shutter fixture, not a placeable device. Assert sampling
+of the prior completed state, threshold comparison, one-tick delayed output,
+clear link visualization, and deterministic response when crossing both ways.
+
+### VM-FILTER — `device_filter`
+
+Ten-thousand-bp slurry enters and exits through fixture adapters. Assert maximum
+160 `vU`/tick, 2,500 bp removal per pass, no volume loss, no effect when off,
+and saturation at zero after repeated passes. A water pulse demonstrates that
+clean water remains clean.
+
+### VM-RUNE-RELAY — `device_rune_relay`
+
+Fixture power and adjacent water flow can be toggled independently. Assert the
+relay is active only with at least 2 power/tick and 100 `vU`/tick adjacent flow,
+its 2x2 footprint/rotation placement, activation event emission, and immediate
+deactivation after either condition is absent on a completed tick.
+
+## 5. Growth rule
+
+A new device change is incomplete unless it adds its definition, behavior
+tests, `device_<id>` map, automatic command stream, assertions, evidence capture
+target, and index entry here. A new fluid change is incomplete unless it
+activates its reserved bay (or adds a named new bay if outside the GDD set),
+defines terrain behavior, covers every pairwise interaction, and updates the
+laboratory replay hash.

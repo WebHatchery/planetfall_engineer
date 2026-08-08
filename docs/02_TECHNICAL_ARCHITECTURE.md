@@ -141,17 +141,18 @@ localized prose.
 Every tick executes these phases in this exact order:
 
 1. Apply scheduled mission events for this tick.
-2. Apply accepted device setting changes pending for this tick.
-3. Sample sensors from the prior completed world state.
-4. Compute powered device intake/transfer proposals.
-5. Compute open-terrain fluid transfer proposals.
-6. Limit and atomically apply all transfer proposals.
-7. Resolve material interactions in row-major cell order.
-8. Apply heat exchange and phase changes.
-9. Apply filter, turbine, reservoir, and relay post-transfer effects.
-10. Recalculate derived pressure, alerts, and overlay fields.
-11. Evaluate failure boundaries, objectives, and stability counters.
-12. Increment tick and emit ordered simulation events.
+2. Inject enabled authored sources at their current rates.
+3. Apply accepted device setting changes pending for this tick.
+4. Sample sensors from the prior completed world state.
+5. Compute powered device intake/transfer proposals.
+6. Compute open-terrain fluid transfer proposals.
+7. Limit and atomically apply all transfer proposals.
+8. Resolve material interactions in row-major cell order.
+9. Apply heat exchange and phase changes.
+10. Apply filters, drains, turbines, reservoirs, and relay post-transfer effects.
+11. Recalculate derived pressure, alerts, and overlay fields.
+12. Evaluate failure boundaries, objectives, and stability counters.
+13. Increment tick and emit ordered simulation events.
 
 Exact rules and quantities are in `03_SIMULATION_SPEC.md`.
 
