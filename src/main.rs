@@ -8,6 +8,7 @@ mod campaign;
 mod devices;
 mod game;
 mod mission;
+mod replay;
 mod state;
 mod simulation;
 mod verification;

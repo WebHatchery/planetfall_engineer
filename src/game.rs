@@ -1,6 +1,6 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CommandKind, MissionId, MissionPhase}, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
+use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CommandKind, MissionId, MissionPhase}, replay::run_all_references, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
@@ -77,6 +77,7 @@ impl Game {
         if is_key_pressed(KeyCode::F7) { self.session.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
         if is_key_pressed(KeyCode::F8) { let admission = self.session.mission.admit(CommandKind::DismissPrompt); self.notice = format!("Tutorial command: {admission:?}"); }
         if is_key_pressed(KeyCode::F10) { let mut campaign = load_campaign(self.session.mission.id); seed_reference_materials(&mut campaign); self.session.simulation = campaign.world; self.notice = "Reference material fixture loaded".into(); }
+        if is_key_pressed(KeyCode::F11) { self.notice = run_all_references(); }
         if is_key_pressed(KeyCode::C) { if let Some(entity_id) = self.session.simulation.devices.devices.iter().find(|device| device.anchor == self.session.selected).map(|device| device.entity_id) { self.session.simulation.devices.remove(entity_id); self.notice = "Device removed and budget released".into(); } }
         if is_key_pressed(KeyCode::B) { self.queue_device(DeviceId::Channel); }
         if is_key_pressed(KeyCode::P) { self.queue_device(DeviceId::Pipe); }
