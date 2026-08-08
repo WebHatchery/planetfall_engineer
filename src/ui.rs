@@ -357,23 +357,19 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             528.0,
             TextStyle::new(10.0, Color::new(0.8, 0.68, 0.4, 1.0)).params(),
         );
-        for (x, label) in [
-            (1018.0, "INSPECT"),
-            (1094.0, "TERRAIN"),
-            (1172.0, "EXCAVATE"),
-        ] {
-            draw_rectangle(x, 532.0, 72.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
+        for (x, label) in [(1018.0, "INSPECT"), (1138.0, "EXCAVATE")] {
+            draw_rectangle(x, 532.0, 108.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
             draw_rectangle_lines(
                 x,
                 532.0,
-                72.0,
+                108.0,
                 28.0,
                 1.0,
                 Color::new(0.35, 0.74, 0.78, 0.95),
             );
             draw_ui_text_ex(
                 label,
-                x + 5.0,
+                x + 14.0,
                 550.0,
                 TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
             );
@@ -407,7 +403,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     }
     if let Some(tutorial) = ctx.session.mission.tutorial.as_ref() {
         if ctx.session.mission.phase == MissionPhase::Active && !tutorial.is_complete() {
-            draw_tutorial_prompt(tutorial);
+            crate::ui_tutorial::draw_tutorial_prompt(tutorial);
         }
     }
     if ctx.verification_label.is_none()
@@ -708,152 +704,6 @@ fn draw_pause_menu() {
         364.0,
         TextStyle::new(16.0, WHITE).params(),
     );
-}
-
-fn draw_tutorial_prompt(tutorial: &crate::mission::TutorialState) {
-    let (step, instruction, action) = tutorial_prompt(tutorial.current_step_id.as_str());
-    draw_rectangle(
-        24.0,
-        104.0,
-        520.0,
-        136.0,
-        Color::new(0.035, 0.055, 0.08, 0.96),
-    );
-    draw_rectangle_lines(
-        24.0,
-        104.0,
-        520.0,
-        136.0,
-        1.5,
-        Color::new(0.95, 0.8, 0.35, 0.9),
-    );
-    draw_ui_text_ex(
-        &format!(
-            "FIELD TUTORIAL // STEP {}/12 // {}",
-            tutorial.completed_step_ids.len() + 1,
-            step
-        ),
-        42.0,
-        130.0,
-        TextStyle::new(13.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
-    );
-    draw_ui_text_ex(
-        instruction,
-        42.0,
-        158.0,
-        TextStyle::new(16.0, Color::new(0.86, 0.9, 0.92, 1.0)).params(),
-    );
-    draw_ui_text_ex(
-        &format!("Required: {action}"),
-        42.0,
-        184.0,
-        TextStyle::new(13.0, Color::new(0.58, 0.72, 0.8, 1.0)).params(),
-    );
-    draw_rectangle(24.0, 202.0, 164.0, 28.0, Color::new(0.12, 0.16, 0.2, 0.98));
-    draw_rectangle_lines(
-        24.0,
-        202.0,
-        164.0,
-        28.0,
-        1.0,
-        Color::new(0.45, 0.55, 0.62, 0.9),
-    );
-    draw_ui_text_ex(
-        "SKIP TUTORIAL",
-        43.0,
-        221.0,
-        TextStyle::new(11.0, Color::new(0.82, 0.87, 0.9, 1.0)).params(),
-    );
-    if matches!(
-        tutorial.current_step_id.as_str(),
-        "tutorial_l01_welcome" | "tutorial_l01_inspect_grade"
-    ) {
-        draw_rectangle(420.0, 114.0, 104.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
-        draw_rectangle_lines(
-            420.0,
-            114.0,
-            104.0,
-            28.0,
-            1.0,
-            Color::new(0.35, 0.82, 0.76, 1.0),
-        );
-        draw_ui_text_ex(
-            "DISMISS",
-            437.0,
-            133.0,
-            TextStyle::new(11.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
-        );
-    }
-}
-
-fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
-    match step {
-        "tutorial_l01_welcome" => (
-            "WELCOME",
-            "Survey the ash basin and dismiss this briefing.",
-            "Tap DISMISS",
-        ),
-        "tutorial_l01_move_camera" => (
-            "CAMERA",
-            "Pan across the map to inspect the ridge.",
-            "Drag across the map",
-        ),
-        "tutorial_l01_move_cursor" => (
-            "SURVEY CURSOR",
-            "Move the survey cursor to the marked grade.",
-            "Tap the marked grade",
-        ),
-        "tutorial_l01_inspect_grade" => (
-            "INSPECT",
-            "Inspect the selected cell before changing it.",
-            "Tap INSPECT in FIELD TOOLS, then DISMISS",
-        ),
-        "tutorial_l01_pause_plan" => (
-            "PAUSE AND PLAN",
-            "Keep the simulation paused while preparing terrain.",
-            "Tap PAUSE, then TERRAIN",
-        ),
-        "tutorial_l01_excavate" => (
-            "EXCAVATE",
-            "Lower the selected route cell to open the flow path.",
-            "Tap EXCAVATE",
-        ),
-        "tutorial_l01_place_channel" => (
-            "PLACE CHANNEL",
-            "Choose a channel and queue it on the route.",
-            "Tap CHANNEL in the palette",
-        ),
-        "tutorial_l01_commit_plan" => (
-            "COMMIT",
-            "Commit the queued engineering plan.",
-            "Tap COMMIT",
-        ),
-        "tutorial_l01_run_and_observe" => (
-            "OBSERVE",
-            "Run time and watch water enter the route.",
-            "Tap 1X",
-        ),
-        "tutorial_l01_control_gate" => (
-            "OPEN GATE",
-            "Set the floodgate to the half-open control point.",
-            "Select the gate, then tap 50%",
-        ),
-        "tutorial_l01_see_impact" => (
-            "CLOSE GATE",
-            "Close the gate and observe the flow change.",
-            "Tap CLOSED",
-        ),
-        "tutorial_l01_stabilize" => (
-            "STABILIZE",
-            "Run the basin until the stability window completes.",
-            "Tap 1X",
-        ),
-        _ => (
-            "TUTORIAL",
-            "Follow the current mission instruction.",
-            "Mission controls",
-        ),
-    }
 }
 
 fn draw_text_right(text: &str, right: f32, y: f32, style: TextStyle) {

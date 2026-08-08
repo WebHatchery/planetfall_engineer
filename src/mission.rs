@@ -399,16 +399,12 @@ fn tutorial_allows(step: &str, command: CommandKind) -> bool {
                 | CommandKind::DismissPrompt
                 | CommandKind::SkipTutorial
         ),
-        "tutorial_l01_move_camera" => {
-            matches!(command, CommandKind::Camera | CommandKind::DismissPrompt)
-        }
+        "tutorial_l01_move_camera" => matches!(command, CommandKind::Camera),
         "tutorial_l01_move_cursor" => matches!(command, CommandKind::Select | CommandKind::Camera),
         "tutorial_l01_inspect_grade" => {
             matches!(command, CommandKind::Inspect | CommandKind::DismissPrompt)
         }
-        "tutorial_l01_pause_plan" => {
-            matches!(command, CommandKind::SetPaused | CommandKind::SelectTerrain)
-        }
+        "tutorial_l01_pause_plan" => matches!(command, CommandKind::SetPaused),
         "tutorial_l01_excavate" => matches!(command, CommandKind::QueueExcavate),
         "tutorial_l01_place_channel" => {
             matches!(command, CommandKind::QueueDevice(DeviceId::Channel))
@@ -417,33 +413,38 @@ fn tutorial_allows(step: &str, command: CommandKind) -> bool {
         "tutorial_l01_run_and_observe" => {
             matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
         }
-        "tutorial_l01_control_gate" => {
-            matches!(command, CommandKind::SetPaused | CommandKind::SetGate(_))
-        }
+        "tutorial_l01_control_gate" => matches!(command, CommandKind::Select | CommandKind::SetGate(_)),
         "tutorial_l01_see_impact" => matches!(command, CommandKind::SetGate(_)),
         "tutorial_l01_stabilize" => matches!(command, CommandKind::SetTimeRunning),
         _ => true,
     }
 }
 fn advance_tutorial(tutorial: &mut TutorialState, command: CommandKind) {
+    if tutorial.current_step_id == "tutorial_l01_inspect_grade"
+        && matches!(command, CommandKind::Inspect)
+    {
+        tutorial.dismissed_prompt = true;
+        return;
+    }
     let completes = matches!(
         (tutorial.current_step_id.as_str(), command),
         ("tutorial_l01_welcome", CommandKind::DismissPrompt)
             | ("tutorial_l01_move_camera", CommandKind::Camera)
             | ("tutorial_l01_move_cursor", CommandKind::Select)
-            | ("tutorial_l01_inspect_grade", CommandKind::DismissPrompt)
-            | ("tutorial_l01_pause_plan", CommandKind::SelectTerrain)
+            | ("tutorial_l01_pause_plan", CommandKind::SetPaused)
             | ("tutorial_l01_excavate", CommandKind::QueueExcavate)
             | (
                 "tutorial_l01_place_channel",
                 CommandKind::QueueDevice(DeviceId::Channel)
             )
             | ("tutorial_l01_commit_plan", CommandKind::CommitPlan)
-            | ("tutorial_l01_run_and_observe", CommandKind::Select)
+            | ("tutorial_l01_run_and_observe", CommandKind::SetTimeRunning)
             | ("tutorial_l01_control_gate", CommandKind::SetGate(5_000))
             | ("tutorial_l01_see_impact", CommandKind::SetGate(0))
             | ("tutorial_l01_stabilize", CommandKind::SetTimeRunning)
-    );
+    ) || (tutorial.current_step_id == "tutorial_l01_inspect_grade"
+        && tutorial.dismissed_prompt
+        && matches!(command, CommandKind::DismissPrompt));
     if completes {
         tutorial.complete_current();
     }
@@ -531,10 +532,11 @@ mod tests {
             CommandKind::Select,
             CommandKind::Inspect,
             CommandKind::DismissPrompt,
-            CommandKind::SelectTerrain,
+            CommandKind::SetPaused,
             CommandKind::QueueExcavate,
             CommandKind::QueueDevice(DeviceId::Channel),
             CommandKind::CommitPlan,
+            CommandKind::SetTimeRunning,
             CommandKind::Select,
             CommandKind::SetGate(5_000),
             CommandKind::SetGate(0),
@@ -551,6 +553,30 @@ mod tests {
             );
         }
         assert!(mission.tutorial.as_ref().unwrap().is_complete());
+    }
+
+    #[test]
+    fn inspection_explanation_requires_inspection_before_dismissal() {
+        let mut mission = MissionState::new(MissionId::L01FirstFlow);
+        mission.start();
+        for command in [
+            CommandKind::DismissPrompt,
+            CommandKind::Camera,
+            CommandKind::Select,
+        ] {
+            assert_eq!(mission.admit(command), Admission::Accepted);
+        }
+        assert_eq!(mission.admit(CommandKind::DismissPrompt), Admission::Accepted);
+        assert_eq!(
+            mission.tutorial.as_ref().unwrap().current_step_id,
+            "tutorial_l01_inspect_grade"
+        );
+        assert_eq!(mission.admit(CommandKind::Inspect), Admission::Accepted);
+        assert_eq!(mission.admit(CommandKind::DismissPrompt), Admission::Accepted);
+        assert_eq!(
+            mission.tutorial.as_ref().unwrap().current_step_id,
+            "tutorial_l01_pause_plan"
+        );
     }
     #[test]
     fn success_requires_stability_and_terminal_state_stops_ticks() {

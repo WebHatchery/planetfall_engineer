@@ -51,12 +51,6 @@ impl Game {
                 }
                 true
             }
-            Some(FieldControl::Terrain) => {
-                if self.admit(crate::mission::CommandKind::SelectTerrain) {
-                    self.notice = "Terrain tool ready — tap EXCAVATE to lower the selected cell".into();
-                }
-                true
-            }
             Some(FieldControl::Excavate) => {
                 self.apply_terrain(crate::simulation::TerrainAction::Excavate);
                 true
@@ -122,7 +116,6 @@ impl Game {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FieldControl {
     Inspect,
-    Terrain,
     Excavate,
     Gate(u16),
 }
@@ -130,7 +123,13 @@ enum FieldControl {
 fn field_control_click() -> Option<FieldControl> {
     let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
     if (1018.0..1248.0).contains(&point.x) && (532.0..560.0).contains(&point.y) {
-        return Some(if point.x < 1092.0 { FieldControl::Inspect } else if point.x < 1170.0 { FieldControl::Terrain } else { FieldControl::Excavate });
+        return Some(if point.x < 1126.0 {
+            FieldControl::Inspect
+        } else if point.x >= 1138.0 {
+            FieldControl::Excavate
+        } else {
+            return None;
+        });
     }
     if (1018.0..1248.0).contains(&point.x) && (566.0..594.0).contains(&point.y) {
         return Some(FieldControl::Gate(if point.x < 1092.0 { 0 } else if point.x < 1170.0 { 5_000 } else { 10_000 }));

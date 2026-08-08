@@ -18,6 +18,7 @@ mod replay;
 mod simulation;
 mod state;
 mod ui;
+mod ui_tutorial;
 mod verification;
 
 use game::Game;
