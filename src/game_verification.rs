@@ -8,6 +8,13 @@ use crate::state::{CellPos, GameSession, TimeControl, WorldState};
 impl Game {
     pub(crate) fn toggle_lab_mode(&mut self) {
         if let Some(campaign) = self.saved_campaign_session.take() {
+            if self.verification_returns_to_menu {
+                self.verification_mode = None;
+                self.verification_returns_to_menu = false;
+                self.frontend_mode = crate::game::FrontendMode::VerificationSelect;
+                self.notice = "Returned to verification grounds".into();
+                return;
+            }
             self.restore_campaign(campaign);
             return;
         }
@@ -55,6 +62,13 @@ impl Game {
 
     pub(crate) fn restore_campaign_session(&mut self) {
         if let Some(campaign) = self.saved_campaign_session.take() {
+            if self.verification_returns_to_menu {
+                self.verification_mode = None;
+                self.verification_returns_to_menu = false;
+                self.frontend_mode = crate::game::FrontendMode::VerificationSelect;
+                self.notice = "Returned to verification grounds".into();
+                return;
+            }
             self.restore_campaign(campaign);
         }
     }

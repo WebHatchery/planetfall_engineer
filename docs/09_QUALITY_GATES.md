@@ -113,7 +113,7 @@ Captures live under `docs/verification/` with stable names
 `<map_or_screen>_<width>x<height>.png`. `catalog_thumbnail.png` at repository
 root MUST be a current title-screen capture before release publishing.
 
-Current evidence includes the title screen, the three campaign briefings, `lab_fluids_all`, all
+Current evidence includes the title screen, the verification-grounds menu, the three campaign briefings, `lab_fluids_all`, all
 ten `device_*` showcases, gameplay at the three required viewport sizes, and a
 `failure_recovery` terminal panel capture.
 The `pause_menu` capture proves the frozen-state recovery overlay and its

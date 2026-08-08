@@ -2,7 +2,9 @@
 
 Playable vertical slice for a Rust + Macroquad planetary-engineering puzzle
 game. Launch opens a title screen with a new-campaign route, campaign board,
-and verification grounds for the all-fluid laboratory and every device bay.
+and verification grounds for the all-fluid laboratory and every device bay. A
+verification visit launched from the title returns to that board; a visit
+launched from a campaign preserves and returns to the current campaign session.
 The project uses `macroquad-toolkit` for the shared runtime, UI, persistence,
 camera, and data-loading patterns used by the Rust games in this workspace.
 

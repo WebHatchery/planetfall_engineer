@@ -40,8 +40,12 @@ impl Game {
                     );
                 }
             }
-            (FrontendMode::VerificationSelect, 0) => self.toggle_lab_mode(),
+            (FrontendMode::VerificationSelect, 0) => {
+                self.verification_returns_to_menu = true;
+                self.toggle_lab_mode();
+            }
             (FrontendMode::VerificationSelect, 1..=10) => {
+                self.verification_returns_to_menu = true;
                 self.enter_showcase(DeviceId::ALL[choice - 1]);
             }
             _ => {}
@@ -190,6 +194,7 @@ impl Game {
         self.checkpoint_session = None;
         self.saved_campaign_session = None;
         self.verification_mode = None;
+        self.verification_returns_to_menu = false;
         self.load_mission(MissionId::L01FirstFlow, "new campaign deployment");
     }
 }
