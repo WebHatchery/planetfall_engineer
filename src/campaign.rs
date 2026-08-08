@@ -42,14 +42,72 @@ pub fn load_campaign(id: MissionId) -> CampaignMap {
 
 fn author_l01(world: &mut SimulationWorld) {
     set_ambient(world, 3_030);
+    // Ashfall Basin is intentionally sculpted as a small, legible opening
+    // puzzle: high meltwater terrace -> winding cut -> basin, with a ridge
+    // that asks the player to excavate instead of simply running time.
+    for y in 0..world.height {
+        for x in 0..world.width {
+            let height = if y < 3 {
+                1_750
+            } else if x < 10 {
+                1_500
+            } else if x < 20 {
+                1_100
+            } else {
+                850
+            };
+            set_height(world, CellPos { x, y }, height);
+        }
+    }
+    for y in 2..=6 {
+        for x in 2..=8 {
+            set_height(world, CellPos { x, y }, 2_000);
+        }
+    }
+    for y in 4..=11 {
+        for x in 12..=18 {
+            set_height(world, CellPos { x, y }, 1_850);
+        }
+    }
+    for (pos, height) in [
+        (CellPos { x: 4, y: 4 }, 1_750),
+        (CellPos { x: 5, y: 4 }, 1_600),
+        (CellPos { x: 6, y: 4 }, 1_500),
+        (CellPos { x: 7, y: 5 }, 1_400),
+        (CellPos { x: 8, y: 5 }, 1_300),
+        (CellPos { x: 9, y: 6 }, 1_200),
+        (CellPos { x: 10, y: 6 }, 1_100),
+        (CellPos { x: 11, y: 7 }, 1_050),
+        (CellPos { x: 12, y: 8 }, 1_000),
+        (CellPos { x: 13, y: 8 }, 900),
+        (CellPos { x: 14, y: 8 }, 800),
+        (CellPos { x: 15, y: 8 }, 700),
+        (CellPos { x: 16, y: 8 }, 600),
+        (CellPos { x: 17, y: 8 }, 500),
+        (CellPos { x: 18, y: 8 }, 400),
+        (CellPos { x: 19, y: 8 }, 300),
+        (CellPos { x: 20, y: 8 }, 250),
+        (CellPos { x: 21, y: 8 }, 250),
+    ] {
+        set_height(world, pos, height);
+    }
+    for y in 5..=12 {
+        for x in 20..=27 {
+            set_height(world, CellPos { x, y }, 900);
+        }
+    }
+    for y in 7..=10 {
+        for x in 22..=25 {
+            set_height(world, CellPos { x, y }, 0);
+        }
+    }
+    for y in 14..=17 {
+        for x in 26..=29 {
+            set_height(world, CellPos { x, y }, 0);
+        }
+    }
     world.add_source(CellPos { x: 4, y: 4 }, FluidId::Water, 180);
     protect(world, CellPos { x: 10, y: 6 });
-    for x in 12..=18 {
-        set_height(world, CellPos { x, y: 7 }, 1_500);
-    }
-    for x in 14..=18 {
-        set_height(world, CellPos { x, y: 8 }, 1_250);
-    }
     for y in 7..=10 {
         for x in 22..=25 {
             set_sealed(world, CellPos { x, y });
@@ -185,6 +243,17 @@ mod tests {
         assert!(map.world.definitions[map.world.index(CellPos { x: 10, y: 6 }).unwrap()].protected);
         assert!(map.world.cells[map.world.index(CellPos { x: 22, y: 7 }).unwrap()].sealed);
         assert_eq!(map.reference_tick_range, (480, 750));
+    }
+
+    #[test]
+    fn l01_authors_a_visible_terrace_ridge_cut_and_basin() {
+        let map = load_campaign(MissionId::L01FirstFlow);
+        let height = |pos| map.world.cells[map.world.index(pos).unwrap()].height_hu;
+        assert!(height(CellPos { x: 4, y: 4 }) > height(CellPos { x: 14, y: 8 }));
+        assert!(height(CellPos { x: 12, y: 7 }) > height(CellPos { x: 14, y: 8 }));
+        assert!(height(CellPos { x: 14, y: 8 }) > height(CellPos { x: 22, y: 8 }));
+        assert_eq!(height(CellPos { x: 22, y: 8 }), 0);
+        assert_eq!(height(CellPos { x: 27, y: 16 }), 0);
     }
 
     #[test]

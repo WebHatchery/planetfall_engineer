@@ -124,7 +124,55 @@ impl Game {
                 },
             );
         }
+        self.draw_authored_markers();
         self.draw_placement_ghost();
+    }
+
+    fn draw_authored_markers(&self) {
+        for source in &self.session.simulation.sources {
+            let cell = &self.session.simulation.cells
+                [self.session.simulation.index(source.position).unwrap()];
+            let color = fluid_color(source.fluid);
+            let base = cell.height_hu as f32 * 0.0005;
+            draw_cube(
+                vec3(
+                    source.position.x as f32 + 0.5,
+                    base + 0.22,
+                    source.position.y as f32 + 0.5,
+                ),
+                vec3(0.42, 0.44, 0.42),
+                None,
+                color,
+            );
+            draw_cube_wires(
+                vec3(
+                    source.position.x as f32 + 0.5,
+                    base + 0.22,
+                    source.position.y as f32 + 0.5,
+                ),
+                vec3(0.5, 0.5, 0.5),
+                WHITE,
+            );
+        }
+        for (index, definition) in self.session.simulation.definitions.iter().enumerate() {
+            if !definition.protected {
+                continue;
+            }
+            let x = (index % self.session.simulation.width as usize) as f32 + 0.5;
+            let y = (index / self.session.simulation.width as usize) as f32 + 0.5;
+            let height = self.session.simulation.cells[index].height_hu as f32 * 0.0005;
+            draw_cube(
+                vec3(x, height + 0.28, y),
+                vec3(0.34, 0.56, 0.34),
+                None,
+                Color::new(0.74, 0.46, 0.86, 1.0),
+            );
+            draw_cube_wires(
+                vec3(x, height + 0.28, y),
+                vec3(0.42, 0.64, 0.42),
+                Color::new(0.96, 0.86, 0.98, 1.0),
+            );
+        }
     }
 }
 
