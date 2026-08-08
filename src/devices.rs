@@ -6,6 +6,9 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
+mod showcase;
+pub use showcase::{run_all_showcases, showcase_world};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DeviceId {
     Channel,
@@ -165,6 +168,36 @@ pub struct DeviceSystem {
 }
 
 impl DeviceSystem {
+    /// Install map-authored infrastructure without charging the player budget.
+    /// Fixtures still occupy their footprint and run through the same device
+    /// simulation as player-built equipment.
+    pub fn install_fixture(
+        &mut self,
+        world: &SimulationWorld,
+        device: DeviceId,
+        anchor: CellPos,
+        rotation: u8,
+    ) -> Result<u32, DeviceError> {
+        validate_placement(world, &self.devices, &[], device, anchor, rotation)?;
+        let entity_id = self.next_entity_id;
+        self.next_entity_id += 1;
+        self.devices.push(DeviceState {
+            entity_id,
+            device,
+            anchor,
+            rotation,
+            health_bp: 10_000,
+            powered: true,
+            setting_bp: 10_000,
+            stored_vu: 0,
+            stored_fluid: None,
+            power_generated: 0,
+            cumulative_power: 0,
+            active: false,
+        });
+        Ok(entity_id)
+    }
+
     pub fn place(
         &mut self,
         world: &SimulationWorld,
@@ -375,18 +408,80 @@ impl DeviceSystem {
                 DeviceId::FlowTurbine => {
                     let index = world.index(device.anchor).unwrap();
                     // Turbines are steam machines: standing surface water no
-                    // longer creates free power.
-                    let flow = world.cells[index]
+                    // longer creates free power. Connected pipes can deliver
+                    // a steam stream from a reaction shelf to the turbine.
+                    let local_steam = world.cells[index]
                         .airborne
                         .iter()
                         .find(|entry| entry.fluid == FluidId::Steam)
                         .map(|entry| entry.volume_vu)
                         .unwrap_or(0);
-                    device.power_generated = (flow / 100).min(4);
+                    let consumed_local = local_steam.min(400);
+                    if consumed_local > 0 {
+                        remove_fluid(
+                            &mut world.cells[index].airborne,
+                            FluidId::Steam,
+                            consumed_local,
+                        );
+                    }
+                    let pipe_source = topology
+                        .iter()
+                        .filter(|candidate| {
+                            candidate.device == DeviceId::Pipe
+                                && pipe_connected(&topology, device.anchor, candidate.anchor)
+                        })
+                        .find_map(|pipe| {
+                            let index = world.index(pipe.anchor)?;
+                            (world.cells[index]
+                                .airborne
+                                .iter()
+                                .find(|entry| entry.fluid == FluidId::Steam)
+                                .map(|entry| entry.volume_vu)
+                                .unwrap_or(0)
+                                > 0)
+                            .then_some(index)
+                        });
+                    let piped_steam = pipe_source
+                        .map(|source| {
+                            let amount = world.cells[source]
+                                .airborne
+                                .iter()
+                                .find(|entry| entry.fluid == FluidId::Steam)
+                                .map(|entry| entry.volume_vu.min(400))
+                                .unwrap_or(0);
+                            remove_fluid(&mut world.cells[source].airborne, FluidId::Steam, amount);
+                            amount
+                        })
+                        .unwrap_or(0);
+                    let flow = consumed_local.saturating_add(piped_steam);
+                    device.power_generated = (flow / 40).min(10);
                     device.cumulative_power = device
                         .cumulative_power
                         .saturating_add(device.power_generated as u64);
                     device.active = device.power_generated > 0;
+                    if device.active {
+                        let condensate_target = topology
+                            .iter()
+                            .find(|candidate| {
+                                candidate.device == DeviceId::RuneRelay
+                                    && pipe_connected(&topology, device.anchor, candidate.anchor)
+                            })
+                            .map(|relay| relay.anchor)
+                            .unwrap_or(device.anchor);
+                        if let Some(target) = world.index(condensate_target) {
+                            let condensed = world.cells[target].add_surface(
+                                crate::simulation::FluidEntry::new(FluidId::Water, flow),
+                            );
+                            if condensed < flow {
+                                world.cells[index].add_airborne(
+                                    crate::simulation::FluidEntry::new(
+                                        FluidId::Steam,
+                                        flow - condensed,
+                                    ),
+                                );
+                            }
+                        }
+                    }
                 }
                 DeviceId::Sensor => {
                     let index = world.index(device.anchor).unwrap();
@@ -405,7 +500,20 @@ impl DeviceSystem {
                 }
                 DeviceId::RuneRelay => {
                     let index = world.index(device.anchor).unwrap();
-                    device.active = device.powered && world.cells[index].surface_volume() >= 100;
+                    let intake = world.cells[index]
+                        .surface
+                        .iter()
+                        .find(|entry| entry.fluid == FluidId::Water)
+                        .map(|entry| entry.volume_vu)
+                        .unwrap_or(0)
+                        .min(400)
+                        .min(2_000u32.saturating_sub(device.stored_vu));
+                    if intake > 0 {
+                        remove_fluid(&mut world.cells[index].surface, FluidId::Water, intake);
+                        device.stored_vu += intake;
+                        device.stored_fluid = Some(FluidId::Water);
+                    }
+                    device.active = device.powered && device.stored_vu >= 100;
                 }
                 DeviceId::Pipe | DeviceId::Floodgate => {}
             }
@@ -421,11 +529,10 @@ impl DeviceSystem {
         {
             relay.powered = powered_topology.iter().any(|turbine| {
                 turbine.device == DeviceId::FlowTurbine
-                    && turbine.active
+                    && (turbine.active || turbine.cumulative_power >= 40)
                     && pipe_connected(&powered_topology, relay.anchor, turbine.anchor)
             });
-            let index = world.index(relay.anchor).unwrap();
-            relay.active = relay.powered && world.cells[index].surface_volume() >= 100;
+            relay.active = relay.powered && relay.stored_vu >= 100;
         }
     }
 }
@@ -448,6 +555,25 @@ fn adjacent(a: CellPos, b: CellPos) -> bool {
     a.x.abs_diff(b.x) + a.y.abs_diff(b.y) == 1
 }
 
+fn adjacent_to_footprint(position: CellPos, device: &DeviceState) -> bool {
+    let (width, height) = device.device.footprint();
+    (0..height).any(|dy| {
+        (0..width).any(|dx| {
+            adjacent(
+                position,
+                CellPos {
+                    x: device.anchor.x + dx,
+                    y: device.anchor.y + dy,
+                },
+            )
+        })
+    })
+}
+
+fn is_conduit(device: DeviceId) -> bool {
+    matches!(device, DeviceId::Pipe | DeviceId::Channel)
+}
+
 fn pipe_connected(devices: &[DeviceState], first: CellPos, second: CellPos) -> bool {
     let mut frontier = vec![first];
     let mut visited = Vec::new();
@@ -459,10 +585,7 @@ fn pipe_connected(devices: &[DeviceState], first: CellPos, second: CellPos) -> b
         if adjacent(position, second) {
             return true;
         }
-        for pipe in devices
-            .iter()
-            .filter(|device| device.device == DeviceId::Pipe)
-        {
+        for pipe in devices.iter().filter(|device| is_conduit(device.device)) {
             if adjacent(position, pipe.anchor) && !visited.contains(&pipe.anchor) {
                 frontier.push(pipe.anchor);
             }
@@ -478,7 +601,7 @@ fn pipe_endpoint(
 ) -> Option<CellPos> {
     let first_pipe = devices
         .iter()
-        .any(|device| device.device == DeviceId::Pipe && device.anchor == start);
+        .any(|device| is_conduit(device.device) && device.anchor == start);
     if !first_pipe {
         return None;
     }
@@ -492,10 +615,10 @@ fn pipe_endpoint(
         let endpoints: Vec<_> = devices
             .iter()
             .filter(|device| {
-                device.device != DeviceId::Pipe
+                !is_conduit(device.device)
                     && device.device != DeviceId::Pump
                     && device.anchor != start
-                    && adjacent(position, device.anchor)
+                    && adjacent_to_footprint(position, device)
             })
             .collect();
         if let Some(endpoint) = endpoints.into_iter().min_by_key(|device| device.entity_id) {
@@ -503,7 +626,7 @@ fn pipe_endpoint(
         }
         for pipe in devices
             .iter()
-            .filter(|device| device.device == DeviceId::Pipe && adjacent(position, device.anchor))
+            .filter(|device| is_conduit(device.device) && adjacent(position, device.anchor))
         {
             frontier.push(pipe.anchor);
         }
@@ -648,100 +771,10 @@ fn footprints_overlap(
     })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ShowcaseReport {
-    pub device: DeviceId,
-    pub placed: bool,
-    pub active_after_tick: bool,
-    pub mass_balance_ok: bool,
-    pub state_hash: u64,
-}
-
-pub fn run_showcase(device: DeviceId) -> ShowcaseReport {
-    let (world, placed) = build_showcase_world(device);
-    let world = if placed {
-        let mut world = world;
-        world.tick();
-        world
-    } else {
-        world
-    };
-    let active_after_tick = world
-        .devices
-        .devices
-        .first()
-        .is_some_and(|state| state.active);
-    ShowcaseReport {
-        device,
-        placed,
-        active_after_tick,
-        mass_balance_ok: world.mass_balance_error() == 0,
-        state_hash: hash(&world),
-    }
-}
-
-pub fn showcase_world(device: DeviceId) -> SimulationWorld {
-    let (world, _) = build_showcase_world(device);
-    world
-}
-
-fn build_showcase_world(device: DeviceId) -> (SimulationWorld, bool) {
-    let mut world = SimulationWorld::new(32, 18);
-    if device == DeviceId::FlowTurbine {
-        for definition in &mut world.definitions {
-            definition.ambient_temperature_dk = 4_730;
-        }
-    }
-    let anchor = CellPos { x: 15, y: 8 };
-    let mut devices = std::mem::take(&mut world.devices);
-    let placed = devices.place(&world, device, anchor, 0, 1_000).is_ok();
-    world.devices = devices;
-    if placed {
-        world.inject(
-            anchor,
-            if matches!(device, DeviceId::FlowTurbine) {
-                FluidId::Steam
-            } else if matches!(device, DeviceId::Filter) {
-                FluidId::ToxicSlurry
-            } else {
-                FluidId::Water
-            },
-            1_000,
-        );
-        world.tick();
-    }
-    (world, placed)
-}
-
-pub fn run_all_showcases() -> String {
-    let reports: Vec<_> = SHOWCASE_MAPS
-        .into_iter()
-        .map(|showcase| run_showcase(showcase.device))
-        .collect();
-    let passed = reports
-        .iter()
-        .filter(|report| report.placed && report.mass_balance_ok)
-        .count();
-    let names = reports
-        .iter()
-        .map(|report| report.device.name())
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("{passed}/{} showcases PASS: {names}", DeviceId::ALL.len())
-}
-
-fn hash(world: &SimulationWorld) -> u64 {
-    let mut hash = 1469598103934665603u64;
-    for byte in serde_json::to_vec(world).unwrap() {
-        hash ^= byte as u64;
-        hash = hash.wrapping_mul(1099511628211);
-    }
-    hash
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::showcase::run_showcase;
     #[test]
     fn all_ten_devices_have_unique_showcases() {
         let reports: Vec<_> = DeviceId::ALL.into_iter().map(run_showcase).collect();

@@ -1,8 +1,8 @@
 //! Deterministic campaign and failure-path replay harness.
 
 use crate::{
-    campaign::{apply_scheduled_events, load_campaign, seed_reference_materials},
-    mission::{MissionId, MissionPhase, MissionState},
+    campaign::{apply_scheduled_events, load_campaign},
+    mission::{Admission, CommandKind, MissionId, MissionPhase, MissionState},
     simulation::{FluidId, SimulationWorld},
     state::CellPos,
 };
@@ -33,15 +33,22 @@ pub struct ScenarioReport {
     pub drained_vu: u64,
     pub reacted_vu: u64,
     pub products_vu: u64,
+    pub admitted_commands: u32,
+    pub placed_devices: usize,
+    pub reservoir_vu: u32,
+    pub turbine_power: u64,
+    pub relay_active: bool,
+    pub relay_present: bool,
+    pub relay_stored_vu: u32,
+    pub relay_powered: bool,
 }
 
 pub fn run_scenario(id: MissionId, kind: ScenarioKind) -> ScenarioReport {
     let mut map = load_campaign(id);
-    seed_reference_materials(&mut map);
     let mut mission = MissionState::new(id);
     mission.start();
     let initial_hash = hash(&map.world, &mission);
-    seed_scenario(&mut map.world, id, kind);
+    seed_scenario(&mut map.world, &mut mission, id, kind);
     for _ in 0..50 {
         tick_scenario(&mut map.world, &mut mission, id, kind);
     }
@@ -74,29 +81,63 @@ pub fn run_scenario(id: MissionId, kind: ScenarioKind) -> ScenarioReport {
         drained_vu: map.world.ledger.drained,
         reacted_vu: map.world.ledger.reacted,
         products_vu: map.world.ledger.products,
+        admitted_commands: mission.command_count,
+        placed_devices: map.world.devices.devices.len(),
+        reservoir_vu: map
+            .world
+            .devices
+            .devices
+            .iter()
+            .filter(|device| device.device == crate::devices::DeviceId::Reservoir)
+            .map(|device| device.stored_vu)
+            .sum(),
+        turbine_power: map
+            .world
+            .devices
+            .devices
+            .iter()
+            .filter(|device| device.device == crate::devices::DeviceId::FlowTurbine)
+            .map(|device| device.cumulative_power)
+            .sum(),
+        relay_active: map
+            .world
+            .devices
+            .devices
+            .iter()
+            .any(|device| device.device == crate::devices::DeviceId::RuneRelay && device.active),
+        relay_present: map
+            .world
+            .devices
+            .devices
+            .iter()
+            .any(|device| device.device == crate::devices::DeviceId::RuneRelay),
+        relay_stored_vu: map
+            .world
+            .devices
+            .devices
+            .iter()
+            .filter(|device| device.device == crate::devices::DeviceId::RuneRelay)
+            .map(|device| device.stored_vu)
+            .sum(),
+        relay_powered: map
+            .world
+            .devices
+            .devices
+            .iter()
+            .any(|device| device.device == crate::devices::DeviceId::RuneRelay && device.powered),
     }
 }
 
-fn seed_scenario(world: &mut SimulationWorld, id: MissionId, kind: ScenarioKind) {
+fn seed_scenario(
+    world: &mut SimulationWorld,
+    mission: &mut MissionState,
+    id: MissionId,
+    kind: ScenarioKind,
+) {
     match kind {
-        ScenarioKind::Reference => seed_objective_water(world, id),
-        ScenarioKind::Alternate => {
-            let pos = match id {
-                MissionId::L01FirstFlow => CellPos { x: 24, y: 9 },
-                MissionId::L02HoldingLine => CellPos { x: 34, y: 8 },
-                MissionId::L03Firebreak => CellPos { x: 23, y: 14 },
-            };
-            world.inject(pos, FluidId::Water, 6_000);
-            if id == MissionId::L03Firebreak {
-                world.inject(pos, FluidId::Lava, 6_000);
-                let second = CellPos {
-                    x: pos.x + 1,
-                    y: pos.y,
-                };
-                world.inject(second, FluidId::Water, 6_000);
-                world.inject(second, FluidId::Lava, 6_000);
-            }
-        }
+        // Success branches begin solely from the authored map state. Their
+        // material arrives through sources and the admitted build below.
+        ScenarioKind::Reference | ScenarioKind::Alternate => {}
         ScenarioKind::Failure => match id {
             MissionId::L01FirstFlow => {
                 world.inject(CellPos { x: 10, y: 6 }, FluidId::Water, 4_000);
@@ -117,68 +158,162 @@ fn seed_scenario(world: &mut SimulationWorld, id: MissionId, kind: ScenarioKind)
                 }
                 world.inject(CellPos { x: 22, y: 14 }, FluidId::Water, 500);
                 world.inject(CellPos { x: 22, y: 14 }, FluidId::Lava, 500);
-            } else {
-                seed_objective_water(world, id);
             }
         }
     }
-    install_reference_requirements(world, id, kind);
+    install_reference_build(world, mission, id, kind);
+    if matches!(kind, ScenarioKind::Reference | ScenarioKind::Alternate) {
+        world.set_sources_enabled(true);
+    }
 }
 
-fn install_reference_requirements(world: &mut SimulationWorld, id: MissionId, kind: ScenarioKind) {
+fn install_reference_build(
+    world: &mut SimulationWorld,
+    mission: &mut MissionState,
+    id: MissionId,
+    kind: ScenarioKind,
+) {
     if matches!(
         kind,
         ScenarioKind::Failure | ScenarioKind::InsufficientWaterRecovery
     ) {
         return;
     }
-    let mut devices = std::mem::take(&mut world.devices);
+    if mission.id == MissionId::L01FirstFlow {
+        let _ = mission.skip_tutorial();
+    }
     match id {
         MissionId::L02HoldingLine => {
-            if devices
-                .place(
+            let _ = admit_build(
+                world,
+                mission,
+                crate::devices::DeviceId::Pump,
+                CellPos { x: 5, y: 16 },
+                0,
+            );
+            for pos in [
+                (6, 16),
+                (7, 16),
+                (9, 16),
+                (11, 16),
+                (13, 16),
+                (15, 16),
+                (16, 16),
+                (16, 15),
+                (17, 14),
+                (17, 13),
+                (18, 13),
+                (19, 12),
+                (20, 12),
+                (20, 11),
+                (20, 10),
+            ] {
+                let _ = admit_build(
                     world,
-                    crate::devices::DeviceId::Reservoir,
-                    CellPos { x: 20, y: 8 },
+                    mission,
+                    crate::devices::DeviceId::Pipe,
+                    CellPos { x: pos.0, y: pos.1 },
                     0,
-                    u32::MAX,
-                )
-                .is_ok()
-            {
-                let reservoir = devices.devices.last_mut().unwrap();
-                reservoir.stored_vu = 2_500;
-                reservoir.stored_fluid = Some(FluidId::Water);
-                world.ledger.injected += 2_500;
+                );
             }
+            let _ = admit_build(
+                world,
+                mission,
+                crate::devices::DeviceId::Reservoir,
+                CellPos { x: 20, y: 8 },
+                0,
+            );
         }
         MissionId::L03Firebreak => {
-            let _ = devices.place(
+            let _ = admit_build(
                 world,
+                mission,
                 crate::devices::DeviceId::FlowTurbine,
                 CellPos { x: 27, y: 9 },
                 0,
-                u32::MAX,
             );
-            if let Some(turbine) = devices.devices.last_mut() {
-                turbine.cumulative_power = 40;
-            }
-            if devices
-                .place(
+            for x in 22..=27 {
+                let _ = admit_build(
                     world,
-                    crate::devices::DeviceId::RuneRelay,
-                    CellPos { x: 38, y: 5 },
+                    mission,
+                    crate::devices::DeviceId::Pipe,
+                    CellPos { x, y: 14 },
                     0,
-                    u32::MAX,
-                )
-                .is_ok()
-            {
-                let relay = devices.devices.last_mut().unwrap();
-                relay.active = true;
+                );
             }
+            for y in 10..=13 {
+                let _ = admit_build(
+                    world,
+                    mission,
+                    crate::devices::DeviceId::Pipe,
+                    CellPos { x: 27, y },
+                    0,
+                );
+            }
+            for x in 28..=37 {
+                let _ = admit_build(
+                    world,
+                    mission,
+                    crate::devices::DeviceId::Pipe,
+                    CellPos { x, y: 9 },
+                    0,
+                );
+            }
+            for y in 5..=8 {
+                let _ = admit_build(
+                    world,
+                    mission,
+                    crate::devices::DeviceId::Pipe,
+                    CellPos { x: 37, y },
+                    0,
+                );
+            }
+            let _ = admit_build(
+                world,
+                mission,
+                crate::devices::DeviceId::RuneRelay,
+                CellPos { x: 38, y: 5 },
+                0,
+            );
         }
-        MissionId::L01FirstFlow => {}
+        MissionId::L01FirstFlow => {
+            if mission.admit(CommandKind::SetGate(10_000)) == Admission::Accepted {
+                let mut devices = std::mem::take(&mut world.devices);
+                devices.set_selected_gate(CellPos { x: 21, y: 8 }, 10_000);
+                world.devices = devices;
+            }
+            let _ = admit_build(
+                world,
+                mission,
+                crate::devices::DeviceId::Channel,
+                CellPos { x: 12, y: 8 },
+                0,
+            );
+        }
     }
+}
+
+fn admit_build(
+    world: &mut SimulationWorld,
+    mission: &mut MissionState,
+    device: crate::devices::DeviceId,
+    anchor: CellPos,
+    rotation: u8,
+) -> bool {
+    if mission.admit(CommandKind::QueueDevice(device)) != Admission::Accepted {
+        return false;
+    }
+    let mut devices = std::mem::take(&mut world.devices);
+    let queued = devices
+        .queue(world, device, anchor, rotation, mission.budget)
+        .is_ok();
+    let committed = if queued && mission.admit(CommandKind::CommitPlan) == Admission::Accepted {
+        devices.commit_plan(world, mission.budget).is_ok()
+    } else {
+        false
+    };
     world.devices = devices;
+    committed
 }
 
 fn tick_scenario(
@@ -202,18 +337,6 @@ fn tick_scenario(
     }
     apply_scheduled_events(world, id);
     world.tick();
-    if id == MissionId::L03Firebreak
-        && !matches!(
-            kind,
-            ScenarioKind::Failure | ScenarioKind::InsufficientWaterRecovery
-        )
-    {
-        for device in &mut world.devices.devices {
-            if device.device == crate::devices::DeviceId::RuneRelay {
-                device.active = true;
-            }
-        }
-    }
     mission.on_tick(world);
 }
 
@@ -221,24 +344,6 @@ fn objective_target(id: MissionId) -> u32 {
     match id {
         MissionId::L01FirstFlow | MissionId::L02HoldingLine => 6_000,
         MissionId::L03Firebreak => 3_000,
-    }
-}
-
-fn seed_objective_water(world: &mut SimulationWorld, id: MissionId) {
-    let pos = match id {
-        MissionId::L01FirstFlow => CellPos { x: 23, y: 8 },
-        MissionId::L02HoldingLine => CellPos { x: 33, y: 8 },
-        MissionId::L03Firebreak => CellPos { x: 22, y: 14 },
-    };
-    world.inject(pos, FluidId::Water, 6_000);
-    if id == MissionId::L03Firebreak {
-        world.inject(pos, FluidId::Lava, 6_000);
-        let second = CellPos {
-            x: pos.x + 1,
-            y: pos.y,
-        };
-        world.inject(second, FluidId::Water, 6_000);
-        world.inject(second, FluidId::Lava, 6_000);
     }
 }
 
@@ -300,6 +405,8 @@ mod tests {
             assert_eq!(report.mass_balance_error, 0);
             assert!(report.ticks >= 100);
             assert!(report.injected_vu > 0);
+            assert!(report.admitted_commands > 0, "{report:?}");
+            assert!(report.placed_devices > 0, "{report:?}");
         }
     }
 
@@ -323,6 +430,7 @@ mod tests {
             assert!(first.continuation_matches);
             assert_eq!(first.mass_balance_error, 0);
             assert_ne!(first.midpoint_hash, first.final_hash);
+            assert!(first.admitted_commands > 0, "{first:?}");
         }
     }
 

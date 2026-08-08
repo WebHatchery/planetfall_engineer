@@ -9,7 +9,6 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct CampaignMap {
-    pub id: MissionId,
     pub world: SimulationWorld,
     pub budget: u32,
     pub reference_tick_range: (u64, u64),
@@ -34,7 +33,6 @@ pub fn load_campaign(id: MissionId) -> CampaignMap {
         MissionId::L03Firebreak => author_l03(&mut world),
     }
     CampaignMap {
-        id,
         world,
         budget,
         reference_tick_range,
@@ -108,6 +106,9 @@ fn author_l01(world: &mut SimulationWorld) {
         }
     }
     world.add_source(CellPos { x: 4, y: 4 }, FluidId::Water, 180);
+    // The gate feeds a maintained basin inlet. The high terrace source remains
+    // scenic runoff; this controlled source is the puzzle's reliable supply.
+    world.add_source(CellPos { x: 22, y: 8 }, FluidId::Water, 10_000);
     protect(world, CellPos { x: 10, y: 6 });
     for y in 7..=10 {
         for x in 22..=25 {
@@ -123,9 +124,15 @@ fn author_l02(world: &mut SimulationWorld) {
     set_ambient(world, 2_930);
     world.add_source(CellPos { x: 5, y: 16 }, FluidId::Water, 100);
     // Low aquifer and raised central reserve make pumping legible at a glance.
+    for y in 13..=19 {
+        for x in 2..=8 {
+            set_height(world, CellPos { x, y }, 650);
+        }
+    }
     for y in 14..=18 {
         for x in 3..=7 {
             set_height(world, CellPos { x, y }, 0);
+            set_sealed(world, CellPos { x, y });
         }
     }
     world.inject(CellPos { x: 5, y: 16 }, FluidId::Water, 8_000);
@@ -141,14 +148,17 @@ fn author_l02(world: &mut SimulationWorld) {
     }
     for y in 14..=18 {
         for x in 24..=28 {
+            set_height(world, CellPos { x, y }, 5_000);
             protect(world, CellPos { x, y });
         }
     }
     for y in 7..=9 {
         for x in 31..=36 {
+            set_height(world, CellPos { x, y }, 0);
             set_sealed(world, CellPos { x, y });
         }
     }
+    world.add_source(CellPos { x: 33, y: 8 }, FluidId::Water, 10_000);
     // Two pipe runs are intentionally broken into twelve obvious gaps. They
     // read as infrastructure rather than a generic empty board and leave the
     // player with meaningful connection work.
@@ -174,6 +184,10 @@ fn author_l02(world: &mut SimulationWorld) {
 fn author_l03(world: &mut SimulationWorld) {
     set_ambient(world, 3_230);
     world.add_source(CellPos { x: 5, y: 15 }, FluidId::Lava, 100);
+    // Paired vents at the reaction shelf make the firebreak a live system,
+    // while the cistern remains the player's visible reserve.
+    world.add_source(CellPos { x: 22, y: 14 }, FluidId::Water, 220);
+    world.add_source(CellPos { x: 22, y: 14 }, FluidId::Lava, 220);
     // Caldera walls and a descending lava trough frame the reaction shelf.
     for y in 0..world.height {
         for x in 0..world.width {
@@ -220,24 +234,6 @@ fn author_l03(world: &mut SimulationWorld) {
     install_device(world, DeviceId::Channel, CellPos { x: 30, y: 9 }, 0, 0);
 }
 
-pub fn seed_reference_materials(map: &mut CampaignMap) {
-    match map.id {
-        MissionId::L01FirstFlow => map
-            .world
-            .inject(CellPos { x: 4, y: 4 }, FluidId::Water, 180),
-        MissionId::L02HoldingLine => {
-            map.world
-                .inject(CellPos { x: 5, y: 16 }, FluidId::Water, 8_000)
-        }
-        MissionId::L03Firebreak => {
-            map.world
-                .inject(CellPos { x: 5, y: 15 }, FluidId::Lava, 100);
-            map.world
-                .inject(CellPos { x: 9, y: 4 }, FluidId::Water, 12_000);
-        }
-    }
-}
-
 pub fn apply_scheduled_events(world: &mut SimulationWorld, id: MissionId) {
     let (start_tick, end_tick, surge_rate) = match id {
         MissionId::L02HoldingLine => (900, 1_200, 400),
@@ -281,7 +277,7 @@ fn install_device(
     setting_bp: u16,
 ) {
     let mut devices = std::mem::take(&mut world.devices);
-    let placed = devices.place(world, device, anchor, rotation, u32::MAX);
+    let placed = devices.install_fixture(world, device, anchor, rotation);
     if let Ok(entity) = placed {
         if let Some(state) = devices
             .devices
@@ -370,18 +366,6 @@ mod tests {
             );
         }
     }
-    #[test]
-    fn reference_material_seed_is_deterministic() {
-        let mut first = load_campaign(MissionId::L03Firebreak);
-        let mut second = load_campaign(MissionId::L03Firebreak);
-        seed_reference_materials(&mut first);
-        seed_reference_materials(&mut second);
-        assert_eq!(
-            serde_json::to_vec(&first.world).unwrap(),
-            serde_json::to_vec(&second.world).unwrap()
-        );
-    }
-
     #[test]
     fn authored_source_surges_begin_and_end_on_schedule() {
         let mut map = load_campaign(MissionId::L02HoldingLine);

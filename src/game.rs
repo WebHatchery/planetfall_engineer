@@ -2,7 +2,7 @@
 
 use crate::ui;
 use crate::{
-    campaign::{load_campaign, seed_reference_materials},
+    campaign::load_campaign,
     data::GameData,
     devices::{run_all_showcases, DeviceId, SHOWCASE_MAPS},
     mission::{campaign_summary, CommandKind, MissionId, MissionPhase},
@@ -422,10 +422,7 @@ impl Game {
             self.notice = format!("{} — tutorial command: {admission:?}", run_all_showcases());
         }
         if is_key_pressed(KeyCode::F10) {
-            let mut campaign = load_campaign(self.session.mission.id);
-            seed_reference_materials(&mut campaign);
-            self.session.simulation = campaign.world;
-            self.notice = "Reference material fixture loaded".into();
+            self.load_mission(self.session.mission.id, "reloaded from authored state");
         }
         if is_key_pressed(KeyCode::F11) {
             self.notice = run_all_scenarios();
