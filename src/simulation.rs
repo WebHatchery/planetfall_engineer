@@ -2,7 +2,7 @@
 //!
 //! The renderer consumes this state but never participates in its decisions.
 
-use crate::state::CellPos;
+use crate::{devices::DeviceSystem, state::CellPos};
 use serde::{Deserialize, Serialize};
 
 pub const CELL_CAPACITY_VU: u32 = 8_000;
@@ -124,13 +124,14 @@ pub struct SimulationWorld {
     pub tick: u64,
     pub ledger: MassLedger,
     pub events: Vec<SimEvent>,
+    pub devices: DeviceSystem,
 }
 
 impl SimulationWorld {
     pub fn new(width: u16, height: u16) -> Self {
         let definitions = vec![CellDefinition::default(); width as usize * height as usize];
         let cells = definitions.iter().map(|d| SimCell::empty(d.base_height_hu, false)).collect();
-        Self { width, height, definitions, cells, tick: 0, ledger: MassLedger::default(), events: Vec::new() }
+        Self { width, height, definitions, cells, tick: 0, ledger: MassLedger::default(), events: Vec::new(), devices: DeviceSystem::default() }
     }
 
     pub fn index(&self, pos: CellPos) -> Option<usize> { (pos.x < self.width && pos.y < self.height).then_some(pos.y as usize * self.width as usize + pos.x as usize) }
@@ -170,6 +171,9 @@ impl SimulationWorld {
         self.react_materials();
         self.heat_and_phase_change();
         self.apply_terrain_products();
+        let mut devices = std::mem::take(&mut self.devices);
+        devices.tick(self);
+        self.devices = devices;
         self.sort_entries();
     }
 

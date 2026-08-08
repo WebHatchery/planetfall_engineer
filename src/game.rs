@@ -1,6 +1,6 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{data::GameData, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl}, verification::FluidsLab};
+use crate::{data::GameData, devices::{run_all_showcases, DeviceId}, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl}, verification::FluidsLab};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
@@ -63,6 +63,11 @@ impl Game {
         if is_key_pressed(KeyCode::L) { self.session.simulation.inject(self.session.selected, FluidId::Lava, 500); }
         if is_key_pressed(KeyCode::G) { self.session.simulation.inject(self.session.selected, FluidId::ToxicSlurry, 500); }
         if is_key_pressed(KeyCode::F1) { let report = self.lab.automatic_scenario(); self.notice = format!("lab_fluids_all {} tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash); }
+        if is_key_pressed(KeyCode::F2) { self.notice = run_all_showcases(); }
+        if is_key_pressed(KeyCode::C) { if let Some(entity_id) = self.session.simulation.devices.devices.iter().find(|device| device.anchor == self.session.selected).map(|device| device.entity_id) { self.session.simulation.devices.remove(entity_id); self.notice = "Device removed and budget released".into(); } }
+        if is_key_pressed(KeyCode::B) { self.place_device(DeviceId::Channel); }
+        if is_key_pressed(KeyCode::P) { self.place_device(DeviceId::Pipe); }
+        if is_key_pressed(KeyCode::O) { self.place_device(DeviceId::Pump); }
         if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
         if is_key_pressed(KeyCode::F9) { match load_session(&self.data.config) { Ok(s) => { self.session = s; self.notice = "Checkpoint loaded".into(); }, Err(e) => self.notice = e } }
         let ticks = self.session.update(dt); if ticks > 0 { self.notice = format!("Simulation advanced {ticks} tick(s)"); }
@@ -71,6 +76,13 @@ impl Game {
     fn apply_terrain(&mut self, action: TerrainAction) {
         self.notice = self.session.simulation.terrain_edit(self.session.selected, action).map(|_| "Terrain edit committed".into()).unwrap_or_else(|error| format!("Terrain edit rejected: {error:?}"));
         if let Some(index) = self.session.simulation.index(self.session.selected) { self.session.world.cells[index].height_hu = self.session.simulation.cells[index].height_hu; self.session.world.cells[index].sealed = self.session.simulation.cells[index].sealed; }
+    }
+
+    fn place_device(&mut self, device: DeviceId) {
+        let mut devices = std::mem::take(&mut self.session.simulation.devices);
+        let result = devices.place(&self.session.simulation, device, self.session.selected, 0, 100);
+        self.session.simulation.devices = devices;
+        self.notice = result.map(|id| format!("Placed {} #{id}", device.name())).unwrap_or_else(|error| format!("Placement rejected: {error:?}"));
     }
 
     pub fn draw(&mut self) {

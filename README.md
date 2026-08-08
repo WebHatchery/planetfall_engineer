@@ -33,6 +33,15 @@ engineering contract; the GDD remains the source of product intent.
 - Executable `lab_fluids_all` fixture with four active bays, five reserved
   bays, interaction lanes, replay hashing, and an `F1` automation report.
 
+## Phase 3 Device Framework
+
+- Stable entities for all ten slice devices with costs, footprints, rotations,
+  health, power, settings, storage, and active-state reporting.
+- Deterministic placement validation for bounds, overlap, protected terrain,
+  budget, and rotation, plus renderer-independent device showcase fixtures.
+- Runtime controls: `B` places a channel, `P` places a pipe, `O` places a pump,
+  `C` removes the selected device, and `F2` runs all ten showcase checks.
+
 The template avoids browser-incompatible filesystem access. Static data is
 embedded with `include_str!()`, runtime browser assets go through Macroquad or
 toolkit async loaders, and save data uses macroquad-toolkit persistence.
