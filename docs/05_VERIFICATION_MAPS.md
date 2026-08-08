@@ -204,5 +204,13 @@ laboratory replay hash.
 The current slice exposes `lab_fluids_all` through F1 and the capture scene
 `lab_fluids_all`: its automatic 300-tick result is loaded into the production
 orthographic 3D world, remains selectable and inspectable, and F1 returns to
+the preserved campaign session. F2 opens the validated `device_*` showcase
+worlds, V cycles them during free play, and each device scene can be seeded by
+the capture harness. The reports require deterministic hashes and zero
+material-balance error.
+
+The current slice exposes `lab_fluids_all` through F1 and the capture scene
+`lab_fluids_all`: its automatic 300-tick result is loaded into the production
+orthographic 3D world, remains selectable and inspectable, and F1 returns to
 the preserved campaign session. The lab report requires reserved-bay emptiness,
 reaction events, deterministic hash output, and zero material-balance error.

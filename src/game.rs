@@ -1,6 +1,6 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CommandKind, MissionId, MissionPhase, MissionState}, replay::run_all_references, simulation::{FluidId, TerrainAction, SimulationWorld}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
+use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{showcase_world, run_all_showcases, DeviceId, SHOWCASE_MAPS}, mission::{campaign_summary, CommandKind, MissionId, MissionPhase, MissionState}, replay::run_all_references, simulation::{FluidId, TerrainAction, SimulationWorld}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
@@ -10,7 +10,7 @@ use crate::ui::{self, UiContext};
 pub struct Game { pub data: GameData, pub session: GameSession, checkpoint_session: Option<GameSession>, saved_campaign_session: Option<GameSession>, verification_mode: Option<VerificationMode>, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
 
 #[derive(Debug, Clone, Copy)]
-enum VerificationMode { Lab }
+enum VerificationMode { Lab, Showcase(DeviceId) }
 
 #[derive(Debug, Clone, Copy)]
 struct FoundationCamera { target: Vec2, yaw: u8, zoom: f32 }
@@ -60,6 +60,7 @@ impl Game {
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
         if scene.starts_with("lab_fluids_all") { self.toggle_lab_mode(); }
+        if let Some(showcase) = SHOWCASE_MAPS.iter().find(|map| scene == map.map_id || scene.starts_with(&format!("{}_", map.map_id))) { self.enter_showcase(showcase.device); }
         if scene.contains("failure") { self.session.mission.fail("capture failure/recovery fixture"); self.notice = "Failure fixture — F12 restores checkpoint or restarts".into(); }
     }
 
@@ -83,14 +84,15 @@ impl Game {
         if is_key_pressed(KeyCode::L) { self.session.simulation.inject(self.session.selected, FluidId::Lava, 500); }
         if is_key_pressed(KeyCode::G) { self.session.simulation.inject(self.session.selected, FluidId::ToxicSlurry, 500); }
         if is_key_pressed(KeyCode::F1) { self.toggle_lab_mode(); }
-        if is_key_pressed(KeyCode::F2) { self.notice = run_all_showcases(); }
+        if is_key_pressed(KeyCode::F2) { if self.verification_mode.is_some() { self.restore_campaign_session(); } else { self.enter_showcase(DeviceId::Channel); } }
+        if is_key_pressed(KeyCode::V) { if let Some(VerificationMode::Showcase(current)) = self.verification_mode { let next = DeviceId::ALL[(DeviceId::ALL.iter().position(|device| *device == current).unwrap_or(0) + 1) % DeviceId::ALL.len()]; self.enter_showcase(next); } }
         if is_key_pressed(KeyCode::F3) { self.notice = campaign_summary(); }
         if is_key_pressed(KeyCode::N) { self.select_next_campaign(); }
         if is_key_pressed(KeyCode::F4) { self.session.mission.skip_tutorial(); let complete = self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()); if complete { self.session.simulation.set_sources_enabled(true); } self.notice = if complete { "Tutorial skipped — L01 build kit unlocked; source enabled" } else { "Tutorial skip unavailable" }.into(); }
         if is_key_pressed(KeyCode::F6) { self.session.mission.checkpoint(); self.checkpoint_session = Some(self.session.clone()); self.notice = format!("Mission checkpoint recorded at tick {}", self.session.mission.checkpoint_tick); }
         if is_key_pressed(KeyCode::F7) { self.session.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
         if is_key_pressed(KeyCode::F12) { self.reset_mission(); }
-        if is_key_pressed(KeyCode::F8) { let admission = self.session.mission.admit(CommandKind::DismissPrompt); self.notice = format!("Tutorial command: {admission:?}"); }
+        if is_key_pressed(KeyCode::F8) { let admission = self.session.mission.admit(CommandKind::DismissPrompt); self.notice = format!("{} — tutorial command: {admission:?}", run_all_showcases()); }
         if is_key_pressed(KeyCode::F10) { let mut campaign = load_campaign(self.session.mission.id); seed_reference_materials(&mut campaign); self.session.simulation = campaign.world; self.notice = "Reference material fixture loaded".into(); }
         if is_key_pressed(KeyCode::F11) { self.notice = run_all_references(); }
         if is_key_pressed(KeyCode::C) { if let Some(entity_id) = self.session.simulation.devices.devices.iter().find(|device| device.anchor == self.session.selected).map(|device| device.entity_id) { self.session.simulation.devices.remove(entity_id); self.notice = "Device removed and budget released".into(); } }
@@ -207,10 +209,7 @@ impl Game {
 
     fn toggle_lab_mode(&mut self) {
         if let Some(campaign) = self.saved_campaign_session.take() {
-            self.session = campaign;
-            self.verification_mode = None;
-            self.camera = FoundationCamera::new(self.session.simulation.width as usize, self.session.simulation.height as usize);
-            self.notice = "Returned to campaign session".into();
+            self.restore_campaign(campaign);
             return;
         }
         let campaign = self.session.clone();
@@ -227,6 +226,23 @@ impl Game {
         self.camera = FoundationCamera::new(self.session.simulation.width as usize, self.session.simulation.height as usize);
         self.notice = format!("lab_fluids_all {} — F1 return — tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash);
     }
+
+    fn enter_showcase(&mut self, device: DeviceId) {
+        if self.saved_campaign_session.is_none() { self.saved_campaign_session = Some(self.session.clone()); }
+        self.session.simulation = showcase_world(device);
+        self.session.world = world_state_for(&self.session.simulation);
+        self.session.mission = MissionState::new(MissionId::L02HoldingLine);
+        self.session.mission.start();
+        self.session.tick = self.session.simulation.tick;
+        self.session.selected = CellPos { x: 16, y: 9 };
+        self.session.time_control = TimeControl::Paused;
+        self.verification_mode = Some(VerificationMode::Showcase(device));
+        self.camera = FoundationCamera::new(32, 18);
+        self.notice = format!("device_{} — F2 return — V next showcase", device.name());
+    }
+
+    fn restore_campaign_session(&mut self) { if let Some(campaign) = self.saved_campaign_session.take() { self.restore_campaign(campaign); } }
+    fn restore_campaign(&mut self, campaign: GameSession) { self.session = campaign; self.verification_mode = None; self.camera = FoundationCamera::new(self.session.simulation.width as usize, self.session.simulation.height as usize); self.notice = "Returned to campaign session".into(); }
 
     fn set_time(&mut self, time: TimeControl) {
         let command = if time == TimeControl::Paused { CommandKind::SetPaused } else { CommandKind::SetTimeRunning };
@@ -249,7 +265,7 @@ impl Game {
         self.draw_world();
         set_default_camera();
         begin_virtual_ui_frame(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
-        ui::draw_hud(UiContext { session: &self.session, camera_yaw: self.camera.yaw, camera_zoom: self.camera.zoom, notice: &self.notice, loaded_assets: self.assets.len(), verification_label: self.verification_mode.map(|mode| match mode { VerificationMode::Lab => "LAB_FLUIDS_ALL" }) });
+        ui::draw_hud(UiContext { session: &self.session, camera_yaw: self.camera.yaw, camera_zoom: self.camera.zoom, notice: &self.notice, loaded_assets: self.assets.len(), verification_label: self.verification_mode.map(|mode| match mode { VerificationMode::Lab => "LAB_FLUIDS_ALL", VerificationMode::Showcase(device) => match device { DeviceId::Channel => "DEVICE_CHANNEL", DeviceId::Pipe => "DEVICE_PIPE", DeviceId::Pump => "DEVICE_PUMP", DeviceId::Floodgate => "DEVICE_FLOODGATE", DeviceId::Reservoir => "DEVICE_RESERVOIR", DeviceId::Spillway => "DEVICE_SPILLWAY", DeviceId::FlowTurbine => "DEVICE_FLOW_TURBINE", DeviceId::Sensor => "DEVICE_SENSOR", DeviceId::Filter => "DEVICE_FILTER", DeviceId::RuneRelay => "DEVICE_RUNE_RELAY" } }) });
         end_virtual_ui_frame();
     }
 

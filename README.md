@@ -127,6 +127,9 @@ Release evidence is captured under `docs/verification/` at 1280×720,
 capture and is included by `publish.ps1`. The capture harness accepts the
 `lab_fluids_all` scene name to render the automatic laboratory through the same
 orthographic 3D world path; F1 returns to the campaign during free play.
+Capture scenes named `device_channel` through `device_rune_relay` seed the
+corresponding executable showcase; F2 opens the channel showcase in free play
+and V cycles the ten authored device maps without losing the campaign session.
 
 The initial orthographic zoom is derived from the authored map dimensions, so
 the 32×20 L01 world remains fully framed at the required viewport sizes.
