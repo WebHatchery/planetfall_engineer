@@ -75,6 +75,11 @@ The campaign replay harness runs L01, L02, and L03 from authored constructors,
 checks terminal stability, resumes from a midpoint snapshot, and compares the
 uninterrupted/resumed final hashes. `F11` reports the three-reference result.
 
+The showcase index names exactly one executable map for each enabled device:
+`device_channel`, `device_pipe`, `device_pump`, `device_floodgate`,
+`device_reservoir`, `device_spillway`, `device_flow_turbine`, `device_sensor`,
+`device_filter`, and `device_rune_relay`.
+
 ## 3D Vertical-Slice Presentation
 
 The orthographic world now renders authoritative surface depth, airborne steam,

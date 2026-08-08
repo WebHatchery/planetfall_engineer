@@ -13,6 +13,22 @@ impl DeviceId {
     pub const fn name(self) -> &'static str { match self { Self::Channel => "channel", Self::Pipe => "pipe", Self::Pump => "pump", Self::Floodgate => "floodgate", Self::Reservoir => "reservoir", Self::Spillway => "spillway", Self::FlowTurbine => "flow_turbine", Self::Sensor => "sensor", Self::Filter => "filter", Self::RuneRelay => "rune_relay" } }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShowcaseMap { pub map_id: &'static str, pub device: DeviceId }
+
+pub const SHOWCASE_MAPS: [ShowcaseMap; 10] = [
+    ShowcaseMap { map_id: "device_channel", device: DeviceId::Channel },
+    ShowcaseMap { map_id: "device_pipe", device: DeviceId::Pipe },
+    ShowcaseMap { map_id: "device_pump", device: DeviceId::Pump },
+    ShowcaseMap { map_id: "device_floodgate", device: DeviceId::Floodgate },
+    ShowcaseMap { map_id: "device_reservoir", device: DeviceId::Reservoir },
+    ShowcaseMap { map_id: "device_spillway", device: DeviceId::Spillway },
+    ShowcaseMap { map_id: "device_flow_turbine", device: DeviceId::FlowTurbine },
+    ShowcaseMap { map_id: "device_sensor", device: DeviceId::Sensor },
+    ShowcaseMap { map_id: "device_filter", device: DeviceId::Filter },
+    ShowcaseMap { map_id: "device_rune_relay", device: DeviceId::RuneRelay },
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeviceError { OutOfBounds, Occupied, InsufficientBudget, Protected, InvalidRotation }
 
@@ -97,7 +113,7 @@ pub fn run_showcase(device: DeviceId) -> ShowcaseReport {
 }
 
 pub fn run_all_showcases() -> String {
-    let reports: Vec<_> = DeviceId::ALL.into_iter().map(run_showcase).collect();
+    let reports: Vec<_> = SHOWCASE_MAPS.into_iter().map(|showcase| run_showcase(showcase.device)).collect();
     let passed = reports.iter().filter(|report| report.placed).count();
     let names = reports.iter().map(|report| report.device.name()).collect::<Vec<_>>().join(", ");
     format!("{passed}/{} showcases PASS: {names}", DeviceId::ALL.len())
@@ -109,6 +125,7 @@ fn hash(world: &SimulationWorld) -> u64 { let mut hash = 1469598103934665603u64;
 mod tests {
     use super::*;
     #[test] fn all_ten_devices_have_unique_showcases() { let reports: Vec<_> = DeviceId::ALL.into_iter().map(run_showcase).collect(); assert_eq!(reports.len(), 10); assert!(reports.iter().all(|report| report.placed)); assert_eq!(reports.iter().map(|report| report.device).collect::<std::collections::BTreeSet<_>>().len(), 10); }
+    #[test] fn showcase_index_has_exactly_one_named_map_per_device() { assert_eq!(SHOWCASE_MAPS.len(), DeviceId::ALL.len()); assert_eq!(SHOWCASE_MAPS.iter().map(|showcase| showcase.device).collect::<std::collections::BTreeSet<_>>().len(), 10); assert!(SHOWCASE_MAPS.iter().all(|showcase| showcase.map_id == format!("device_{}", showcase.device.name()))); }
     #[test] fn footprint_rotation_and_overlap_are_rejected() { let world = SimulationWorld::new(4, 4); let mut devices = DeviceSystem::default(); assert!(devices.place(&world, DeviceId::Reservoir, CellPos { x: 1, y: 1 }, 3, 100).is_ok()); assert_eq!(devices.place(&world, DeviceId::Channel, CellPos { x: 1, y: 1 }, 0, 100), Err(DeviceError::Occupied)); assert_eq!(devices.place(&world, DeviceId::Channel, CellPos { x: 3, y: 3 }, 4, 100), Err(DeviceError::InvalidRotation)); }
     #[test] fn budget_and_protected_placement_are_explained() { let mut world = SimulationWorld::new(4, 4); world.definitions[0].protected = true; let mut devices = DeviceSystem::default(); assert_eq!(devices.place(&world, DeviceId::Pump, CellPos { x: 0, y: 0 }, 0, 100), Err(DeviceError::Protected)); assert_eq!(devices.place(&world, DeviceId::Pump, CellPos { x: 1, y: 1 }, 0, 10), Err(DeviceError::InsufficientBudget)); }
     #[test] fn turbine_and_filter_have_renderer_independent_state() { let turbine = run_showcase(DeviceId::FlowTurbine); let filter = run_showcase(DeviceId::Filter); assert!(turbine.active_after_tick); assert!(filter.active_after_tick); assert_ne!(turbine.state_hash, filter.state_hash); }
