@@ -93,6 +93,8 @@ checks terminal stability, resumes from a midpoint snapshot, and compares the
 uninterrupted/resumed final hashes. It now covers reference and alternate
 success routes, all three authored hazard failures, and the L03 insufficient-
 water recovery state. `F11` reports the complete ten-scenario result.
+The midpoint is serialized and deserialized through serde before continuation,
+so the replay gate exercises the same persistence shape as a real checkpoint.
 Campaign and device reports now also require exact material conservation across
 surface, airborne, and pending terrain products; the authoritative balance
 error is exposed by the simulation and covered by reaction tests.

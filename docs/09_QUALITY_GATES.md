@@ -123,7 +123,8 @@ The active build selection also renders a translucent 3D footprint ghost;
 The replay owner covers the ten campaign scenarios listed above, including
 alternate success paths, authored hazard failures, and the L03 insufficient-
 water recovery path. Each report includes midpoint continuation and the four
-material ledger counters.
+material ledger counters; midpoint continuation is performed after a serialized
+serde round trip rather than an in-memory clone.
 
 ## 6. 3D functional gates
 

@@ -46,8 +46,10 @@ pub fn run_scenario(id: MissionId, kind: ScenarioKind) -> ScenarioReport {
         tick_scenario(&mut map.world, &mut mission, id, kind);
     }
     let midpoint_hash = hash(&map.world, &mission);
-    let mut resumed_world = map.world.clone();
-    let mut resumed_mission = mission.clone();
+    let midpoint_save = serde_json::to_vec(&(map.world.clone(), mission.clone()))
+        .expect("midpoint replay state serializes");
+    let (mut resumed_world, mut resumed_mission): (SimulationWorld, MissionState) =
+        serde_json::from_slice(&midpoint_save).expect("midpoint replay state loads");
     while mission.phase == MissionPhase::Active && mission.tick < 2_200 {
         tick_scenario(&mut map.world, &mut mission, id, kind);
     }
