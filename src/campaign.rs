@@ -150,7 +150,6 @@ fn author_l02(world: &mut SimulationWorld) {
         for x in 3..=7 {
             set_height(world, CellPos { x, y }, 0);
             set_sealed(world, CellPos { x, y });
-            set_contained(world, CellPos { x, y });
         }
     }
     world.inject(CellPos { x: 5, y: 16 }, FluidId::Water, 8_000);
