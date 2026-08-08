@@ -98,6 +98,10 @@ survey selection by keyboard or mouse ray, terrain edits, materials, and device
 placement remain on the same production 3D path. The shared toolkit owns
 viewport-aware screen rays and AABB hits.
 
+The live HUD now identifies the authored campaign level and mission phase and
+shows objective progress plus the current tutorial step alongside the selected
+cell and device readout.
+
 Release evidence is captured under `docs/verification/` at 1280×720,
 1024×768, and 800×600. `catalog_thumbnail.png` is a current title-screen
 capture and is included by `publish.ps1`.
