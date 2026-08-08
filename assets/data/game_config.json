@@ -1,0 +1,12 @@
+{
+  "game_name": "planetfall_engineer",
+  "display_name": "Planetfall Engineer",
+  "save_slot": "autosave",
+  "version": "1.0.0",
+  "starting_points": 120,
+  "starting_energy": 80.0,
+  "max_energy": 100.0,
+  "energy_per_second": 3.0,
+  "world_width": 16,
+  "world_height": 10
+}

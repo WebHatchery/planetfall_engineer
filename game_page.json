@@ -1,0 +1,22 @@
+{
+  "title": "Planetfall Engineer",
+  "wasm": "planetfall_engineer",
+  "roost_slug": "rust_planetfall_engineer",
+  "status": { "text": "Playable", "class": "playable" },
+  "canvas_rendering": "pixelated",
+  "about": [
+    "A real-time planetary engineering puzzle prototype about surveying terrain, routing dangerous fluids, and restoring the Ashfall Basin."
+  ],
+  "controls": [
+    { "key": "Arrow Keys", "desc": "Move survey selection" },
+    { "key": "Right Mouse", "desc": "Drag camera" },
+    { "key": "+ / -", "desc": "Zoom camera" },
+    { "key": "Space", "desc": "Run first engineering action" },
+    { "key": "S / L", "desc": "Save / load mission" }
+  ],
+  "details": [
+    { "label": "Genre", "value": "Engineering puzzle" },
+    { "label": "Engine", "value": "Macroquad + Toolkit" },
+    { "label": "Platform", "value": "Browser, Windows" }
+  ]
+}

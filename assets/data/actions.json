@@ -1,0 +1,23 @@
+[
+  {
+    "id": "survey_basin",
+    "name": "Survey Basin",
+    "description": "Scan terrain grades and reveal safe engineering routes.",
+    "energy_cost": 18.0,
+    "points_reward": 10
+  },
+  {
+    "id": "excavate_channel",
+    "name": "Excavate Channel",
+    "description": "Cut a first-pass flow path through the ashfall basin.",
+    "energy_cost": 36.0,
+    "points_reward": 25
+  },
+  {
+    "id": "deploy_spillway",
+    "name": "Deploy Spillway",
+    "description": "Place a temporary safety outlet for rising water or lava.",
+    "energy_cost": 52.0,
+    "points_reward": 45
+  }
+]
