@@ -20,12 +20,20 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     draw_ui_text_ex(&format!("SURVEY CURSOR  {}, {}", ctx.session.selected.x, ctx.session.selected.y), 44.0, 634.0, TextStyle::new(18.0, Color::new(0.95, 0.8, 0.35, 1.0)).params());
     draw_ui_text_ex(ctx.notice, 44.0, 660.0, TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params());
     draw_ui_text_ex("Click select   WASD pan   Q/E rotate   +/- zoom   Arrows survey   N next level   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5/F6/F9/F12 save/checkpoint/load/reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
-    draw_rectangle(1010.0, 104.0, 238.0, 166.0, Color::new(0.04, 0.06, 0.09, 0.9));
+    draw_rectangle(1010.0, 104.0, 238.0, 214.0, Color::new(0.04, 0.06, 0.09, 0.9));
     draw_ui_text_ex("ENGINEERING READOUT", 1024.0, 130.0, TextStyle::new(14.0, Color::new(0.8, 0.68, 0.4, 1.0)).params());
     let selected = &ctx.session.simulation.cells[ctx.session.simulation.index(ctx.session.selected).unwrap()];
     let device_readout = ctx.session.simulation.devices.devices.iter().find(|device| device.anchor == ctx.session.selected).map(|device| format!("Device {} {}% {}", device.device.name(), device.setting_bp / 100, if device.active { "ACTIVE" } else { "IDLE" })).unwrap_or_else(|| "Device none".into());
-    let tutorial = ctx.session.mission.tutorial.as_ref().map(|tutorial| tutorial.current_step_id.as_str()).unwrap_or("none");
-    draw_ui_text_ex(&format!("Map {}×{}\nObjective {} vU / {}\nTutorial {}\nAssets loaded {}\nFluids enabled {}\nSurface {} vU\nGround {} bp\n{}\nQueue {} / {} credits", ctx.data.config.world_width, ctx.data.config.world_height, ctx.session.mission.objective_progress, objective_target(ctx.session.mission.id), tutorial, ctx.loaded_assets, FluidId::ALL.len(), selected.surface_volume(), selected.ground_contamination_bp, device_readout, ctx.session.simulation.devices.queued.len(), ctx.session.simulation.devices.reserved_budget), 1024.0, 154.0, TextStyle::new(14.0, Color::new(0.7, 0.76, 0.8, 1.0)).params());
+    let tutorial = ctx.session.mission.tutorial.as_ref().map(|tutorial| tutorial.current_step_id.strip_prefix("tutorial_l01_").unwrap_or(&tutorial.current_step_id)).unwrap_or("none");
+    let style = TextStyle::new(13.0, Color::new(0.7, 0.76, 0.8, 1.0));
+    draw_ui_text_ex(&format!("Map {}×{}", ctx.data.config.world_width, ctx.data.config.world_height), 1024.0, 154.0, style.params());
+    draw_ui_text_ex(&format!("Objective {} / {} vU", ctx.session.mission.objective_progress, objective_target(ctx.session.mission.id)), 1024.0, 172.0, style.params());
+    draw_ui_text_ex(&format!("Tutorial {}", tutorial), 1024.0, 190.0, style.params());
+    draw_ui_text_ex(&format!("Assets {}   Fluids {}", ctx.loaded_assets, FluidId::ALL.len()), 1024.0, 208.0, style.params());
+    draw_ui_text_ex(&format!("Surface {} vU", selected.surface_volume()), 1024.0, 226.0, style.params());
+    draw_ui_text_ex(&format!("Ground {} bp", selected.ground_contamination_bp), 1024.0, 244.0, style.params());
+    draw_ui_text_ex(&device_readout, 1024.0, 262.0, style.params());
+    draw_ui_text_ex(&format!("Queue {} / {} credits", ctx.session.simulation.devices.queued.len(), ctx.session.simulation.devices.reserved_budget), 1024.0, 280.0, style.params());
     if matches!(ctx.session.mission.phase, MissionPhase::Success | MissionPhase::Failure | MissionPhase::Debrief) { draw_terminal_panel(ctx.session); }
 }
 
