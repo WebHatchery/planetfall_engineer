@@ -77,6 +77,7 @@ impl Game {
         if is_key_pressed(KeyCode::F1) { let report = self.lab.automatic_scenario(); self.notice = format!("lab_fluids_all {} tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash); }
         if is_key_pressed(KeyCode::F2) { self.notice = run_all_showcases(); }
         if is_key_pressed(KeyCode::F3) { self.notice = campaign_summary(); }
+        if is_key_pressed(KeyCode::N) { self.select_next_campaign(); }
         if is_key_pressed(KeyCode::F4) { self.session.mission.skip_tutorial(); let complete = self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()); if complete { self.session.simulation.set_sources_enabled(true); } self.notice = if complete { "Tutorial skipped — L01 build kit unlocked; source enabled" } else { "Tutorial skip unavailable" }.into(); }
         if is_key_pressed(KeyCode::F6) { self.session.mission.checkpoint(); self.checkpoint_session = Some(self.session.clone()); self.notice = format!("Mission checkpoint recorded at tick {}", self.session.mission.checkpoint_tick); }
         if is_key_pressed(KeyCode::F7) { self.session.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
@@ -161,6 +162,19 @@ impl Game {
             return;
         }
         let id = self.session.mission.id;
+        self.load_mission(id, "restarted from briefing");
+    }
+
+    fn select_next_campaign(&mut self) {
+        let current = self.session.mission.id.sequence();
+        let next = MissionId::ALL.into_iter().find(|id| id.sequence() > current && self.session.campaign.unlocked[id.sequence() - 1]);
+        match next {
+            Some(id) => self.load_mission(id, "selected from campaign progression"),
+            None => self.notice = format!("No later campaign level is unlocked — {}", campaign_summary()),
+        }
+    }
+
+    fn load_mission(&mut self, id: MissionId, reason: &str) {
         let campaign_progress = self.session.campaign.clone();
         let campaign = load_campaign(id);
         let (width, height) = (campaign.world.width as usize, campaign.world.height as usize);
@@ -172,8 +186,9 @@ impl Game {
         self.session.campaign = campaign_progress;
         self.session.selected = CellPos { x: (width / 2) as u16, y: (height / 2) as u16 };
         self.session.time_control = TimeControl::Paused;
+        self.camera = FoundationCamera::new(width, height);
         self.checkpoint_session = None;
-        self.notice = format!("{} restarted from briefing", id.name());
+        self.notice = format!("{} {reason}", id.name());
     }
 
     fn set_time(&mut self, time: TimeControl) {

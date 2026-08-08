@@ -71,6 +71,8 @@ engineering contract; the GDD remains the source of product intent.
   a tutorial command admission. `F12` restores the last checkpoint or restarts
   the current authored mission when no checkpoint exists. `F10` loads the
   current campaign's deterministic reference-material fixture.
+- `N` selects the next unlocked authored campaign level, rebuilding its map and
+  camera while preserving campaign unlocks and best-time progress.
 
 Campaign constructors now author the exact L01/L02/L03 map sizes, budgets,
 ambient temperatures, protected zones, basins/shelves, and reference tick
