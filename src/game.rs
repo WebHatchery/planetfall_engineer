@@ -1,12 +1,12 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{data::GameData, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl}};
+use crate::{data::GameData, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl}, verification::FluidsLab};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
 use crate::ui::{self, UiContext};
 
-pub struct Game { pub data: GameData, pub session: GameSession, assets: AssetManager, camera: FoundationCamera, notice: String }
+pub struct Game { pub data: GameData, pub session: GameSession, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
 
 #[derive(Debug, Clone, Copy)]
 struct FoundationCamera { target: Vec2, yaw: u8, zoom: f32 }
@@ -43,7 +43,7 @@ impl Game {
         let _ = assets.load_texture_configs(&data.texture_manifest).await;
         let session = GameSession::new(&data.config);
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
-        Self { data, session, assets, camera, notice: "Foundation online — simulation paused".into() }
+        Self { data, session, assets, camera, lab: FluidsLab::new(), notice: "Foundation online — simulation paused".into() }
     }
 
     pub fn update(&mut self, dt: f32) {
@@ -62,6 +62,7 @@ impl Game {
         if is_key_pressed(KeyCode::I) { self.session.simulation.inject(self.session.selected, FluidId::Water, 500); }
         if is_key_pressed(KeyCode::L) { self.session.simulation.inject(self.session.selected, FluidId::Lava, 500); }
         if is_key_pressed(KeyCode::G) { self.session.simulation.inject(self.session.selected, FluidId::ToxicSlurry, 500); }
+        if is_key_pressed(KeyCode::F1) { let report = self.lab.automatic_scenario(); self.notice = format!("lab_fluids_all {} tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash); }
         if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
         if is_key_pressed(KeyCode::F9) { match load_session(&self.data.config) { Ok(s) => { self.session = s; self.notice = "Checkpoint loaded".into(); }, Err(e) => self.notice = e } }
         let ticks = self.session.update(dt); if ticks > 0 { self.notice = format!("Simulation advanced {ticks} tick(s)"); }

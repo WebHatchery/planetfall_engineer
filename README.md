@@ -30,6 +30,8 @@ engineering contract; the GDD remains the source of product intent.
   water/lava and lava/slurry reactions.
 - Deterministic material events, mass ledger, terrain products, and focused
   simulation tests.
+- Executable `lab_fluids_all` fixture with four active bays, five reserved
+  bays, interaction lanes, replay hashing, and an `F1` automation report.
 
 The template avoids browser-incompatible filesystem access. Static data is
 embedded with `include_str!()`, runtime browser assets go through Macroquad or
@@ -47,6 +49,5 @@ cargo run
 cargo test
 ```
 
-The next Phase 2 milestone adds the executable `lab_fluids_all` verification
-map. Devices, campaign missions, tutorial flow, and release evidence remain
-in the subsequent implementation-plan milestones.
+Devices, campaign missions, tutorial flow, and release evidence remain in the
+subsequent implementation-plan milestones.

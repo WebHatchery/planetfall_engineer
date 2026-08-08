@@ -7,6 +7,7 @@ mod data;
 mod game;
 mod state;
 mod simulation;
+mod verification;
 mod ui;
 
 use game::Game;
