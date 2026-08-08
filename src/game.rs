@@ -51,7 +51,8 @@ impl Game {
         session.world = WorldState::new(32, 20);
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
-        Self { data, session, checkpoint_session: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
+        let content_maps = data.content.maps.len();
+        Self { data, session, checkpoint_session: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
     }
 
     pub fn update(&mut self, dt: f32) {

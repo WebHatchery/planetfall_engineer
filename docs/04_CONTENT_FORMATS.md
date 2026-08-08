@@ -250,3 +250,13 @@ the latest completed campaign checkpoint.
 Every reference solution stores mission ID, content version, admitted command
 stream, expected terminal tick range, and final state hash. Content changes
 that alter a hash MUST update the reference replay in the same commit.
+
+## 7. Current slice registry
+
+The current implementation embeds `assets/data/content_registry.json` and
+validates its cross-references before constructing the runtime. It covers the
+four enabled slice fluids plus five reserved IDs, all ten device showcase
+references, three campaign missions, the twelve `tutorial_l01` steps, and the
+three campaign plus eleven verification map IDs. Runtime behavior remains in
+the bounded simulation/device modules; the registry owns the stable content
+contract and fails with collected diagnostics when it is malformed.

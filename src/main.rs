@@ -4,6 +4,7 @@ use macroquad::prelude::*;
 use macroquad_toolkit::capture;
 
 mod data;
+mod content;
 mod campaign;
 mod devices;
 mod game;

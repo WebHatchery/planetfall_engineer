@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "fluids": [
+    {"id":"water","enabled":true}, {"id":"brine","enabled":false},
+    {"id":"lava","enabled":true}, {"id":"steam","enabled":true},
+    {"id":"cryofluid","enabled":false}, {"id":"acid","enabled":false},
+    {"id":"toxic_slurry","enabled":true}, {"id":"nutrient_solution","enabled":false},
+    {"id":"aetheric_condensate","enabled":false}
+  ],
+  "devices": [
+    {"id":"channel","showcase_map_id":"device_channel"},
+    {"id":"pipe","showcase_map_id":"device_pipe"},
+    {"id":"pump","showcase_map_id":"device_pump"},
+    {"id":"floodgate","showcase_map_id":"device_floodgate"},
+    {"id":"reservoir","showcase_map_id":"device_reservoir"},
+    {"id":"spillway","showcase_map_id":"device_spillway"},
+    {"id":"flow_turbine","showcase_map_id":"device_flow_turbine"},
+    {"id":"sensor","showcase_map_id":"device_sensor"},
+    {"id":"filter","showcase_map_id":"device_filter"},
+    {"id":"rune_relay","showcase_map_id":"device_rune_relay"}
+  ],
+  "missions": [
+    {"id":"campaign_l01_first_flow","map_id":"campaign_l01_first_flow","sequence":1,"budget_credits":40},
+    {"id":"campaign_l02_holding_line","map_id":"campaign_l02_holding_line","sequence":2,"budget_credits":105},
+    {"id":"campaign_l03_firebreak","map_id":"campaign_l03_firebreak","sequence":3,"budget_credits":160}
+  ],
+  "tutorials": [
+    {"id":"tutorial_l01","steps":["tutorial_l01_welcome","tutorial_l01_move_camera","tutorial_l01_move_cursor","tutorial_l01_inspect_grade","tutorial_l01_pause_plan","tutorial_l01_excavate","tutorial_l01_place_channel","tutorial_l01_commit_plan","tutorial_l01_run_and_observe","tutorial_l01_control_gate","tutorial_l01_see_impact","tutorial_l01_stabilize"]}
+  ],
+  "maps": [
+    {"id":"campaign_l01_first_flow","kind":"campaign","width":32,"height":20},
+    {"id":"campaign_l02_holding_line","kind":"campaign","width":40,"height":24},
+    {"id":"campaign_l03_firebreak","kind":"campaign","width":48,"height":30},
+    {"id":"lab_fluids_all","kind":"fluid_lab","width":64,"height":48},
+    {"id":"device_channel","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_pipe","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_pump","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_floodgate","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_reservoir","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_spillway","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_flow_turbine","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_sensor","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_filter","kind":"device_showcase","width":32,"height":18},
+    {"id":"device_rune_relay","kind":"device_showcase","width":32,"height":18}
+  ]
+}

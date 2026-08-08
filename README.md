@@ -92,6 +92,11 @@ The showcase index names exactly one executable map for each enabled device:
 `device_reservoir`, `device_spillway`, `device_flow_turbine`, `device_sensor`,
 `device_filter`, and `device_rune_relay`.
 
+The embedded `content_registry.json` now validates the four enabled fluids,
+reserved fluid IDs, ten device/showcase references, three campaign map sizes
+and budgets, the twelve-step tutorial namespace, and all fourteen authored map
+IDs before the game starts.
+
 ## 3D Vertical-Slice Presentation
 
 The orthographic world now renders authoritative surface depth, airborne steam,

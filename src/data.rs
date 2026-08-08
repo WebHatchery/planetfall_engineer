@@ -1,5 +1,6 @@
 //! Embedded, deterministic foundation content.
 
+use crate::content::ContentRegistry;
 use macroquad_toolkit::assets::TextureConfig;
 use macroquad_toolkit::data_loader::load_embedded_json;
 use serde::{Deserialize, Serialize};
@@ -21,13 +22,16 @@ pub struct GameConfig {
 pub struct GameData {
     pub config: GameConfig,
     pub texture_manifest: Vec<TextureConfig>,
+    pub content: ContentRegistry,
 }
 
 impl GameData {
     pub fn load() -> Result<Self, String> {
         let config = load_embedded_json(CONFIG_JSON)?;
         let texture_manifest = load_embedded_json(TEXTURES_JSON)?;
-        Ok(Self { config, texture_manifest })
+        let content = ContentRegistry::load()?;
+        content.validate().map_err(|errors| format!("content validation failed:\n{}", errors.join("\n")))?;
+        Ok(Self { config, texture_manifest, content })
     }
 }
 
@@ -40,5 +44,6 @@ mod tests {
         let data = GameData::load().unwrap();
         assert_eq!(data.config.world_width, 32);
         assert_eq!(data.config.world_height, 20);
+        assert_eq!(data.content.devices.len(), 10);
     }
 }
