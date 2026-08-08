@@ -62,3 +62,11 @@ fluids require a fluid definition, pairwise interaction tests, and an update to
 `lab_fluids_all`. New devices require a device definition, an isolated showcase
 map, and map acceptance. New campaign mechanics require a first-use tutorial or
 an explicit statement that they are intentionally discoverable.
+
+## Branch and commit discipline
+
+- `master` is the canonical branch for this project.
+- Major updates MUST be committed as focused, complete changes before the next
+  major update begins.
+- Each commit MUST include the owning documentation and its verification
+  evidence when behavior or scope changes.
