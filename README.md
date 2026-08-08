@@ -143,6 +143,10 @@ and V cycles the ten authored device maps without losing the campaign session.
 The HUD build palette lists all ten placeables and its mouse hit regions queue
 the same validated plans as the keyboard bindings, including visible rejection
 notices for tutorial, budget, bounds, protected-cell, and overlap failures.
+Verification maps expose their current PASS/FAIL result, exact balance error,
+and compact injected/drained/reacted/product ledger in the readout. F6 resets
+the active lab or device fixture and F8 advances exactly one verification tick,
+making the test maps inspectable without relying on an automatic run.
 
 The initial orthographic zoom is derived from the authored map dimensions, so
 the 32×20 L01 world remains fully framed at the required viewport sizes.

@@ -3,7 +3,7 @@
 use crate::devices::{showcase_world, DeviceId};
 use crate::game::{FoundationCamera, Game, VerificationMode};
 use crate::mission::{MissionId, MissionState};
-use crate::state::{CellPos, GameSession, WorldState};
+use crate::state::{CellPos, GameSession, TimeControl, WorldState};
 
 impl Game {
     pub(crate) fn toggle_lab_mode(&mut self) {
@@ -22,7 +22,7 @@ impl Game {
             x: self.session.simulation.width / 2,
             y: self.session.simulation.height / 2,
         };
-        self.session.time_control = crate::state::TimeControl::Paused;
+        self.session.time_control = TimeControl::Paused;
         self.saved_campaign_session = Some(campaign);
         self.verification_mode = Some(VerificationMode::Lab);
         self.camera = FoundationCamera::new(
@@ -47,7 +47,7 @@ impl Game {
         self.session.mission.start();
         self.session.tick = self.session.simulation.tick;
         self.session.selected = CellPos { x: 16, y: 9 };
-        self.session.time_control = crate::state::TimeControl::Paused;
+        self.session.time_control = TimeControl::Paused;
         self.verification_mode = Some(VerificationMode::Showcase(device));
         self.camera = FoundationCamera::new(32, 18);
         self.notice = format!("device_{} — F2 return — V next showcase", device.name());
@@ -57,6 +57,36 @@ impl Game {
         if let Some(campaign) = self.saved_campaign_session.take() {
             self.restore_campaign(campaign);
         }
+    }
+
+    pub(crate) fn reset_verification(&mut self) {
+        match self.verification_mode {
+            Some(VerificationMode::Lab) => {
+                self.lab.reset();
+                self.session.simulation = self.lab.world.clone();
+            }
+            Some(VerificationMode::Showcase(device)) => {
+                self.session.simulation = showcase_world(device);
+            }
+            None => return,
+        }
+        self.session.world = world_state_for(&self.session.simulation);
+        self.session.tick = self.session.simulation.tick;
+        self.session.time_control = TimeControl::Paused;
+        self.notice = "Verification map reset — F8 advances one tick".into();
+    }
+
+    pub(crate) fn step_verification(&mut self) {
+        if self.verification_mode.is_none() {
+            return;
+        }
+        self.session.tick();
+        self.session.mission.on_tick(&self.session.simulation);
+        self.notice = format!(
+            "Verification tick {} — balance {:+} vU",
+            self.session.simulation.tick,
+            self.session.simulation.mass_balance_error()
+        );
     }
 
     fn restore_campaign(&mut self, campaign: GameSession) {

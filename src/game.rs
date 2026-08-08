@@ -263,7 +263,9 @@ impl Game {
             }
             .into();
         }
-        if is_key_pressed(KeyCode::F6) {
+        if is_key_pressed(KeyCode::F6) && self.verification_mode.is_some() {
+            self.reset_verification();
+        } else if is_key_pressed(KeyCode::F6) {
             self.session.mission.checkpoint();
             self.checkpoint_session = Some(self.session.clone());
             self.notice = format!(
@@ -278,7 +280,9 @@ impl Game {
         if is_key_pressed(KeyCode::F12) {
             self.reset_mission();
         }
-        if is_key_pressed(KeyCode::F8) {
+        if is_key_pressed(KeyCode::F8) && self.verification_mode.is_some() {
+            self.step_verification();
+        } else if is_key_pressed(KeyCode::F8) {
             let admission = self.session.mission.admit(CommandKind::DismissPrompt);
             self.notice = format!("{} — tutorial command: {admission:?}", run_all_showcases());
         }

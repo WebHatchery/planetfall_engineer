@@ -105,6 +105,10 @@ Current evidence includes the three campaign briefings, `lab_fluids_all`, all
 ten `device_*` showcases, gameplay at the three required viewport sizes, and a
 `failure_recovery` terminal panel capture.
 
+Verification maps are also inspectable in free play: F6 resets the active
+fixture, F8 advances one tick, and the engineering readout reports PASS/FAIL,
+exact balance error, and the injected/drained/reacted/product ledger.
+
 ## 6. 3D functional gates
 
 - Orthographic projection remains perspective-free at all six zoom levels.

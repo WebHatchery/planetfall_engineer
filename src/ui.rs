@@ -95,7 +95,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         660.0,
         TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params(),
     );
-    draw_ui_text_ex("Click select   WASD pan   Q/E rotate   +/- zoom   Arrows survey   N next level   F1 lab   F2 showcase/return   V next device   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5/F6/F9/F12 save/checkpoint/load/reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
+    draw_ui_text_ex("Click select   WASD pan   Q/E rotate   +/- zoom   Arrows survey   N next level   F1 lab   F2 showcase/return   V next device   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5 save   F6 checkpoint/reset   F8 step/showcase report   F9 load   F12 reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
     draw_rectangle(
         1010.0,
         104.0,
@@ -199,6 +199,25 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         280.0,
         style.params(),
     );
+    let verification_status = ctx
+        .verification_label
+        .map(|_| {
+            format!(
+                "VERIFY {} B{:+} I{} D{} R{} P{}",
+                if ctx.session.simulation.mass_balance_error() == 0 {
+                    "PASS"
+                } else {
+                    "FAIL"
+                },
+                ctx.session.simulation.mass_balance_error(),
+                ctx.session.simulation.ledger.injected,
+                ctx.session.simulation.ledger.drained,
+                ctx.session.simulation.ledger.reacted,
+                ctx.session.simulation.ledger.products,
+            )
+        })
+        .unwrap_or_else(|| "Ledger inactive".into());
+    draw_ui_text_ex(&verification_status, 1024.0, 298.0, style.params());
     draw_ui_text_ex(
         "BUILD PALETTE // click to queue",
         1024.0,
