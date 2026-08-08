@@ -7,7 +7,7 @@ use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
 use macroquad_toolkit::render3d::picking::{screen_ray, Aabb3};
 use crate::ui::{self, UiContext};
 
-pub struct Game { pub data: GameData, pub session: GameSession, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
+pub struct Game { pub data: GameData, pub session: GameSession, checkpoint_session: Option<GameSession>, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
 
 #[derive(Debug, Clone, Copy)]
 struct FoundationCamera { target: Vec2, yaw: u8, zoom: f32 }
@@ -51,7 +51,7 @@ impl Game {
         session.world = WorldState::new(32, 20);
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
-        Self { data, session, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
+        Self { data, session, checkpoint_session: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
     }
 
     pub fn update(&mut self, dt: f32) {
@@ -77,8 +77,9 @@ impl Game {
         if is_key_pressed(KeyCode::F2) { self.notice = run_all_showcases(); }
         if is_key_pressed(KeyCode::F3) { self.notice = campaign_summary(); }
         if is_key_pressed(KeyCode::F4) { self.session.mission.skip_tutorial(); let complete = self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()); if complete { self.session.simulation.set_sources_enabled(true); } self.notice = if complete { "Tutorial skipped — L01 build kit unlocked; source enabled" } else { "Tutorial skip unavailable" }.into(); }
-        if is_key_pressed(KeyCode::F6) { self.session.mission.checkpoint(); self.notice = format!("Mission checkpoint recorded at tick {}", self.session.mission.checkpoint_tick); }
+        if is_key_pressed(KeyCode::F6) { self.session.mission.checkpoint(); self.checkpoint_session = Some(self.session.clone()); self.notice = format!("Mission checkpoint recorded at tick {}", self.session.mission.checkpoint_tick); }
         if is_key_pressed(KeyCode::F7) { self.session.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
+        if is_key_pressed(KeyCode::F12) { self.reset_mission(); }
         if is_key_pressed(KeyCode::F8) { let admission = self.session.mission.admit(CommandKind::DismissPrompt); self.notice = format!("Tutorial command: {admission:?}"); }
         if is_key_pressed(KeyCode::F10) { let mut campaign = load_campaign(self.session.mission.id); seed_reference_materials(&mut campaign); self.session.simulation = campaign.world; self.notice = "Reference material fixture loaded".into(); }
         if is_key_pressed(KeyCode::F11) { self.notice = run_all_references(); }
@@ -147,6 +148,31 @@ impl Game {
         let changed = devices.set_selected_gate(self.session.selected, setting_bp);
         self.session.simulation.devices = devices;
         self.notice = if changed { format!("Floodgate set to {}%", setting_bp / 100) } else { "No floodgate selected".into() };
+    }
+
+    fn reset_mission(&mut self) {
+        if let Some(checkpoint) = self.checkpoint_session.clone() {
+            let campaign = self.session.campaign.clone();
+            self.session = checkpoint;
+            self.session.campaign = campaign;
+            self.session.time_control = TimeControl::Paused;
+            self.notice = format!("Checkpoint restored at tick {}", self.session.mission.checkpoint_tick);
+            return;
+        }
+        let id = self.session.mission.id;
+        let campaign_progress = self.session.campaign.clone();
+        let campaign = load_campaign(id);
+        let (width, height) = (campaign.world.width as usize, campaign.world.height as usize);
+        self.session = GameSession::new(&self.data.config);
+        self.session.world = WorldState::new(width, height);
+        self.session.simulation = campaign.world;
+        self.session.mission = crate::mission::MissionState::new(id);
+        self.session.mission.start();
+        self.session.campaign = campaign_progress;
+        self.session.selected = CellPos { x: (width / 2) as u16, y: (height / 2) as u16 };
+        self.session.time_control = TimeControl::Paused;
+        self.checkpoint_session = None;
+        self.notice = format!("{} restarted from briefing", id.name());
     }
 
     fn set_time(&mut self, time: TimeControl) {

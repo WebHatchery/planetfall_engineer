@@ -65,8 +65,9 @@ engineering contract; the GDD remains the source of product intent.
   admission, so the playable path cannot bypass locked L01 steps.
 - Runtime controls: `F3` shows the campaign sequence, `F4` skips the tutorial,
   `F6` records a checkpoint, `F7` exercises failure recovery, and `F8` reports
-  a tutorial command admission. `F10` loads the current campaign's deterministic
-  reference-material fixture.
+  a tutorial command admission. `F12` restores the last checkpoint or restarts
+  the current authored mission when no checkpoint exists. `F10` loads the
+  current campaign's deterministic reference-material fixture.
 
 Campaign constructors now author the exact L01/L02/L03 map sizes, budgets,
 ambient temperatures, protected zones, basins/shelves, and reference tick
