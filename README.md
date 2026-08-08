@@ -60,6 +60,8 @@ engineering contract; the GDD remains the source of product intent.
 - Event-driven L01 tutorial state with twelve ordered steps, stable
   `tutorial_locked` admissions, skip behavior, saved progress fields, and
   deterministic tutorial tests.
+- The active L01 step is rendered as a readable field prompt with the required
+  action, so a new player can follow the authored path without external notes.
 - Camera changes, selection, inspection, time controls, terrain edits, device
   queues, plan commits, and floodgate settings now pass through tutorial
   admission, so the playable path cannot bypass locked L01 steps.

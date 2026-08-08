@@ -124,6 +124,10 @@ blocked preview changes to a red ghost and remains non-committable.
 The palette's visible Rotate, Commit, and Cancel buttons share the scaled mouse
 regions used by the keyboard-equivalent commands.
 
+L01 renders each incomplete tutorial step as a field prompt with an instruction
+and required action; the prompt disappears only after the authoritative event
+advances the tutorial state.
+
 The replay owner covers the ten campaign scenarios listed above, including
 alternate success paths, authored hazard failures, and the L03 insufficient-
 water recovery path. Each report includes midpoint continuation and the four

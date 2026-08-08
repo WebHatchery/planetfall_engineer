@@ -299,6 +299,11 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     ) {
         draw_terminal_panel(ctx.session);
     }
+    if let Some(tutorial) = ctx.session.mission.tutorial.as_ref() {
+        if !tutorial.is_complete() {
+            draw_tutorial_prompt(tutorial);
+        }
+    }
     if ctx.pause_menu {
         draw_pause_menu();
     }
@@ -460,6 +465,117 @@ fn draw_pause_menu() {
         364.0,
         TextStyle::new(16.0, WHITE).params(),
     );
+}
+
+fn draw_tutorial_prompt(tutorial: &crate::mission::TutorialState) {
+    let (step, instruction, action) = tutorial_prompt(tutorial.current_step_id.as_str());
+    draw_rectangle(
+        24.0,
+        104.0,
+        520.0,
+        102.0,
+        Color::new(0.035, 0.055, 0.08, 0.96),
+    );
+    draw_rectangle_lines(
+        24.0,
+        104.0,
+        520.0,
+        102.0,
+        1.5,
+        Color::new(0.95, 0.8, 0.35, 0.9),
+    );
+    draw_ui_text_ex(
+        &format!(
+            "FIELD TUTORIAL // STEP {}/12 // {}",
+            tutorial.completed_step_ids.len() + 1,
+            step
+        ),
+        42.0,
+        130.0,
+        TextStyle::new(13.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        instruction,
+        42.0,
+        158.0,
+        TextStyle::new(16.0, Color::new(0.86, 0.9, 0.92, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        &format!("Required: {action}"),
+        42.0,
+        184.0,
+        TextStyle::new(13.0, Color::new(0.58, 0.72, 0.8, 1.0)).params(),
+    );
+}
+
+fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
+    match step {
+        "tutorial_l01_welcome" => (
+            "WELCOME",
+            "Survey the ash basin and dismiss this briefing.",
+            "Dismiss prompt",
+        ),
+        "tutorial_l01_move_camera" => (
+            "CAMERA",
+            "Pan across the map to inspect the ridge.",
+            "W/A/S/D or drag",
+        ),
+        "tutorial_l01_move_cursor" => (
+            "SURVEY CURSOR",
+            "Move the survey cursor to the marked grade.",
+            "Arrow keys",
+        ),
+        "tutorial_l01_inspect_grade" => (
+            "INSPECT",
+            "Inspect the selected cell before changing it.",
+            "I",
+        ),
+        "tutorial_l01_pause_plan" => (
+            "PAUSE AND PLAN",
+            "Keep the simulation paused while preparing terrain.",
+            "Space, then select terrain",
+        ),
+        "tutorial_l01_excavate" => (
+            "EXCAVATE",
+            "Lower the selected route cell to open the flow path.",
+            "X",
+        ),
+        "tutorial_l01_place_channel" => (
+            "PLACE CHANNEL",
+            "Choose a channel and queue it on the route.",
+            "B or palette",
+        ),
+        "tutorial_l01_commit_plan" => (
+            "COMMIT",
+            "Commit the queued engineering plan.",
+            "Enter or COMMIT",
+        ),
+        "tutorial_l01_run_and_observe" => (
+            "OBSERVE",
+            "Run time and watch water enter the route.",
+            "Space or 1",
+        ),
+        "tutorial_l01_control_gate" => (
+            "OPEN GATE",
+            "Set the floodgate to the half-open control point.",
+            "K",
+        ),
+        "tutorial_l01_see_impact" => (
+            "CLOSE GATE",
+            "Close the gate and observe the flow change.",
+            "J",
+        ),
+        "tutorial_l01_stabilize" => (
+            "STABILIZE",
+            "Run the basin until the stability window completes.",
+            "Space or 1",
+        ),
+        _ => (
+            "TUTORIAL",
+            "Follow the current mission instruction.",
+            "Mission controls",
+        ),
+    }
 }
 
 fn draw_text_right(text: &str, right: f32, y: f32, style: TextStyle) {
