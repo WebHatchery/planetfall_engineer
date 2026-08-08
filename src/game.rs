@@ -13,7 +13,7 @@ pub struct Game { pub data: GameData, pub session: GameSession, assets: AssetMan
 struct FoundationCamera { target: Vec2, yaw: u8, zoom: f32 }
 
 impl FoundationCamera {
-    fn new(width: usize, height: usize) -> Self { Self { target: vec2(width as f32 / 2.0, height as f32 / 2.0), yaw: 0, zoom: 16.0 } }
+    fn new(width: usize, height: usize) -> Self { Self { target: vec2(width as f32 / 2.0, height as f32 / 2.0), yaw: 0, zoom: width.max(height) as f32 } }
     fn update(&mut self, dt: f32, width: usize, height: usize) {
         let speed = dt * self.zoom * 0.8;
         if is_key_down(KeyCode::A) { self.target.x -= speed; }
