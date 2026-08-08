@@ -1,6 +1,6 @@
 //! Screen-space engineering HUD restored after the 3D world pass.
 
-use crate::{data::GameData, state::{GameSession, TimeControl}};
+use crate::{data::GameData, simulation::FluidId, state::{GameSession, TimeControl}};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
@@ -22,7 +22,8 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     draw_ui_text_ex("WASD pan   Q/E rotate   +/- zoom   Arrows survey   Space pause   1/2/4 speed   F5 save   F9 load", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
     draw_rectangle(1010.0, 104.0, 238.0, 130.0, Color::new(0.04, 0.06, 0.09, 0.9));
     draw_ui_text_ex("ENGINEERING READOUT", 1024.0, 130.0, TextStyle::new(14.0, Color::new(0.8, 0.68, 0.4, 1.0)).params());
-    draw_ui_text_ex(&format!("Map {}×{}\nAssets loaded {}\nCells authoritative\nFluids: Milestone B", ctx.data.config.world_width, ctx.data.config.world_height, ctx.loaded_assets), 1024.0, 154.0, TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params());
+    let selected = &ctx.session.simulation.cells[ctx.session.simulation.index(ctx.session.selected).unwrap()];
+    draw_ui_text_ex(&format!("Map {}×{}\nAssets loaded {}\nFluids enabled {}\nSurface {} vU\nGround {} bp", ctx.data.config.world_width, ctx.data.config.world_height, ctx.loaded_assets, FluidId::ALL.len(), selected.surface_volume(), selected.ground_contamination_bp), 1024.0, 154.0, TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params());
 }
 
 fn time_name(time: TimeControl) -> &'static str { match time { TimeControl::Paused => "PAUSED", TimeControl::OneX => "1X", TimeControl::TwoX => "2X", TimeControl::FourX => "4X" } }

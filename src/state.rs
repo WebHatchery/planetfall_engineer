@@ -1,6 +1,7 @@
 //! Authoritative integer world state, fixed-tick shell, and versioned save data.
 
 use crate::data::GameConfig;
+use crate::simulation::SimulationWorld;
 use macroquad_toolkit::persistence::{load_from_slot_with_migration, save_to_slot_with_version};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -42,11 +43,12 @@ pub enum TimeControl { Paused, OneX, TwoX, FourX }
 impl TimeControl { pub fn multiplier(self) -> u64 { match self { Self::Paused => 0, Self::OneX => 1, Self::TwoX => 2, Self::FourX => 4 } } }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SaveData { pub schema_version: u32, pub version: String, pub tick: u64, pub world: WorldState, pub selected: CellPos }
+pub struct SaveData { pub schema_version: u32, pub version: String, pub tick: u64, pub world: WorldState, pub simulation: SimulationWorld, pub selected: CellPos }
 
 #[derive(Debug, Clone)]
 pub struct GameSession {
     pub world: WorldState,
+    pub simulation: SimulationWorld,
     pub tick: u64,
     pub selected: CellPos,
     pub time_control: TimeControl,
@@ -55,7 +57,7 @@ pub struct GameSession {
 
 impl GameSession {
     pub fn new(config: &GameConfig) -> Self {
-        Self { world: WorldState::new(config.world_width, config.world_height), tick: 0,
+        Self { world: WorldState::new(config.world_width, config.world_height), simulation: SimulationWorld::new(config.world_width as u16, config.world_height as u16), tick: 0,
             selected: CellPos { x: (config.world_width / 2) as u16, y: (config.world_height / 2) as u16 },
             time_control: TimeControl::Paused, accumulator: 0.0 }
     }
@@ -71,7 +73,7 @@ impl GameSession {
         ticks
     }
 
-    pub fn tick(&mut self) { self.tick = self.tick.saturating_add(1); }
+    pub fn tick(&mut self) { self.tick = self.tick.saturating_add(1); self.simulation.tick(); for (cell, sim_cell) in self.world.cells.iter_mut().zip(&self.simulation.cells) { cell.height_hu = sim_cell.height_hu; cell.sealed = sim_cell.sealed; } }
 
     pub fn move_selected(&mut self, dx: i16, dy: i16) {
         let x = (self.selected.x as i16 + dx).clamp(0, self.world.width as i16 - 1) as u16;
@@ -85,8 +87,8 @@ impl GameSession {
         hash
     }
 
-    pub fn to_save(&self, version: &str) -> SaveData { SaveData { schema_version: 1, version: version.into(), tick: self.tick, world: self.world.clone(), selected: self.selected } }
-    pub fn from_save(save: SaveData) -> Self { Self { world: save.world, tick: save.tick, selected: save.selected, time_control: TimeControl::Paused, accumulator: 0.0 } }
+    pub fn to_save(&self, version: &str) -> SaveData { SaveData { schema_version: 2, version: version.into(), tick: self.tick, world: self.world.clone(), simulation: self.simulation.clone(), selected: self.selected } }
+    pub fn from_save(save: SaveData) -> Self { Self { world: save.world, simulation: save.simulation, tick: save.tick, selected: save.selected, time_control: TimeControl::Paused, accumulator: 0.0 } }
 }
 
 pub fn save_session(session: &GameSession, config: &GameConfig) -> Result<(), String> { save_to_slot_with_version(&config.game_name, &config.save_slot, &session.to_save(&config.version), &config.version) }

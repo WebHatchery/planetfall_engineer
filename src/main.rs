@@ -6,6 +6,7 @@ use macroquad_toolkit::capture;
 mod data;
 mod game;
 mod state;
+mod simulation;
 mod ui;
 
 use game::Game;

@@ -1,6 +1,7 @@
 # Planetfall Engineer
 
-Phase 1 foundation for a Rust + Macroquad planetary-engineering puzzle game.
+Playable foundation with the first terrain and material-simulation slice for a
+Rust + Macroquad planetary-engineering puzzle game.
 The project uses `macroquad-toolkit` for the shared runtime, UI, persistence,
 camera, and data-loading patterns used by the Rust games in this workspace.
 
@@ -20,6 +21,16 @@ engineering contract; the GDD remains the source of product intent.
 - Survey cursor, camera pan/zoom, checkpoint save/load, and engineering HUD.
 - Embedded configuration and toolkit asset-loading seams retained for later content.
 
+## Phase 2 Terrain and Materials
+
+- Integer terrain actions: excavate, raise, and seal, with protected-cell and
+  fluid-capacity rejection.
+- Water, lava, toxic slurry, and steam with bounded surface/airborne volume,
+  downhill/diffusion transfer, source backpressure, contamination, heat, and
+  water/lava and lava/slurry reactions.
+- Deterministic material events, mass ledger, terrain products, and focused
+  simulation tests.
+
 The template avoids browser-incompatible filesystem access. Static data is
 embedded with `include_str!()`, runtime browser assets go through Macroquad or
 toolkit async loaders, and save data uses macroquad-toolkit persistence.
@@ -36,5 +47,6 @@ cargo run
 cargo test
 ```
 
-Phase 2 will add explicit terrain edits, fluids, material interactions, and
-verification laboratory content, followed by devices and campaign missions.
+The next Phase 2 milestone adds the executable `lab_fluids_all` verification
+map. Devices, campaign missions, tutorial flow, and release evidence remain
+in the subsequent implementation-plan milestones.

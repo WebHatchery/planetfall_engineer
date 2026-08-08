@@ -1,6 +1,6 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{data::GameData, state::{save_session, load_session, CellPos, GameSession, TimeControl}};
+use crate::{data::GameData, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl}};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
@@ -15,11 +15,15 @@ impl FoundationCamera {
     fn new(width: usize, height: usize) -> Self { Self { target: vec2(width as f32 / 2.0, height as f32 / 2.0), yaw: 0, zoom: 16.0 } }
     fn update(&mut self, dt: f32, width: usize, height: usize) {
         let speed = dt * self.zoom * 0.8;
-        if is_key_down(KeyCode::A) { self.target.x -= speed; } if is_key_down(KeyCode::D) { self.target.x += speed; }
-        if is_key_down(KeyCode::W) { self.target.y -= speed; } if is_key_down(KeyCode::S) { self.target.y += speed; }
+        if is_key_down(KeyCode::A) { self.target.x -= speed; }
+        if is_key_down(KeyCode::D) { self.target.x += speed; }
+        if is_key_down(KeyCode::W) { self.target.y -= speed; }
+        if is_key_down(KeyCode::S) { self.target.y += speed; }
         self.target.x = self.target.x.clamp(0.0, width as f32); self.target.y = self.target.y.clamp(0.0, height as f32);
-        if is_key_pressed(KeyCode::Q) { self.yaw = (self.yaw + 3) % 4; } if is_key_pressed(KeyCode::E) { self.yaw = (self.yaw + 1) % 4; }
-        if is_key_pressed(KeyCode::Minus) { self.zoom = (self.zoom + 4.0).min(54.0); } if is_key_pressed(KeyCode::Equal) { self.zoom = (self.zoom - 4.0).max(12.0); }
+        if is_key_pressed(KeyCode::Q) { self.yaw = (self.yaw + 3) % 4; }
+        if is_key_pressed(KeyCode::E) { self.yaw = (self.yaw + 1) % 4; }
+        if is_key_pressed(KeyCode::Minus) { self.zoom = (self.zoom + 4.0).min(54.0); }
+        if is_key_pressed(KeyCode::Equal) { self.zoom = (self.zoom - 4.0).max(12.0); }
     }
     fn camera3d(&self) -> Camera3D {
         let angle = self.yaw as f32 * std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4;
@@ -45,11 +49,27 @@ impl Game {
     pub fn update(&mut self, dt: f32) {
         self.camera.update(dt, self.data.config.world_width, self.data.config.world_height);
         if is_key_pressed(KeyCode::Space) { self.session.time_control = match self.session.time_control { TimeControl::Paused => TimeControl::OneX, TimeControl::OneX => TimeControl::Paused, _ => TimeControl::Paused }; }
-        if is_key_pressed(KeyCode::Key1) { self.session.time_control = TimeControl::OneX; } if is_key_pressed(KeyCode::Key2) { self.session.time_control = TimeControl::TwoX; } if is_key_pressed(KeyCode::Key4) { self.session.time_control = TimeControl::FourX; }
-        if is_key_pressed(KeyCode::Up) { self.session.move_selected(0, -1); } if is_key_pressed(KeyCode::Down) { self.session.move_selected(0, 1); } if is_key_pressed(KeyCode::Left) { self.session.move_selected(-1, 0); } if is_key_pressed(KeyCode::Right) { self.session.move_selected(1, 0); }
+        if is_key_pressed(KeyCode::Key1) { self.session.time_control = TimeControl::OneX; }
+        if is_key_pressed(KeyCode::Key2) { self.session.time_control = TimeControl::TwoX; }
+        if is_key_pressed(KeyCode::Key4) { self.session.time_control = TimeControl::FourX; }
+        if is_key_pressed(KeyCode::Up) { self.session.move_selected(0, -1); }
+        if is_key_pressed(KeyCode::Down) { self.session.move_selected(0, 1); }
+        if is_key_pressed(KeyCode::Left) { self.session.move_selected(-1, 0); }
+        if is_key_pressed(KeyCode::Right) { self.session.move_selected(1, 0); }
+        if is_key_pressed(KeyCode::X) { self.apply_terrain(TerrainAction::Excavate); }
+        if is_key_pressed(KeyCode::R) { self.apply_terrain(TerrainAction::Raise); }
+        if is_key_pressed(KeyCode::T) { self.apply_terrain(TerrainAction::Seal); }
+        if is_key_pressed(KeyCode::I) { self.session.simulation.inject(self.session.selected, FluidId::Water, 500); }
+        if is_key_pressed(KeyCode::L) { self.session.simulation.inject(self.session.selected, FluidId::Lava, 500); }
+        if is_key_pressed(KeyCode::G) { self.session.simulation.inject(self.session.selected, FluidId::ToxicSlurry, 500); }
         if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
         if is_key_pressed(KeyCode::F9) { match load_session(&self.data.config) { Ok(s) => { self.session = s; self.notice = "Checkpoint loaded".into(); }, Err(e) => self.notice = e } }
         let ticks = self.session.update(dt); if ticks > 0 { self.notice = format!("Simulation advanced {ticks} tick(s)"); }
+    }
+
+    fn apply_terrain(&mut self, action: TerrainAction) {
+        self.notice = self.session.simulation.terrain_edit(self.session.selected, action).map(|_| "Terrain edit committed".into()).unwrap_or_else(|error| format!("Terrain edit rejected: {error:?}"));
+        if let Some(index) = self.session.simulation.index(self.session.selected) { self.session.world.cells[index].height_hu = self.session.simulation.cells[index].height_hu; self.session.world.cells[index].sealed = self.session.simulation.cells[index].sealed; }
     }
 
     pub fn draw(&mut self) {
