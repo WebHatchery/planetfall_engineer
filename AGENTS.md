@@ -44,6 +44,8 @@ These instructions apply to all Rust game projects in this workspace.
 - A reader who ignores the metaphor and reads only the parenthetical must still know exactly what the commit does. Do not omit the parenthetical, and do not force a metaphor onto a trivial mechanical change.
 - No Conventional-Commits prefixes (`feat:`, `fix:`, `chore:`, `refactor:`).
 - `mytherra` and `stellar_legacy` are the worked exemplars; read either project's `git log` before your first commit in a new game.
+- After completing a requested implementation and its required validation, check the working tree and commit the finished changes unless the user explicitly asks to leave them uncommitted. Report the commit hash and validation result in the handoff.
+- When a request contains multiple independently useful changes, finish, validate, and commit each major change before beginning the next one. Keep exploratory edits uncommitted until their outcome is known, but do not combine unrelated fixes, UI polish, or refactors into one commit merely because they occurred in the same task.
 
 ## File Size Rule
 
