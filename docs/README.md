@@ -32,12 +32,15 @@ code, tests, map data, commits, and later issue tracking.
 | [08_IMPLEMENTATION_PLAN.md](08_IMPLEMENTATION_PLAN.md) | Ordered engineer-ready work packages and milestone commits |
 | [09_QUALITY_GATES.md](09_QUALITY_GATES.md) | Automated, capture, performance, and publisher release gates |
 | [10_DELIVERY_ROADMAP.md](10_DELIVERY_ROADMAP.md) | Whole-project release boundaries and post-slice entry criteria |
+| [11_3D_VISUAL_TECHNICAL_SPEC.md](11_3D_VISUAL_TECHNICAL_SPEC.md) | From-start orthographic 3D rendering, assets, picking, and visual acceptance |
 
 ## Slice decisions already locked
 
-- The authoritative world is a deterministic square-cell heightfield. The
-  initial renderer is top-down with height cues; presentation MUST NOT own
-  simulation state. A future 3D renderer may consume the same world snapshot.
+- The authoritative world is a deterministic square-cell heightfield rendered
+  as genuine orthographic 3D from the first foundation milestone. Terrain,
+  fluids, machines, placement, picking, verification maps, and campaign maps
+  MUST use the 3D path in `11_3D_VISUAL_TECHNICAL_SPEC.md`; presentation still
+  MUST NOT own simulation state.
 - The first slice contains exactly three campaign levels: `L01`, `L02`, and
   `L03`. Sandbox laboratories are verification content, not campaign levels.
 - Slice fluids are water, lava, steam, and toxic slurry. Steam is represented
@@ -48,9 +51,9 @@ code, tests, map data, commits, and later issue tracking.
   and sealing are tools, not placeable devices.
 - Simulation advances only in fixed ticks. Frame rate and fast-forward change
   how many ticks execute, never the result of an individual tick.
-- No avatar is introduced. “Move around” in onboarding means pan/zoom the
-  engineering camera and move the survey cursor, matching the GDD player role
-  and the existing template.
+- No avatar is introduced. “Move around” in onboarding means pan, zoom, and
+  rotate the 3D engineering camera plus move the survey cursor, matching the
+  GDD player role.
 
 ## Change discipline
 

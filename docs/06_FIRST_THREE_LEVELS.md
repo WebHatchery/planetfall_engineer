@@ -7,6 +7,11 @@ problem before its tool, allow pause at all times, and use fixed events rather
 than randomness. Coordinates below are normative anchors; surrounding terrain
 may be art-tuned without changing routes, capacity, or reference replays.
 
+All three maps use the production orthographic 3D renderer, stepped terrain,
+fluid surfaces/sides, machine models, shadows, 3D placement/picking, and four
+camera yaw quarters from §11. Reference solutions are executed through world
+hits and admitted commands; a 2D debug grid is not acceptable gameplay evidence.
+
 | Seq. | ID | Name | New concepts | Target first-play time |
 | ---: | --- | --- | --- | ---: |
 | 1 | `campaign_l01_first_flow` | First Flow | camera, cursor, inspect, excavation, channel, gate, run/observe | 8–12 min |
@@ -23,7 +28,8 @@ route, run time, see water respond, then operate a gate to stabilize a basin.
 
 ### Authored state
 
-- Map: 32x20, ash terrain, ambient 3,030 dK, camera centered at (16,10).
+- Map: 32x20 stepped ash terrain, ambient 3,030 dK; camera target (16,10), yaw
+  quarter 0, zoom level 3. The basin and ridge are visible in the opening view.
 - `meltwater_source`: (4,4), starts stopped; 180 `vU`/tick after tutorial run.
 - Natural route slopes south-east toward `waste_sink` at (27,16).
 - `restoration_basin`: 4x4 zone x=22..25, y=7..10, sealed, capacity 12,000 `vU`.
@@ -55,6 +61,8 @@ ticks 480–750 after first run. Other routes remain valid within budget.
 - At least two distinct valid channel alignments can reach the basin.
 - Closing the gate visibly stops inflow on the following tick and the overlay
   changes direction/magnitude accordingly.
+- Excavation rebuilds the visible 3D ridge face; channel placement is aligned to
+  the modified top surface and remains pickable from every yaw quarter.
 - Failure checkpoint restarts before the source is enabled, preserving completed
   camera/cursor tutorial steps but requiring the build/observe steps again.
 
@@ -109,6 +117,8 @@ completion is ticks 1,400–1,800.
   suggested inspect action without prescribing a single solution.
 - The documented solution fits budget with at least 15 credits spare.
 - At least one completion is possible without the optional sensor.
+- The reservoir, raised pipes, pump ports, spillway crest, and sensor link are
+  readable 3D silhouettes at default zoom from opposing yaw quarters.
 
 ## 4. L03 — Firebreak Protocol
 
@@ -166,6 +176,9 @@ water for the surge. Expected completion is ticks 1,500–2,100.
 - Relay inspect states independently show power and adjacent-flow requirements.
 - The documented solution fits budget with at least 10 credits spare and water
   supply with at least 1,000 `vU` spare under deterministic playback.
+- Lava depth, newly formed basalt height, airborne steam, turbine operation,
+  condensate flow, and relay activation are simultaneously readable in the 3D
+  firebreak capture without relying on the inspector alone.
 
 ## 5. Campaign progression and save behavior
 

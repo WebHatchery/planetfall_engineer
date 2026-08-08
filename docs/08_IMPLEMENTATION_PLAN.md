@@ -20,7 +20,21 @@ Each completed package records:
 - any documented deviation, with the affected acceptance updated first;
 - a commit following `rust_management/docs/COMMIT_STYLE.md`.
 
-## 2. Milestone A — Deterministic world foundation
+## 2. Milestone A — Deterministic 3D world foundation
+
+### WP-A0 Upgrade shared 3D foundations
+
+Extend `macroquad-toolkit::render3d` with §11's orthographic engineering camera,
+viewport-aware screen-ray unprojection, ray/AABB helpers, and WebGL-safe static
+GLB loading/diagnostics. Extend pack-first raw-byte lookup so models and shader
+text load from the existing ZIP `AssetPack` before loose files. Keep APIs
+game-neutral and cover camera matrices, all-yaw ray hits, viewport offsets,
+AABBs, malformed assets, packed/loose assets, and native/WebGL compilation. Do
+not create project-local substitutes for these shared needs.
+
+Acceptance: toolkit tests pass; an orthographic stepped-cube fixture can pan,
+zoom, rotate, and pick the same intended cube at every yaw/zoom; a static GLB
+loads from bytes or produces the documented placeholder diagnostic.
 
 ### WP-A1 Replace template domain state
 
@@ -47,9 +61,21 @@ tick shell, state hash, versioned snapshot, checkpoint, and command replay.
 Acceptance: render-frame partition does not alter final hash; pause executes
 zero ticks; 2x/4x run exact additional ticks; save/load/replay hashes agree.
 
+### WP-A4 Establish the production 3D world path
+
+Implement §11 world conversion, orthographic camera/viewport, chunked stepped
+terrain mesh, fixed lighting/material, 3D survey reticle, cell/edge/device
+picking, selection outline, placement ghost shell, 2D HUD restoration, dirty
+chunk rebuild, and deterministic capture framing. Use procedural 3D placeholders
+until authored models arrive; do not retain the template's 2D grid as gameplay.
+
+Acceptance: §11 terrain, camera, picking, resize, render-order, placeholder, and
+hash-isolation tests pass on an 8x8 stepped fixture. The first foundation capture
+must visibly be a 3D diorama, not a flat grid with height colors.
+
 ### Milestone A commit
 
-Commit after A1–A3 and run the publisher. Do not begin fluid rules until this
+Commit after A0–A4 and run the publisher. Do not begin fluid rules until this
 commit is clean.
 
 ## 3. Milestone B — Terrain and material simulation
@@ -58,7 +84,8 @@ commit is clean.
 
 Implement terrain actions, placement validation, mixture storage, proposal/
 limit/apply phases, source/drain fixtures, overlays' derived facts, and mass
-ledger per §§03.2–03.4.
+ledger per §§03.2–03.4. Connect terrain mutation to dirty 3D chunk rebuilds and
+world-space grade/flow overlays without putting simulation state in meshes.
 
 Acceptance: downhill, equal-head, competing-neighbor, ridge/notch, capacity,
 boundary, source-backpressure, and terrain-edit tests pass.
@@ -67,6 +94,8 @@ boundary, source-backpressure, and terrain-edit tests pass.
 
 Implement airborne diffusion, heat exchange, boiling/condensation, cooling lava,
 water/lava, lava/slurry, dilution, pending terrain products, and event emission.
+Implement §11 liquid top/side chunk meshes, animated material shaders, steam
+volumes/billboards, flow decals, and reaction effects as derived presentation.
 
 Acceptance: exact table-driven reaction quantities at 1, 120, 250, 1,000, and
 capacity-limited `vU`; phase transitions; no-reaction pairs; deterministic hash.
@@ -77,7 +106,8 @@ Author `lab_fluids_all`, automation, assertions, live laboratory HUD, evidence
 capture, and headless scenario. Reserved bays remain explicit.
 
 Acceptance: every §05.2 slice assertion passes, lab reset is exact, mass balance
-holds, automatic/free modes work, and the capture is readable at 1280x720.
+holds, automatic/free modes work through 3D picking, and opposing-yaw captures
+are readable at 1280x720.
 
 ### Milestone B commit
 
@@ -92,20 +122,25 @@ Implement build registry/palette, ghost/rotation, validity reasons, queued plan,
 budget reservation, commit, selection/inspect, common device entity state,
 network connections, and powered-device phase.
 
+All hover, selection, edge choice, footprint, rotation, ports, and ghosts use
+the production 3D ray-hit path and depth-tested world presentation.
+
 Acceptance: all command rejection codes, footprint rotations, overlap, budget,
 queue removal, atomic commit, and renderer-independent state tests pass.
 
 ### WP-C2 Simple flow devices
 
-Implement channel, floodgate, spillway, and reservoir behavior and settings.
-Author their four showcase maps with automation/assertions/captures.
+Implement channel, floodgate, spillway, and reservoir behavior/settings plus
+their 3D models/state visuals. Author four 3D showcase maps with production
+picking, automation, assertions, and captures.
 
 Acceptance: VM-CHANNEL, VM-FLOODGATE, VM-RESERVOIR, and VM-SPILLWAY pass.
 
 ### WP-C3 Networks and active devices
 
-Implement pipe connectivity/capacity/pressure, pump, turbine power, sensor sample
-and delayed output, filter, and rune relay. Author six showcase maps.
+Implement pipe connectivity/capacity/pressure, topology meshes, pump, turbine
+power, sensor sample/delayed output, filter, rune relay, and their 3D model/state
+visuals. Author six 3D showcase maps.
 
 Acceptance: all remaining §05 device-map cases pass; validator proves exactly
 one showcase per enabled device; no showcase includes another placeable device.
@@ -128,12 +163,13 @@ events fire once; checkpoints restore hash; terminal missions admit no commands.
 
 ### WP-D2 Engineering UI
 
-Implement world rendering with height/fluid/device cues, camera/cursor, build
-palette, inspector, objective/time/budget strip, alerts, overlays/legends, pause
-menu, debrief, UI scale, reduced motion, and clickable paths for all actions.
+Finish the §11 slice-quality 3D art/material pass, camera/cursor, occlusion fade,
+build palette, inspector, objective/time/budget strip, alerts, 3D overlays plus
+legends, pause menu, debrief, UI scale, reduced motion, and clickable paths.
 
-Acceptance: layouts and controls pass §09 resolutions; no required action is
-keyboard-only; non-color cues exist; camera never changes simulation hash.
+Acceptance: layouts, 3D captures, picking, and controls pass §09 resolutions and
+all yaw/zoom cases; no action is keyboard-only; non-color cues exist; camera,
+animation, and mesh rebuilds never change simulation hash.
 
 ### WP-D3 Tutorial engine
 
@@ -187,7 +223,8 @@ tutorial steps, test content-version mismatch, and audit all iteration order.
 ### WP-F2 Performance and extreme-state audit
 
 Run §09 worst-case maps, capacity/pressure/heat/contamination bounds, resize and
-WebGL sessions, rapid pause/speed/placement input, and one-hour simulated soak.
+WebGL sessions, all-yaw picking, 3D draw/mesh budgets, rapid camera/pause/speed/
+placement input, and one-hour simulated soak.
 
 ### WP-F3 Release evidence and handoff
 
@@ -202,6 +239,8 @@ package remains. The body must state exact publisher results and honest deferral
 ## 8. Prohibited shortcuts
 
 - Do not special-case campaign coordinates in Rust.
+- Do not implement a 2D map as a temporary gameplay path; start with the shared
+  orthographic 3D camera, terrain mesh, and picking fixture in Milestone A.
 - Do not make visual particles authoritative material.
 - Do not advance tutorials from prompt dismissal when an action/event is required.
 - Do not make reference tests assert only “mission completed”; assert resources,

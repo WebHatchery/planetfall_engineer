@@ -18,8 +18,9 @@ bounded implementation module.
 
 - Native Windows and WebGL builds through `publish.ps1`.
 - Deterministic fixed-tick terrain/fluid/device simulation.
-- Top-down heightfield map, camera pan/zoom, survey cursor, inspect selection,
-  pause, 1x, 2x, and 4x time controls.
+- Orthographic 3D heightfield world with stepped terrain meshes, 3D fluids and
+  machines, depth-tested placement/picking, camera pan/zoom/quarter-rotation,
+  survey cursor, inspect selection, pause, 1x, 2x, and 4x time controls.
 - Data-loaded fluids, devices, interactions, tutorials, and missions.
 - Save/load of campaign progress and active mission state.
 - Restart mission and reset-to-last-checkpoint actions.
@@ -67,8 +68,10 @@ revised first:
 
 - True volumetric fluid dynamics, particle-based fluid authority, or erosion.
 - A free-moving player avatar, character combat, inventory, or crafting.
-- Freeform mesh sculpting. Terrain edits operate on cells with integer height.
-- Full 3D orbit rendering. The logic/renderer boundary must permit it later.
+- Freeform mesh sculpting. Terrain edits operate on cells with integer height
+  and rebuild the affected 3D terrain chunks.
+- Free-pitch cinematic orbit, dynamic shadow maps, physically based rendering,
+  reflections, skeletal animation, or authoritative volumetric fluid meshes.
 - Fluids beyond the four slice types. Reserved data may exist, behavior may not.
 - Devices beyond the ten slice placeables.
 - Missions four through eight, other biomes, procedural maps, editor, mods,
@@ -81,6 +84,8 @@ revised first:
 | Constraint | Slice requirement |
 | --- | --- |
 | View | 16:9 reference at 1280x720; usable at 800x600 and common browser sizes |
+| 3D camera | Orthographic; fixed 35.264° pitch; four 90° yaw quarters; six zoom levels |
+| World scale | Cell width/depth 1.0; each 1,000 `hU` is 0.5 world-height units |
 | Input | Mouse + keyboard; every required action has a visible clickable path |
 | Mission size | Up to 48x32 cells in campaign; 64x48 in verification maps |
 | Simulation | 10 fixed ticks/second at 1x; tick result independent of render FPS |
@@ -92,11 +97,12 @@ revised first:
 
 ## 5. Compatibility contract with the template
 
-The current survey/action economy is scaffolding, not retained game design.
+The current 2D survey/action economy is scaffolding, not retained game design.
 Engineers MAY replace `PlayerState.points`, regenerating energy, fog reveal, and
 the generic `ActionDef` with the systems in these documents. They MUST preserve
-useful shared-toolkit seams: virtual UI, camera/input helpers, notifications,
-asset loading, capture mode, persistence, and source-size validation.
+useful shared-toolkit seams: virtual UI, notifications, asset loading, capture
+mode, persistence, source-size validation, and existing `render3d` foundations.
+The existing 2D camera/grid renderer is replaced, not wrapped as the world view.
 
 Before implementing a local replacement for shared runtime, camera, input,
 assets, persistence, UI, or capture behavior, inspect `macroquad-toolkit`. If
@@ -122,6 +128,8 @@ The slice is complete only when all statements are true:
 7. All gates in `09_QUALITY_GATES.md` pass through `publish.ps1`.
 8. No touched non-test Rust file reaches 800 lines, and module ownership matches
    `02_TECHNICAL_ARCHITECTURE.md`.
+9. Every playable and verification map is rendered, picked, built, inspected,
+   and captured through the orthographic 3D path defined by §11.
 
 ## 7. Scope-change rule
 

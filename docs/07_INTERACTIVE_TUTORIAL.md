@@ -5,7 +5,7 @@
 On first play of L01, the tutorial MUST cause the player to perform—not merely
 read—the core loop:
 
-1. move the engineering camera;
+1. pan, zoom, and rotate the 3D engineering camera;
 2. move the survey cursor and inspect terrain;
 3. pause and choose a build action;
 4. place and commit a channel plan;
@@ -68,19 +68,23 @@ explains the currently available action.
 
 ### T02 — `tutorial_l01_move_camera`
 
-- Prompt: “Pan the engineering view to inspect the marked basin.”
-- Complete when camera center moves at least 3 cells from its step-start center
-  by any supported path: WASD/arrow camera mode, right-drag, middle-drag, or
-  visible edge controls. Zoom is allowed but not required.
+- Prompt: “Pan, zoom, and rotate the engineering view to inspect the marked basin.”
+- Complete only after the camera target moves at least 3 cells, zoom changes by
+  at least one discrete level, and yaw changes by one 90-degree quarter. Any
+  supported path is valid: bindings, drag/wheel, or visible camera controls.
+- The world remains live 3D during rotation; stepped cliffs, water surface, and
+  objective markers must remain depth-correct and the basin must be pickable.
 - Hint 1 points to controls legend. Hint 2 offers a clickable “Center basin”
-  action; using it completes the step and records `assisted=true` for QA only.
+  sequence that pans, zooms, then rotates; using all three assisted controls
+  completes the step and records `assisted=true` for QA only.
 - Checkpoint: no.
 
 ### T03 — `tutorial_l01_move_cursor`
 
 - Prompt: select the marked ridge cell (14,8).
 - Complete from accepted `MoveSurveyCursor` or `SelectCell` with target in the
-  ridge focus zone. Mouse and keyboard selection are equivalent.
+  ridge focus zone. Pointer selection MUST use §11's 3D screen ray; keyboard
+  selection moves the same world-space reticle. Both are equivalent.
 - Hint 1 animates the survey reticle without moving it. Hint 2 expands the valid
   focus zone to any route cell (14..18,8).
 
@@ -104,7 +108,7 @@ explains the currently available action.
 - Prompt: lower one highlighted route cell.
 - Allowed mutation: queue excavate on any valid route cell.
 - Placement preview MUST show old/new height, 4-credit cost, flow-arrow change,
-  protected-cell rejection, confirm, and cancel controls.
+  protected-cell rejection, confirm, and cancel controls on the picked 3D cell.
 - Complete on an accepted queued edit, not hover or click attempt.
 
 ### T07 — `tutorial_l01_place_channel`
@@ -112,6 +116,8 @@ explains the currently available action.
 - Enter: unlock channel palette entry; remain paused.
 - Prompt: place a channel on the edited cell.
 - Complete on accepted `QueueDevice(channel, same cell)`.
+- The translucent channel ghost conforms to the post-excavation top height and
+  remains valid after a camera quarter-rotation before confirmation.
 - Hint 2 may move focus to the queued excavation but MUST NOT place for player.
 
 ### T08 — `tutorial_l01_commit_plan`
@@ -182,7 +188,8 @@ explains the currently available action.
 - Every step ignores unrelated UI-only commands without advancing.
 - Every state-changing command not allowed by the current step is rejected with
   `tutorial_locked` and leaves state/hash unchanged.
-- Mouse-equivalent and keyboard-equivalent command streams complete T02/T03.
+- Mouse-equivalent and keyboard-equivalent command streams complete T02/T03;
+  pointer streams cover all four yaw quarters and at least two zoom levels.
 - Save/load at the start of every step restores that exact step and world hash.
 - Hint timers do not affect authoritative state or replay hash.
 - Reset checkpoint from T09 restores source disabled until T09 re-enters.

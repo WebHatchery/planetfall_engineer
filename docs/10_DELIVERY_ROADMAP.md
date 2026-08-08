@@ -11,7 +11,7 @@ license to invent missing level content or mechanics in code.
 
 | Release | Required product result | Engineering entry gate |
 | --- | --- | --- |
-| R0 — First playable slice | L01–L03, four-fluid simulation, ten devices, tutorial, verification suite | Current `docs/` contract approved |
+| R0 — First playable slice | L01–L03, orthographic 3D world, four-fluid simulation, ten 3D devices, tutorial, verification suite | Current `docs/` contract approved |
 | R1 — Volcanic MVP | 6–8 total Act I missions, grading, polished volcanic presentation/audio, complete accessibility/save/restart | R0 quality gates pass; each added mission has an authored spec and replay |
 | R2 — Frozen Archive | Act II content, brine and cryofluid, freeze/thaw/storage rules, cold-rated equipment | R1 stable; exact fluid matrices and device deltas accepted |
 | R3 — Poisoned Inheritance | Act III content, acid and expanded contamination/neutralization/corrosion | R2 stable; corrosion and purification specs accepted |
@@ -31,17 +31,18 @@ The following contracts are permanent unless a versioned architecture decision
 replaces them:
 
 - deterministic heightfield simulation and fixed-tick command replay;
-- presentation separated from authoritative state;
+- genuine orthographic 3D terrain, fluids, devices, picking, placement, and map
+  captures from R0 onward, separated from authoritative simulation state;
 - data-authored maps, definitions, events, tutorials, and objectives;
 - versioned saves/content plus deterministic migrations or checkpoint fallback;
 - one permanent all-fluid laboratory and one isolated showcase per device;
 - native Windows and WebGL publisher validation;
 - module/source-size and macroquad-toolkit reuse rules.
 
-Later presentation may add a true 3D terrain renderer. It MUST consume existing
-snapshots/commands and pass the same replays; it cannot move fluid or objective
-truth into scene objects. A renderer migration is a separate milestone with
-side-by-side state-hash proof.
+Later presentation may add higher-detail materials, models, shadows, weather,
+or a cinematic perspective camera, but the product does not defer its 3D world.
+Every renderer change MUST consume existing snapshots/commands and pass the same
+replays; scene meshes never own fluid, device, or objective truth.
 
 ## 4. Fluid expansion gate
 

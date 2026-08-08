@@ -9,14 +9,17 @@ progress, award grades, or contain narrative dependencies.
 
 Every map MUST provide:
 
-- deterministic initial state and fixed camera framing;
+- the production orthographic 3D terrain/fluid/device renderer and production
+  ray-picking/placement path; no 2D laboratory renderer or test-only picking;
+- deterministic initial state and fixed 3D camera target/yaw/zoom framing;
 - a short instruction panel listing behavior and controls under test;
 - labeled inputs, output/measurement zones, and expected result ranges;
 - reset, pause, single-tick, 1x, 2x, and 4x controls;
 - live tick, state hash, source/sink totals, and mass-balance readout;
 - an automatic scenario command stream and a free-control mode;
 - pass/fail assertions shown in the map and exercised headlessly;
-- one stable 1280x720 evidence capture after its automatic scenario.
+- one stable 1280x720 evidence capture after its automatic scenario, plus
+  rotation captures where another yaw exposes behavior hidden by terrain.
 
 Verification assertions are data records interpreted by tested assertion kinds,
 not arbitrary scripts. Required kinds are `zone_volume_range`,
@@ -28,11 +31,11 @@ and `state_hash`.
 
 ### 2.1 Layout
 
-The 64x48 map has a 16x16 central interaction field and nine 10x8 perimeter
-bays, one for every GDD fluid ID. Slice-disabled fluids appear as sealed,
-labeled empty bays with `NOT IMPLEMENTED` status. Enabling a fluid MUST fill
-and activate its existing bay in the same change; the map ID and bay position
-do not change.
+The 64x48 stepped 3D map has a 16x16 central interaction field and nine 10x8
+perimeter bays, one for every GDD fluid ID. Slice-disabled fluids appear as
+sealed, labeled empty bays with `NOT IMPLEMENTED` status. Enabling a fluid MUST
+fill and activate its existing bay in the same change; the map ID and bay
+position do not change.
 
 | Bay | Fluid ID | Slice state |
 | --- | --- | --- |
@@ -78,7 +81,10 @@ The automation runs bays one at a time to keep evidence readable:
    invariants and deterministic final hash.
 
 The UI capture uses step 3 at tick 180, centered on the interaction field with
-the fluid legend and assertion panel visible.
+the fluid legend and assertion panel visible. Capture yaw quarters 0 and 2 to
+prove pools, cliffs, liquid depth, steam height, and reactions remain readable
+from opposing views. Each active bay includes at least three elevation steps so
+the shared top/cliff mesh, fluid sides, occlusion fade, and picking are exercised.
 
 ### 2.3 Slice acceptance
 
@@ -99,6 +105,12 @@ placeable device definition may appear in that map. Authored fluid sources,
 drains, terrain walls, power supplies, objective zones, and labeled measurement
 fixtures are allowed and MUST be styled as test fixtures, not machines.
 
+Every device scenario places/configures the primary machine once through 3D
+ray picking before automation continues. Its capture MUST show the model,
+footprint, ports, operating state, contact shadow, connected flow, and selected
+3D outline at default zoom. Placeholder geometry is acceptable only until that
+device's campaign-first-use milestone.
+
 Every showcase follows a common 32x18 shell:
 
 - left third: input/source and starting condition;
@@ -107,7 +119,8 @@ Every showcase follows a common 32x18 shell:
 - bottom strip: expected behavior, current measurements, assertion results;
 - build kit: only the primary device, with unlimited credits;
 - automatic scenario: demonstrates inactive/default, active, and one edge case;
-- free mode: player may place/remove/configure only that device.
+- free mode: player may place/remove/configure only that device through the
+  production 3D placement ghost and hit-testing path.
 
 ## 4. Required slice device maps
 

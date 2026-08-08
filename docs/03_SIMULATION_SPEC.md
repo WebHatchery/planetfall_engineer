@@ -5,6 +5,10 @@
 This document defines gameplay physics for the first slice. It is deliberately
 an engineering model, not scientific fluid dynamics.
 
+The cell grid is rendered as genuine 3D. Simulation `x/y` map to world `X/Z`,
+and integer elevation maps to world `Y` exactly as specified in §11. Rendering,
+mesh interpolation, particles, and camera state never feed back into these rules.
+
 | Quantity | Authoritative representation | Meaning |
 | --- | --- | --- |
 | Position | `CellPos { x: i16, y: i16 }` | Zero-based square grid, origin at top-left |

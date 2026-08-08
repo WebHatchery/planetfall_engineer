@@ -6,11 +6,11 @@ camera, and data-loading patterns used by the Rust games in this workspace.
 
 ## Technical Build Specification
 
-Implementation scope, deterministic simulation rules, content contracts,
-verification maps, the first three campaign levels, interactive tutorial, work
-packages, and release gates are indexed in [`docs/README.md`](docs/README.md).
-Those documents are the engineering contract; the GDD remains the source of
-product intent.
+Implementation scope, from-start orthographic 3D rendering, deterministic
+simulation rules, content contracts, verification maps, the first three
+campaign levels, interactive tutorial, work packages, and release gates are
+indexed in [`docs/README.md`](docs/README.md). Those documents are the
+engineering contract; the GDD remains the source of product intent.
 
 ## Foundation Already Wired
 

@@ -16,7 +16,9 @@ The test/publisher path MUST enforce:
 - `cargo test` including the shared source-size gate;
 - every non-test `.rs` file below 800 lines;
 - content load and cross-reference validation;
-- no enabled fluid/device without required verification coverage.
+- no enabled fluid/device without required verification coverage;
+- shared-toolkit 3D camera, screen-ray, AABB, and GLB-loader tests;
+- 3D terrain/fluid mesh, model/port, picking, and render-snapshot tests.
 
 The implementation SHOULD add one test owner per behavior module rather than a
 single integration-test crate, following `AGENTS.md` inline/child test rules.
@@ -65,6 +67,12 @@ Automated deterministic captures MUST exist for title/mission selection, every
 verification map, each campaign briefing, active campaign gameplay, each
 level's main hazard, success debrief, and one failure/recovery state.
 
+Every map capture MUST come from the production orthographic `Camera3D` path
+with visible stepped terrain, fluid height, and machine geometry. The all-fluid
+lab requires yaw quarters 0 and 2; each campaign level and device map requires
+its authored default yaw plus any opposing yaw needed to expose occluded logic.
+A 2D grid/debug capture cannot satisfy evidence.
+
 Run required screens at:
 
 | Size | Required result |
@@ -81,6 +89,7 @@ At every size:
 - overlay legend and inspector can close without losing selection;
 - text does not overlap or truncate IDs/values needed for engineering decisions;
 - mouse hit regions match rendered controls after scaling;
+- screen-ray hits match visible 3D cell/device/edge after UI viewport scaling;
 - reduced-motion mode has no required information only in animation;
 - water/lava/slurry/steam and alert levels have non-color distinctions.
 
@@ -88,11 +97,30 @@ Captures live under `docs/verification/` with stable names
 `<map_or_screen>_<width>x<height>.png`. `catalog_thumbnail.png` at repository
 root MUST be a current title-screen capture before release publishing.
 
-## 6. Manual interaction checks
+## 6. 3D functional gates
+
+- Orthographic projection remains perspective-free at all six zoom levels.
+- Pan clamps to map bounds; four quarter rotations return to the initial camera
+  matrix within float presentation tolerance.
+- Known-point ray fixtures select the same intended cell/device at all four yaw
+  quarters, six zoom levels, and three required window sizes.
+- Terrain mesh emits no internal equal-height faces, exact stepped side heights,
+  scaled UVs, and valid `u16` indices; boundary edits dirty adjacent chunks.
+- Fluid top/side geometry matches authoritative height/depth and does not
+  z-fight terrain at 0, 1, 250, 1,000, and 8,000 `vU`.
+- Device model AABBs/ports rotate with footprint; pipe topology has no open gap
+  where connected; placeholder and authored models share picking/state behavior.
+- Opaque/translucent render order, selection outline, placement ghost, occlusion
+  fade, and HUD restoration are visually correct at every yaw.
+- Model, shader, atlas, or GLB failure names the asset and shows a 3D diagnostic
+  placeholder without changing simulation state.
+
+## 7. Manual interaction checks
 
 At each content milestone, perform and record:
 
-- pan, zoom, survey selection, and inspect with mouse and keyboard equivalents;
+- pan, zoom, all four 3D yaw quarters, survey selection, edge/device picking,
+  occlusion fade, focus, and inspect with mouse and keyboard equivalents;
 - queue/rotate/cancel/commit valid placement and each common invalid placement;
 - pause, 1x, 2x, 4x, rapid toggling, and window focus loss;
 - reset checkpoint, restart mission, save, load, and content mismatch notice;
@@ -102,7 +130,7 @@ At each content milestone, perform and record:
 
 No manual check substitutes for deterministic behavior tests.
 
-## 7. Performance gates
+## 8. Performance gates
 
 Use a release build with capture/diagnostic overlays disabled except the
 performance counter.
@@ -115,12 +143,16 @@ and interactions active for 10 simulated minutes MUST maintain:
 - median render rate >=60 FPS at 1x;
 - 99th-percentile frame time <=33.3 ms;
 - no simulation backlog lasting more than 1 real second;
-- no growing memory trend after the first minute.
+- no growing memory trend after the first minute;
+- at most 500 world draw submissions and 300,000 world vertices in the fully
+  active laboratory reference frame, reported by diagnostic counters;
+- no terrain/fluid chunk rebuild when authoritative geometry did not change.
 
 ### QG-P2 WebGL floor
 
 At 1280x720 in a supported desktop browser, the same scenario MUST maintain
 median >=30 FPS at 1x and keep input responsive while the laboratory runs.
+The same draw/vertex limits apply because WebGL uses identical authored content.
 
 ### QG-P3 Deterministic load
 
@@ -135,7 +167,7 @@ If a performance target fails, record map, build, platform, duration, median,
 p99, backlog, and suspected owner. Do not reduce deterministic tick count or
 silently drop simulation work to improve rendering.
 
-## 8. Failure-path gates
+## 9. Failure-path gates
 
 Tests or manual checks MUST cover:
 
@@ -149,10 +181,12 @@ Tests or manual checks MUST cover:
 - terminal state cannot continue simulating behind debrief;
 - source injection at capacity emits backpressure and does not lose ledger mass.
 
-## 9. Release checklist
+## 10. Release checklist
 
 - [ ] Scope completion criteria in `01_PROJECT_SCOPE.md` are all true.
 - [ ] All three campaign and eleven verification maps validate and replay.
+- [ ] All maps render/pick through §11's orthographic 3D path; required yaw
+      captures, mesh/model validation, and Windows/WebGL 3D gates pass.
 - [ ] Tutorial reference, alternate inputs, skip, save/load, and reset pass.
 - [ ] Static, unit, deterministic, failure, UI, and performance gates pass.
 - [ ] `publish.ps1` succeeds with Windows and WebGL outputs.

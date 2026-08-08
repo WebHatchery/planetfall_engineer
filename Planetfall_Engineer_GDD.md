@@ -237,6 +237,7 @@ The interface should feel like a refined expedition-control system: technical en
 
 The visual identity blends grounded planetary engineering with monumental, rune-carved alien infrastructure.
 
+- **View and terrain:** The game is fully 3D from its first prototype, presented through a Timberborn-like orthographic engineering diorama: stepped block terrain, readable cliff faces, visible liquid depth, rotatable quarter views, and compact construction silhouettes. This is a clarity and material-readability reference, not a request to copy another game's assets, interface, or building designs.
 - **Worlds:** Stylised realism with strong material readability—water glints, lava radiates heat, acid looks corrosive, ice is translucent and stressed.
 - **Ancient ruins:** Geometric, weathered megastructures with restrained luminous glyphs; alien technology is imposing but interpretable.
 - **Restoration:** Colour and life return visibly as missions succeed: clear water, mosses, vegetation, atmosphere, and changed skies.

@@ -37,13 +37,20 @@ src/
     commands.rs            serializable player intent
     tutorial.rs            tutorial state machine
     replay.rs              command stream runner
+  render3d.rs              3D render facade and immutable snapshot bridge
+  render3d/
+    terrain_mesh.rs        dirty-chunk top/cliff mesh generation
+    fluid_mesh.rs          derived liquid surfaces/sides and steam volumes
+    devices.rs             model instances, pipes, ports, ghosts, state visuals
+    picking.rs             ray hits -> cells, edges, devices, and ports
+    overlays.rs            3D grade/flow/hazard/selection geometry
+    materials.rs           shaders, texture atlases, model/material handles
   ui.rs                    UI facade and shared layout
   ui/
-    world_view.rs          terrain/fluid/device draw pass and hit testing
     hud.rs                 objectives, budget, time, alerts
     build_palette.rs       selection and placement preview
     inspector.rs           selected-cell/device facts
-    overlays.rs            overlay selection and legend
+    overlays.rs            overlay selection and screen-space legend
     tutorial.rs            prompt presentation and focus treatment
 ```
 
@@ -66,6 +73,8 @@ save/replay <----------- versioned snapshot + admitted command stream
 - `simulation` MUST NOT read input, wall-clock time, frame time, textures,
   window size, filesystem state, or persistence APIs.
 - `ui` MUST submit commands. It MUST NOT directly change world state.
+- `render3d` consumes immutable snapshots and presentation events. It MUST NOT
+  own cells, fluid quantities, device settings, objectives, or placement truth.
 - `mission` owns whether a command is legal while paused, running, completed,
   failed, or tutorial-gated.
 - Device implementations MUST use the same transfer/reaction APIs as terrain
@@ -84,13 +93,15 @@ MAX_TICKS_PER_FRAME  = 8
 Frame order MUST be:
 
 1. Capture raw input once and translate it to ordered `FrameCommand`s.
-2. Apply UI-only commands such as camera and overlay changes.
+2. Apply presentation-only commands such as 3D camera and overlay changes; use
+   the exact current camera/viewport to ray-pick any pointer world target.
 3. Admit gameplay commands in their captured order; return a result for each.
 4. Add scaled frame time to an accumulator when running.
 5. Execute fixed simulation ticks while the accumulator permits, capped at
    eight per render frame. Retain excess time; do not increase tick duration.
 6. Evaluate objectives and tutorial triggers after each completed tick.
-7. Build a read-only view model and render once.
+7. Build a read-only view model, rebuild dirty derived 3D meshes, render the 3D
+   world, restore the virtual 2D UI camera, and render HUD once.
 
 Pause sets simulation time scale to zero. Queued builds may be authored while
 paused but only become world entities on an explicit `CommitPlan` command.
@@ -170,6 +181,12 @@ requires persistence.
 | Campaign | unlocked level, completion, preferences | Yes | No mission hash |
 | Presentation | camera tween, particles, hovered cell | No | No |
 | User settings | UI scale, reduced motion, bindings | Separate | No |
+
+The world-space conversion, orthographic camera, mesh ownership, model asset
+contract, picking, render order, and acceptance tests are normative in
+`11_3D_VISUAL_TECHNICAL_SPEC.md`. Reusable orthographic-camera, screen-ray,
+ray/AABB, and GLB-loading support belongs in `macroquad-toolkit::render3d` rather
+than project-local copies.
 
 ## 9. Persistence and migration
 

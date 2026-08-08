@@ -24,6 +24,18 @@ assets/data/
     campaign_l03_firebreak.json
     lab_fluids_all.json
     device_<device_id>.json
+assets/models/
+  devices/<device_id>.glb
+  ruins/<asset_id>.glb
+assets/textures/
+  terrain_atlas.png
+  fluid_atlas.png
+  models/<asset_id>.png
+assets/shaders/
+  world_lit.vert
+  world_lit.frag
+  fluid.vert
+  fluid.frag
 ```
 
 Definitions are embedded at compile time for native/WebGL parity. Art assets
@@ -79,14 +91,24 @@ Only `water`, `lava`, `steam`, and `toxic_slurry` may be enabled in the slice.
   "allowed_rotations": [0, 90, 180, 270],
   "placement_rule": "surface_foundation",
   "behavior": { "kind": "pump", "max_rate_vu": 250, "pressure_add_pu": 100 },
-  "asset_id": "device_pump",
+  "model": {
+    "asset_id": "device_pump_glb",
+    "scale_bp": 10000,
+    "yaw_offset_degrees": 0,
+    "local_aabb": { "min": [-0.45, 0.0, -0.45], "max": [0.45, 0.9, 0.45] },
+    "ports": [
+      { "id": "inlet", "position": [0.0, 0.25, -0.5], "direction": "north" },
+      { "id": "outlet", "position": [0.0, 0.25, 0.5], "direction": "south" }
+    ]
+  },
   "showcase_map_id": "device_pump"
 }
 ```
 
 `behavior.kind` selects a tested implementation. Arbitrary scripting and
 user-authored expressions are out of scope. Every enabled definition requires
-a matching primary showcase map.
+a matching primary showcase map. `model` follows §11's GLB/static-model subset;
+its AABB and ports are validated against footprint and allowed rotations.
 
 ### 4.3 Map
 
@@ -109,7 +131,11 @@ a matching primary showcase map.
   "sources": [],
   "authored_devices": [],
   "scheduled_events": [],
-  "camera_start": { "center": [16, 10], "zoom_bp": 10000 }
+  "camera_start": {
+    "target_cell": [16, 10],
+    "yaw_quarter": 0,
+    "zoom_level": 3
+  }
 }
 ```
 
@@ -194,6 +220,7 @@ file/ID/field order. At minimum it validates:
 3. Every referenced fluid, device, map, zone, source, objective, tutorial,
    asset, connection, entity, and unlock.
 4. RLE dimensions, coordinates, footprints, rotations, and height bounds.
+   Camera targets/yaw/zoom, model AABBs, and port transforms must also be valid.
 5. Nonnegative rates/costs/volumes, contamination <=10,000, valid colors, and
    temperatures within the definition type range.
 6. No overlapping authored devices or placement on protected/invalid cells.
@@ -207,6 +234,10 @@ file/ID/field order. At minimum it validates:
 11. Every mandatory objective is syntactically satisfiable: referenced source
     and target material exist, stability is positive, and its threshold fits
     zone/device capacity. This is not a solver proof.
+12. Every enabled device resolves a static GLB model or an explicitly approved
+    3D placeholder, and every terrain/fluid material resolves its shader/atlas
+    assets. A missing asset fails validation tests even though runtime retains a
+    diagnostic placeholder.
 
 ## 6. Content versioning
 
