@@ -197,7 +197,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     draw_ui_text_ex(
         &format!("ALERT {}", ctx.session.mission.alert_level.name()),
         1024.0,
-        190.0,
+        210.0,
         TextStyle::new(
             13.0,
             if ctx.session.mission.alert_level == crate::mission::AlertLevel::Critical {
@@ -493,7 +493,7 @@ fn draw_terminal_panel(session: &GameSession) {
         300.0,
         230.0,
         680.0,
-        190.0,
+        210.0,
         Color::new(0.035, 0.05, 0.08, 0.98),
     );
     draw_rectangle_lines(
@@ -552,16 +552,32 @@ fn draw_terminal_panel(session: &GameSession) {
         358.0,
         TextStyle::new(15.0, Color::new(0.76, 0.82, 0.86, 1.0)).params(),
     );
-    draw_ui_text_ex(
-        if success {
-            "Campaign progress updated"
-        } else {
-            "Recovery is available from the mission menu"
-        },
-        336.0,
-        396.0,
-        TextStyle::new(15.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
-    );
+    let labels = if success {
+        ("NEXT MISSION", "CAMPAIGN BOARD")
+    } else {
+        ("RETRY CHECKPOINT", "RESTART MISSION")
+    };
+    for (x, label) in [(336.0, labels.0), (660.0, labels.1)] {
+        draw_rectangle(x, 374.0, 284.0, 40.0, Color::new(0.10, 0.22, 0.27, 0.98));
+        draw_rectangle_lines(
+            x,
+            374.0,
+            284.0,
+            40.0,
+            1.5,
+            if success {
+                Color::new(0.35, 0.92, 0.72, 1.0)
+            } else {
+                Color::new(0.95, 0.45, 0.38, 1.0)
+            },
+        );
+        draw_ui_text_ex(
+            label,
+            x + 24.0,
+            400.0,
+            TextStyle::new(14.0, Color::new(0.88, 0.93, 0.9, 1.0)).params(),
+        );
+    }
 }
 
 fn draw_mission_briefing(session: &GameSession) {

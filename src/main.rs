@@ -11,6 +11,7 @@ mod game;
 mod game_build;
 mod game_placement;
 mod game_render;
+mod game_terminal;
 mod game_title;
 mod game_verification;
 mod mission;

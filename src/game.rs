@@ -246,6 +246,13 @@ impl Game {
             }
             return;
         }
+        if matches!(
+            self.session.mission.phase,
+            MissionPhase::Success | MissionPhase::Failure
+        ) && self.handle_terminal_click()
+        {
+            return;
+        }
         if is_key_pressed(KeyCode::Escape) {
             self.pause_menu = !self.pause_menu;
             if self.pause_menu {
@@ -502,10 +509,17 @@ impl Game {
                 self.session
                     .campaign
                     .record_success(self.session.mission.id, self.session.mission.tick);
-                self.notice = format!(
-                    "Mission success — {} complete; choose the next unlocked level from the campaign board",
-                    self.session.mission.id.name()
-                );
+                self.session.time_control = TimeControl::Paused;
+                self.notice = save_session(&self.session, &self.data.config)
+                    .map(|_| {
+                        format!(
+                            "Mission success — {} complete and campaign progress saved",
+                            self.session.mission.id.name()
+                        )
+                    })
+                    .unwrap_or_else(|error| {
+                        format!("Mission complete; campaign autosave needs attention: {error}")
+                    });
             }
         }
     }
@@ -611,7 +625,7 @@ impl Game {
         };
     }
 
-    fn reset_mission(&mut self) {
+    pub(crate) fn reset_mission(&mut self) {
         if let Some(checkpoint) = self.checkpoint_session.clone() {
             let campaign = self.session.campaign.clone();
             self.session = checkpoint;
@@ -627,7 +641,7 @@ impl Game {
         self.load_mission(id, "restarted from briefing");
     }
 
-    fn select_next_campaign(&mut self) {
+    pub(crate) fn select_next_campaign(&mut self) {
         let current = self.session.mission.id.sequence();
         let next = MissionId::ALL.into_iter().find(|id| {
             id.sequence() > current && self.session.campaign.unlocked[id.sequence() - 1]
