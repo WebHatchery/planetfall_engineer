@@ -282,9 +282,12 @@ impl Game {
         if is_mouse_button_down(MouseButton::Left) {
             let (mouse_x, mouse_y) = mouse_position();
             let drag = mouse_delta_position();
-            if (82.0..=604.0).contains(&mouse_y) && mouse_x < 1_000.0 && drag.length_squared() > 0.0 {
-                self.camera.target.x = (self.camera.target.x - drag.x * 0.03).clamp(0.0, self.session.simulation.width as f32);
-                self.camera.target.y = (self.camera.target.y - drag.y * 0.03).clamp(0.0, self.session.simulation.height as f32);
+            if (82.0..=604.0).contains(&mouse_y) && mouse_x < 1_000.0 && drag.length_squared() > 0.0
+            {
+                self.camera.target.x = (self.camera.target.x - drag.x * 0.03)
+                    .clamp(0.0, self.session.simulation.width as f32);
+                self.camera.target.y = (self.camera.target.y - drag.y * 0.03)
+                    .clamp(0.0, self.session.simulation.height as f32);
                 let _ = self.session.mission.admit(CommandKind::Camera);
             }
         }
@@ -392,22 +395,7 @@ impl Game {
             self.select_next_campaign();
         }
         if is_key_pressed(KeyCode::F4) {
-            self.session.mission.skip_tutorial();
-            let complete = self
-                .session
-                .mission
-                .tutorial
-                .as_ref()
-                .is_some_and(|tutorial| tutorial.is_complete());
-            if complete {
-                self.session.simulation.set_sources_enabled(true);
-            }
-            self.notice = if complete {
-                "Tutorial skipped — L01 build kit unlocked; source enabled"
-            } else {
-                "Tutorial skip unavailable"
-            }
-            .into();
+            self.skip_tutorial();
         }
         if is_key_pressed(KeyCode::F6) && self.verification_mode.is_some() {
             self.reset_verification();
@@ -593,7 +581,14 @@ impl Game {
         }
         if let Some((selected, _)) = closest {
             if selected == self.session.selected
-                && self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.current_step_id == "tutorial_l01_inspect_grade")
+                && self
+                    .session
+                    .mission
+                    .tutorial
+                    .as_ref()
+                    .is_some_and(|tutorial| {
+                        tutorial.current_step_id == "tutorial_l01_inspect_grade"
+                    })
             {
                 let _ = self.admit(CommandKind::Inspect);
                 return;
@@ -696,16 +691,44 @@ impl Game {
     }
 
     fn handle_tutorial_prompt_click(&mut self) -> bool {
-        let Some(tutorial) = self.session.mission.tutorial.as_ref() else { return false };
-        if !matches!(tutorial.current_step_id.as_str(), "tutorial_l01_welcome" | "tutorial_l01_inspect_grade") {
+        let Some(tutorial) = self.session.mission.tutorial.as_ref() else {
+            return false;
+        };
+        let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
+        if (24.0..=188.0).contains(&point.x) && (202.0..=230.0).contains(&point.y) {
+            self.skip_tutorial();
+            return true;
+        }
+        if !matches!(
+            tutorial.current_step_id.as_str(),
+            "tutorial_l01_welcome" | "tutorial_l01_inspect_grade"
+        ) {
             return false;
         }
-        let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
-        if (24.0..=544.0).contains(&point.x) && (104.0..=206.0).contains(&point.y) {
+        if (420.0..=524.0).contains(&point.x) && (114.0..=142.0).contains(&point.y) {
             let _ = self.admit(CommandKind::DismissPrompt);
             return true;
         }
         false
+    }
+
+    fn skip_tutorial(&mut self) {
+        self.session.mission.skip_tutorial();
+        let complete = self
+            .session
+            .mission
+            .tutorial
+            .as_ref()
+            .is_some_and(|tutorial| tutorial.is_complete());
+        if complete {
+            self.session.simulation.set_sources_enabled(true);
+        }
+        self.notice = if complete {
+            "Tutorial skipped — L01 build kit unlocked; source enabled"
+        } else {
+            "Tutorial skip unavailable"
+        }
+        .into();
     }
 
     pub(crate) fn admit(&mut self, command: CommandKind) -> bool {

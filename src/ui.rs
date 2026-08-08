@@ -107,7 +107,12 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         660.0,
         TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params(),
     );
-    draw_ui_text_ex("Tap the map to survey. Use the engineering controls at right to build and manage time.", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
+    draw_ui_text_ex(
+        "Tap the map to survey. Use the engineering controls at right to build and manage time.",
+        44.0,
+        682.0,
+        TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params(),
+    );
     draw_rectangle(
         1010.0,
         104.0,
@@ -352,15 +357,43 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             528.0,
             TextStyle::new(10.0, Color::new(0.8, 0.68, 0.4, 1.0)).params(),
         );
-        for (x, label) in [(1018.0, "INSPECT"), (1094.0, "TERRAIN"), (1172.0, "EXCAVATE")] {
+        for (x, label) in [
+            (1018.0, "INSPECT"),
+            (1094.0, "TERRAIN"),
+            (1172.0, "EXCAVATE"),
+        ] {
             draw_rectangle(x, 532.0, 72.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
-            draw_rectangle_lines(x, 532.0, 72.0, 28.0, 1.0, Color::new(0.35, 0.74, 0.78, 0.95));
-            draw_ui_text_ex(label, x + 5.0, 550.0, TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params());
+            draw_rectangle_lines(
+                x,
+                532.0,
+                72.0,
+                28.0,
+                1.0,
+                Color::new(0.35, 0.74, 0.78, 0.95),
+            );
+            draw_ui_text_ex(
+                label,
+                x + 5.0,
+                550.0,
+                TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
+            );
         }
         for (x, label) in [(1018.0, "CLOSED"), (1094.0, "50%"), (1172.0, "OPEN")] {
             draw_rectangle(x, 566.0, 72.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
-            draw_rectangle_lines(x, 566.0, 72.0, 28.0, 1.0, Color::new(0.35, 0.74, 0.78, 0.95));
-            draw_ui_text_ex(label, x + 6.0, 584.0, TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params());
+            draw_rectangle_lines(
+                x,
+                566.0,
+                72.0,
+                28.0,
+                1.0,
+                Color::new(0.35, 0.74, 0.78, 0.95),
+            );
+            draw_ui_text_ex(
+                label,
+                x + 6.0,
+                584.0,
+                TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
+            );
         }
     }
     if matches!(
@@ -497,7 +530,11 @@ fn draw_terminal_panel(session: &GameSession) {
         TextStyle::new(15.0, Color::new(0.76, 0.82, 0.86, 1.0)).params(),
     );
     draw_ui_text_ex(
-        if success { "Campaign progress updated" } else { "Recovery is available from the mission menu" },
+        if success {
+            "Campaign progress updated"
+        } else {
+            "Recovery is available from the mission menu"
+        },
         336.0,
         396.0,
         TextStyle::new(15.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
@@ -679,14 +716,14 @@ fn draw_tutorial_prompt(tutorial: &crate::mission::TutorialState) {
         24.0,
         104.0,
         520.0,
-        102.0,
+        136.0,
         Color::new(0.035, 0.055, 0.08, 0.96),
     );
     draw_rectangle_lines(
         24.0,
         104.0,
         520.0,
-        102.0,
+        136.0,
         1.5,
         Color::new(0.95, 0.8, 0.35, 0.9),
     );
@@ -712,6 +749,41 @@ fn draw_tutorial_prompt(tutorial: &crate::mission::TutorialState) {
         184.0,
         TextStyle::new(13.0, Color::new(0.58, 0.72, 0.8, 1.0)).params(),
     );
+    draw_rectangle(24.0, 202.0, 164.0, 28.0, Color::new(0.12, 0.16, 0.2, 0.98));
+    draw_rectangle_lines(
+        24.0,
+        202.0,
+        164.0,
+        28.0,
+        1.0,
+        Color::new(0.45, 0.55, 0.62, 0.9),
+    );
+    draw_ui_text_ex(
+        "SKIP TUTORIAL",
+        43.0,
+        221.0,
+        TextStyle::new(11.0, Color::new(0.82, 0.87, 0.9, 1.0)).params(),
+    );
+    if matches!(
+        tutorial.current_step_id.as_str(),
+        "tutorial_l01_welcome" | "tutorial_l01_inspect_grade"
+    ) {
+        draw_rectangle(420.0, 114.0, 104.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
+        draw_rectangle_lines(
+            420.0,
+            114.0,
+            104.0,
+            28.0,
+            1.0,
+            Color::new(0.35, 0.82, 0.76, 1.0),
+        );
+        draw_ui_text_ex(
+            "DISMISS",
+            437.0,
+            133.0,
+            TextStyle::new(11.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
+        );
+    }
 }
 
 fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
@@ -719,7 +791,7 @@ fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
         "tutorial_l01_welcome" => (
             "WELCOME",
             "Survey the ash basin and dismiss this briefing.",
-            "Tap this panel to continue",
+            "Tap DISMISS",
         ),
         "tutorial_l01_move_camera" => (
             "CAMERA",
@@ -734,7 +806,7 @@ fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
         "tutorial_l01_inspect_grade" => (
             "INSPECT",
             "Inspect the selected cell before changing it.",
-            "In FIELD TOOLS at right, tap INSPECT",
+            "Tap INSPECT in FIELD TOOLS, then DISMISS",
         ),
         "tutorial_l01_pause_plan" => (
             "PAUSE AND PLAN",
