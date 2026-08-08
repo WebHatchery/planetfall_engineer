@@ -42,6 +42,18 @@ engineering contract; the GDD remains the source of product intent.
 - Runtime controls: `B` places a channel, `P` places a pipe, `O` places a pump,
   `C` removes the selected device, and `F2` runs all ten showcase checks.
 
+## Phase 4/5 Mission Slice
+
+- Mission phases (`Briefing`, `Active`, `Success`, `Failure`, `Debrief`) with
+  stability windows, terminal-state guards, checkpoints, failure notices, and
+  campaign unlock progression for exactly L01, L02, and L03.
+- Event-driven L01 tutorial state with twelve ordered steps, stable
+  `tutorial_locked` admissions, skip behavior, saved progress fields, and
+  deterministic tutorial tests.
+- Runtime controls: `F3` shows the campaign sequence, `F4` skips the tutorial,
+  `F6` records a checkpoint, `F7` exercises failure recovery, and `F8` reports
+  a tutorial command admission.
+
 The template avoids browser-incompatible filesystem access. Static data is
 embedded with `include_str!()`, runtime browser assets go through Macroquad or
 toolkit async loaders, and save data uses macroquad-toolkit persistence.

@@ -6,6 +6,7 @@ use macroquad_toolkit::capture;
 mod data;
 mod devices;
 mod game;
+mod mission;
 mod state;
 mod simulation;
 mod verification;
