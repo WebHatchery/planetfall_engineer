@@ -1,212 +1,113 @@
-//! Runtime state, save data, and save migration helpers.
+//! Authoritative integer world state, fixed-tick shell, and versioned save data.
 
-use crate::data::{ActionDef, GameConfig};
-use macroquad_toolkit::grid::{
-    calculate_visible_tiles, update_flat_fog_states, FlatGrid, FogState, TilePos,
-};
+use crate::data::GameConfig;
+use macroquad_toolkit::persistence::{load_from_slot_with_migration, save_to_slot_with_version};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
+
+pub const SIM_TICKS_PER_SECOND: u64 = 10;
+pub const MAX_TICKS_PER_FRAME: u32 = 8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CellPos { pub x: u16, pub y: u16 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlayerState {
-    pub points: i64,
-    pub energy: f32,
-    pub selected_tile: TilePos,
-    pub turn: u32,
-}
+pub struct CellState { pub height_hu: i16, pub sealed: bool }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldState {
-    pub fog: FlatGrid<FogState>,
-    pub reachable: HashSet<TilePos>,
+    pub width: u16,
+    pub height: u16,
+    pub cells: Vec<CellState>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SaveData {
-    pub version: String,
-    pub player: PlayerState,
-    pub world: WorldState,
+impl WorldState {
+    pub fn new(width: usize, height: usize) -> Self {
+        let cells = (0..height).flat_map(|y| (0..width).map(move |x| {
+            let ridge = ((x as i16 - width as i16 / 2).abs() + (y as i16 - height as i16 / 2).abs()) * 125;
+            CellState { height_hu: 1000 + ridge, sealed: x == 0 || y == 0 || x + 1 == width || y + 1 == height }
+        })).collect();
+        Self { width: width as u16, height: height as u16, cells }
+    }
+
+    pub fn index(&self, pos: CellPos) -> Option<usize> {
+        (pos.x < self.width && pos.y < self.height)
+            .then_some(pos.y as usize * self.width as usize + pos.x as usize)
+    }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TimeControl { Paused, OneX, TwoX, FourX }
+
+impl TimeControl { pub fn multiplier(self) -> u64 { match self { Self::Paused => 0, Self::OneX => 1, Self::TwoX => 2, Self::FourX => 4 } } }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SaveData { pub schema_version: u32, pub version: String, pub tick: u64, pub world: WorldState, pub selected: CellPos }
 
 #[derive(Debug, Clone)]
 pub struct GameSession {
-    pub player: PlayerState,
     pub world: WorldState,
+    pub tick: u64,
+    pub selected: CellPos,
+    pub time_control: TimeControl,
+    accumulator: f64,
 }
 
 impl GameSession {
     pub fn new(config: &GameConfig) -> Self {
-        let start = TilePos::new(
-            (config.world_width / 2) as i32,
-            (config.world_height / 2) as i32,
-        );
-        let mut session = Self {
-            player: PlayerState {
-                points: config.starting_points,
-                energy: config.starting_energy,
-                selected_tile: start,
-                turn: 1,
-            },
-            world: WorldState {
-                fog: FlatGrid::new(config.world_width, config.world_height, FogState::Hidden),
-                reachable: HashSet::new(),
-            },
-        };
-        session.refresh_visibility();
-        session
+        Self { world: WorldState::new(config.world_width, config.world_height), tick: 0,
+            selected: CellPos { x: (config.world_width / 2) as u16, y: (config.world_height / 2) as u16 },
+            time_control: TimeControl::Paused, accumulator: 0.0 }
     }
 
-    pub fn from_save(save: SaveData) -> Self {
-        Self {
-            player: save.player,
-            world: save.world,
+    pub fn update(&mut self, frame_seconds: f32) -> u32 {
+        let scaled = frame_seconds.max(0.0) as f64 * self.time_control.multiplier() as f64;
+        self.accumulator += scaled;
+        let mut ticks = 0;
+        while self.accumulator >= 1.0 / SIM_TICKS_PER_SECOND as f64 && ticks < MAX_TICKS_PER_FRAME {
+            self.accumulator -= 1.0 / SIM_TICKS_PER_SECOND as f64;
+            self.tick(); ticks += 1;
         }
+        ticks
     }
 
-    pub fn to_save(&self, version: &str) -> SaveData {
-        SaveData {
-            version: version.to_owned(),
-            player: self.player.clone(),
-            world: self.world.clone(),
-        }
+    pub fn tick(&mut self) { self.tick = self.tick.saturating_add(1); }
+
+    pub fn move_selected(&mut self, dx: i16, dy: i16) {
+        let x = (self.selected.x as i16 + dx).clamp(0, self.world.width as i16 - 1) as u16;
+        let y = (self.selected.y as i16 + dy).clamp(0, self.world.height as i16 - 1) as u16;
+        self.selected = CellPos { x, y };
     }
 
-    pub fn update_energy(&mut self, config: &GameConfig, dt: f32) {
-        self.player.energy =
-            (self.player.energy + config.energy_per_second * dt).min(config.max_energy);
+    pub fn state_hash(&self) -> u64 {
+        let mut hash = 1469598103934665603u64;
+        for byte in serde_json::to_vec(&(self.tick, &self.world, self.selected)).unwrap() { hash ^= byte as u64; hash = hash.wrapping_mul(1099511628211); }
+        hash
     }
 
-    pub fn can_run_action(&self, action: &ActionDef) -> bool {
-        self.player.energy >= action.energy_cost
-    }
-
-    pub fn apply_action(&mut self, action: &ActionDef) -> bool {
-        if !self.can_run_action(action) {
-            return false;
-        }
-
-        self.player.energy -= action.energy_cost;
-        self.player.points += action.points_reward;
-        self.player.turn += 1;
-        self.refresh_visibility();
-        true
-    }
-
-    pub fn move_selection(&mut self, dx: i32, dy: i32) {
-        let next = TilePos::new(
-            self.player.selected_tile.x + dx,
-            self.player.selected_tile.y + dy,
-        );
-        self.select_tile(next);
-    }
-
-    pub fn select_tile(&mut self, next: TilePos) {
-        if self.world.fog.is_valid(next) {
-            self.player.selected_tile = next;
-            self.refresh_visibility();
-        }
-    }
-
-    fn refresh_visibility(&mut self) {
-        let visible = calculate_visible_tiles(self.player.selected_tile, 4, |_| false);
-        update_flat_fog_states(&mut self.world.fog, &visible);
-        self.world.reachable =
-            self.world
-                .fog
-                .flood_fill(self.player.selected_tile, false, |_, fog| {
-                    *fog != FogState::Hidden
-                });
-    }
+    pub fn to_save(&self, version: &str) -> SaveData { SaveData { schema_version: 1, version: version.into(), tick: self.tick, world: self.world.clone(), selected: self.selected } }
+    pub fn from_save(save: SaveData) -> Self { Self { world: save.world, tick: save.tick, selected: save.selected, time_control: TimeControl::Paused, accumulator: 0.0 } }
 }
 
-#[derive(Debug, Deserialize)]
-struct LegacySave {
-    points: Option<i64>,
-    energy: Option<f32>,
-    turn: Option<u32>,
+pub fn save_session(session: &GameSession, config: &GameConfig) -> Result<(), String> { save_to_slot_with_version(&config.game_name, &config.save_slot, &session.to_save(&config.version), &config.version) }
+
+pub fn load_session(config: &GameConfig) -> Result<GameSession, String> {
+    let save: SaveData = load_from_slot_with_migration(&config.game_name, &config.save_slot, &config.version, |_, value| migrate_save_value(value, config))?;
+    Ok(GameSession::from_save(save))
 }
 
-pub fn migrate_save_value(
-    detected_version: Option<String>,
-    value: Value,
-    config: &GameConfig,
-) -> Result<SaveData, String> {
-    let payload = value.get("data").cloned().unwrap_or(value);
-
-    if let Ok(mut current) = serde_json::from_value::<SaveData>(payload.clone()) {
-        current.version = config.version.clone();
-        return Ok(current);
-    }
-
-    let legacy: LegacySave = serde_json::from_value(payload)
-        .map_err(|err| format!("Unsupported save format {:?}: {}", detected_version, err))?;
-
-    let mut session = GameSession::new(config);
-    if let Some(points) = legacy.points {
-        session.player.points = points;
-    }
-    if let Some(energy) = legacy.energy {
-        session.player.energy = energy.clamp(0.0, config.max_energy);
-    }
-    if let Some(turn) = legacy.turn {
-        session.player.turn = turn.max(1);
-    }
-
-    Ok(session.to_save(&config.version))
+fn migrate_save_value(value: Value, config: &GameConfig) -> Result<SaveData, String> {
+    serde_json::from_value(value.get("data").cloned().unwrap_or(value)).map_err(|e| format!("Save is not a Phase 1 foundation save: {e}")).and_then(|save: SaveData| {
+        if save.world.width as usize != config.world_width || save.world.height as usize != config.world_height { Err("Save world dimensions do not match content".into()) } else { Ok(save) }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn test_config() -> GameConfig {
-        GameConfig {
-            game_name: "planetfall_engineer".to_owned(),
-            display_name: "Planetfall Engineer".to_owned(),
-            save_slot: "autosave".to_owned(),
-            version: "1.0.0".to_owned(),
-            starting_points: 10,
-            starting_energy: 5.0,
-            max_energy: 10.0,
-            energy_per_second: 1.0,
-            world_width: 8,
-            world_height: 8,
-        }
-    }
-
-    #[test]
-    fn action_spends_energy_and_rewards_points() {
-        let config = test_config();
-        let action = ActionDef {
-            id: "test".to_owned(),
-            name: "Test".to_owned(),
-            description: "Test action".to_owned(),
-            energy_cost: 3.0,
-            points_reward: 7,
-        };
-        let mut session = GameSession::new(&config);
-
-        assert!(session.apply_action(&action));
-        assert_eq!(session.player.points, 17);
-        assert_eq!(session.player.turn, 2);
-        assert!((session.player.energy - 2.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn legacy_save_migrates_to_current_shape() {
-        let config = test_config();
-        let value = serde_json::json!({
-            "points": 42,
-            "energy": 99.0,
-            "turn": 3
-        });
-
-        let migrated = migrate_save_value(Some("0.1.0".to_owned()), value, &config).unwrap();
-
-        assert_eq!(migrated.version, "1.0.0");
-        assert_eq!(migrated.player.points, 42);
-        assert_eq!(migrated.player.energy, 10.0);
-        assert_eq!(migrated.player.turn, 3);
-    }
+    fn config() -> GameConfig { GameConfig { game_name: "test".into(), display_name: "Test".into(), save_slot: "test".into(), version: "1".into(), world_width: 8, world_height: 8 } }
+    #[test] fn row_major_coordinates_are_stable() { let w = WorldState::new(8, 8); assert_eq!(w.index(CellPos { x: 2, y: 3 }), Some(26)); assert!(w.index(CellPos { x: 8, y: 0 }).is_none()); }
+    #[test] fn partitioning_does_not_change_tick_hash() { let c = config(); let mut a = GameSession::new(&c); let mut b = GameSession::new(&c); a.time_control = TimeControl::OneX; b.time_control = TimeControl::OneX; for _ in 0..10 { a.update(0.1); } b.update(0.25); b.update(0.25); b.update(0.5); assert_eq!(a.state_hash(), b.state_hash()); }
+    #[test] fn paused_session_does_not_tick() { let c = config(); let mut s = GameSession::new(&c); s.update(10.0); assert_eq!(s.tick, 0); }
+    #[test] fn save_round_trip_is_exact() { let c = config(); let mut s = GameSession::new(&c); s.tick(); let save = s.to_save("1"); assert_eq!(GameSession::from_save(save).state_hash(), s.state_hash()); }
 }

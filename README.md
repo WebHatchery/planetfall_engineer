@@ -1,6 +1,6 @@
 # Planetfall Engineer
 
-Phase 0 building site for a Rust + Macroquad planetary-engineering puzzle game.
+Phase 1 foundation for a Rust + Macroquad planetary-engineering puzzle game.
 The project uses `macroquad-toolkit` for the shared runtime, UI, persistence,
 camera, and data-loading patterns used by the Rust games in this workspace.
 
@@ -12,12 +12,13 @@ campaign levels, interactive tutorial, work packages, and release gates are
 indexed in [`docs/README.md`](docs/README.md). Those documents are the
 engineering contract; the GDD remains the source of product intent.
 
-## Foundation Already Wired
+## Phase 1 Foundation
 
-- Ashfall Basin survey grid with selectable terrain tiles.
-- Data-driven survey, excavation, and spillway actions.
-- Toolkit camera, notifications, mission save/load, and migration scaffolding.
-- Placeholder art and UI language ready for fluid routing and terrain simulation.
+- Deterministic integer heightfield with stable row-major coordinates and state hashes.
+- Fixed 10 Hz simulation accumulator with pause, 1x, 2x, and 4x controls.
+- Genuine depth-tested orthographic 3D stepped terrain with four quarter-turn views.
+- Survey cursor, camera pan/zoom, checkpoint save/load, and engineering HUD.
+- Embedded configuration and toolkit asset-loading seams retained for later content.
 
 The template avoids browser-incompatible filesystem access. Static data is
 embedded with `include_str!()`, runtime browser assets go through Macroquad or
@@ -35,5 +36,5 @@ cargo run
 cargo test
 ```
 
-The next foundation pass should replace the action economy with explicit
-terrain, fluid, and structure state while keeping the existing toolkit seams.
+Phase 2 will add explicit terrain edits, fluids, material interactions, and
+verification laboratory content, followed by devices and campaign missions.
