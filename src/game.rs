@@ -29,7 +29,8 @@ impl FoundationCamera {
         let angle = self.yaw as f32 * std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4;
         let distance = self.zoom * 1.65;
         let target = vec3(self.target.x, 0.0, self.target.y);
-        Camera3D { position: target + vec3(angle.cos() * distance, distance * 0.82, angle.sin() * distance), target, up: vec3(0.0, 1.0, 0.0), projection: Projection::Orthographics, fovy: self.zoom, aspect: Some(screen_width() / screen_height()), ..Default::default() }
+        let viewport_scale = (screen_width() / ui::LOGICAL_WIDTH).min(screen_height() / ui::LOGICAL_HEIGHT).max(0.5);
+        Camera3D { position: target + vec3(angle.cos() * distance, distance * 0.82, angle.sin() * distance), target, up: vec3(0.0, 1.0, 0.0), projection: Projection::Orthographics, fovy: self.zoom / viewport_scale, aspect: Some(screen_width() / screen_height()), ..Default::default() }
     }
 }
 

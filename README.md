@@ -62,6 +62,10 @@ as derived depth-tested geometry. Camera movement, quarter-turn rotation,
 survey selection, terrain edits, materials, and device placement remain on the
 same production 3D path.
 
+Release evidence is captured under `docs/verification/` at 1280×720,
+1024×768, and 800×600. `catalog_thumbnail.png` is a current title-screen
+capture and is included by `publish.ps1`.
+
 The template avoids browser-incompatible filesystem access. Static data is
 embedded with `include_str!()`, runtime browser assets go through Macroquad or
 toolkit async loaders, and save data uses macroquad-toolkit persistence.
