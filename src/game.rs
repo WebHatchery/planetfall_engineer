@@ -182,7 +182,10 @@ impl Game {
 
     fn admit(&mut self, command: CommandKind) -> bool {
         match self.session.mission.admit(command) {
-            crate::mission::Admission::Accepted => true,
+            crate::mission::Admission::Accepted => {
+                if self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()) { self.session.simulation.set_sources_enabled(true); }
+                true
+            },
             result => { self.notice = format!("Command unavailable: {result:?}"); false }
         }
     }

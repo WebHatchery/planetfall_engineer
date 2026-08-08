@@ -63,6 +63,9 @@ engineering contract; the GDD remains the source of product intent.
 - Camera changes, selection, inspection, time controls, terrain edits, device
   queues, plan commits, and floodgate settings now pass through tutorial
   admission, so the playable path cannot bypass locked L01 steps.
+- The final stabilize command completes the normal twelve-step tutorial and
+  enables L01's authored meltwater source; skip and normal tutorial paths now
+  converge on the same deterministic flow.
 - Runtime controls: `F3` shows the campaign sequence, `F4` skips the tutorial,
   `F6` records a checkpoint, `F7` exercises failure recovery, and `F8` reports
   a tutorial command admission. `F12` restores the last checkpoint or restarts
