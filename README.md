@@ -42,8 +42,10 @@ engineering contract; the GDD remains the source of product intent.
   sensor threshold state, and rune-relay flow/power gating.
 - Deterministic placement validation for bounds, overlap, protected terrain,
   budget, and rotation, plus renderer-independent device showcase fixtures.
-- Runtime controls: `B` places a channel, `P` places a pipe, `O` places a pump,
-  `C` removes the selected device, and `F2` runs all ten showcase checks.
+- Build-plan queue with budget reservation, atomic commit, cancellation, and
+  renderer-independent queued-plan state. Runtime controls: `B/P/O` queue a
+  channel/pipe/pump, `Enter` commits, `Backspace` cancels, `C` removes the
+  selected device, and `F2` runs all ten showcase checks.
 
 ## Phase 4/5 Mission Slice
 

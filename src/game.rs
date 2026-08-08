@@ -78,9 +78,11 @@ impl Game {
         if is_key_pressed(KeyCode::F8) { let admission = self.session.mission.admit(CommandKind::DismissPrompt); self.notice = format!("Tutorial command: {admission:?}"); }
         if is_key_pressed(KeyCode::F10) { let mut campaign = load_campaign(self.session.mission.id); seed_reference_materials(&mut campaign); self.session.simulation = campaign.world; self.notice = "Reference material fixture loaded".into(); }
         if is_key_pressed(KeyCode::C) { if let Some(entity_id) = self.session.simulation.devices.devices.iter().find(|device| device.anchor == self.session.selected).map(|device| device.entity_id) { self.session.simulation.devices.remove(entity_id); self.notice = "Device removed and budget released".into(); } }
-        if is_key_pressed(KeyCode::B) { self.place_device(DeviceId::Channel); }
-        if is_key_pressed(KeyCode::P) { self.place_device(DeviceId::Pipe); }
-        if is_key_pressed(KeyCode::O) { self.place_device(DeviceId::Pump); }
+        if is_key_pressed(KeyCode::B) { self.queue_device(DeviceId::Channel); }
+        if is_key_pressed(KeyCode::P) { self.queue_device(DeviceId::Pipe); }
+        if is_key_pressed(KeyCode::O) { self.queue_device(DeviceId::Pump); }
+        if is_key_pressed(KeyCode::Enter) { self.commit_build_plan(); }
+        if is_key_pressed(KeyCode::Backspace) { self.cancel_build_plan(); }
         if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
         if is_key_pressed(KeyCode::F9) { match load_session(&self.data.config) { Ok(s) => { self.session = s; self.notice = "Checkpoint loaded".into(); }, Err(e) => self.notice = e } }
         let ticks = self.session.update(dt);
@@ -105,11 +107,25 @@ impl Game {
         if let Some((selected, _)) = closest { self.session.selected = selected; let _ = self.session.mission.admit(CommandKind::Select); self.notice = format!("Survey target selected: {}, {}", selected.x, selected.y); }
     }
 
-    fn place_device(&mut self, device: DeviceId) {
+    fn queue_device(&mut self, device: DeviceId) {
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let result = devices.place(&self.session.simulation, device, self.session.selected, 0, 100);
+        let result = devices.queue(&self.session.simulation, device, self.session.selected, 0, 100);
         self.session.simulation.devices = devices;
-        self.notice = result.map(|id| format!("Placed {} #{id}", device.name())).unwrap_or_else(|error| format!("Placement rejected: {error:?}"));
+        self.notice = result.map(|id| format!("Queued {} plan #{id} — Enter commit, Backspace cancel", device.name())).unwrap_or_else(|error| format!("Queue rejected: {error:?}"));
+    }
+
+    fn commit_build_plan(&mut self) {
+        let mut devices = std::mem::take(&mut self.session.simulation.devices);
+        let result = devices.commit_plan(&self.session.simulation, 100);
+        self.session.simulation.devices = devices;
+        self.notice = result.map(|entities| format!("Committed {} build plan(s)", entities.len())).unwrap_or_else(|error| format!("Plan commit rejected: {error:?}"));
+    }
+
+    fn cancel_build_plan(&mut self) {
+        let mut devices = std::mem::take(&mut self.session.simulation.devices);
+        let cancelled = devices.cancel_last_plan();
+        self.session.simulation.devices = devices;
+        self.notice = if cancelled { "Last build plan cancelled" } else { "No queued build plan" }.into();
     }
 
     pub fn draw(&mut self) {

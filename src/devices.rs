@@ -19,23 +19,34 @@ pub enum DeviceError { OutOfBounds, Occupied, InsufficientBudget, Protected, Inv
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceState { pub entity_id: u32, pub device: DeviceId, pub anchor: CellPos, pub rotation: u8, pub health_bp: u16, pub powered: bool, pub setting_bp: u16, pub stored_vu: u32, pub power_generated: u32, pub active: bool }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueuedPlan { pub plan_id: u32, pub device: DeviceId, pub anchor: CellPos, pub rotation: u8, pub cost: u32 }
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct DeviceSystem { pub next_entity_id: u32, pub budget_spent: u32, pub devices: Vec<DeviceState> }
+pub struct DeviceSystem { pub next_entity_id: u32, pub budget_spent: u32, pub reserved_budget: u32, pub next_plan_id: u32, pub queued: Vec<QueuedPlan>, pub devices: Vec<DeviceState> }
 
 impl DeviceSystem {
     pub fn place(&mut self, world: &SimulationWorld, device: DeviceId, anchor: CellPos, rotation: u8, budget: u32) -> Result<u32, DeviceError> {
         if rotation > 3 { return Err(DeviceError::InvalidRotation); }
         if budget.saturating_sub(self.budget_spent) < device.cost() { return Err(DeviceError::InsufficientBudget); }
-        let (width, height) = device.footprint();
-        for dy in 0..height {
-            for dx in 0..width {
-                let pos = CellPos { x: anchor.x + dx, y: anchor.y + dy };
-                let index = world.index(pos).ok_or(DeviceError::OutOfBounds)?;
-                if world.definitions[index].protected { return Err(DeviceError::Protected); }
-                if self.devices.iter().any(|placed| footprint_contains(placed, pos)) { return Err(DeviceError::Occupied); }
-            }
-        }
+        validate_placement(world, &self.devices, &[], device, anchor, rotation)?;
         let entity_id = self.next_entity_id; self.next_entity_id += 1; self.budget_spent += device.cost(); self.devices.push(DeviceState { entity_id, device, anchor, rotation, health_bp: 10_000, powered: true, setting_bp: 10_000, stored_vu: 0, power_generated: 0, active: false }); Ok(entity_id)
+    }
+
+    pub fn queue(&mut self, world: &SimulationWorld, device: DeviceId, anchor: CellPos, rotation: u8, budget: u32) -> Result<u32, DeviceError> {
+        if self.reserved_budget + device.cost() > budget.saturating_sub(self.budget_spent) { return Err(DeviceError::InsufficientBudget); }
+        validate_placement(world, &self.devices, &self.queued, device, anchor, rotation)?;
+        let plan_id = self.next_plan_id; self.next_plan_id += 1; self.reserved_budget += device.cost(); self.queued.push(QueuedPlan { plan_id, device, anchor, rotation, cost: device.cost() }); Ok(plan_id)
+    }
+
+    pub fn cancel_last_plan(&mut self) -> bool { if let Some(plan) = self.queued.pop() { self.reserved_budget = self.reserved_budget.saturating_sub(plan.cost); true } else { false } }
+
+    pub fn commit_plan(&mut self, world: &SimulationWorld, budget: u32) -> Result<Vec<u32>, DeviceError> {
+        let plans = self.queued.clone();
+        for plan in &plans { if self.devices.iter().any(|placed| footprints_overlap(placed.device, placed.anchor, plan.device, plan.anchor)) { return Err(DeviceError::Occupied); } }
+        let mut committed = Vec::with_capacity(plans.len());
+        for plan in plans { committed.push(self.place(world, plan.device, plan.anchor, plan.rotation, budget)?); }
+        self.queued.clear(); self.reserved_budget = 0; Ok(committed)
     }
 
     pub fn remove(&mut self, entity_id: u32) -> bool { if let Some(index) = self.devices.iter().position(|device| device.entity_id == entity_id) { let device = self.devices.remove(index); self.budget_spent = self.budget_spent.saturating_sub(device.device.cost()); true } else { false } }
@@ -59,7 +70,21 @@ fn direction(rotation: u8) -> (i16, i16) { match rotation % 4 { 0 => (1, 0), 1 =
 fn transfer_surface(world: &mut SimulationWorld, source: CellPos, (dx, dy): (i16, i16), amount: u32) -> u32 { let x = source.x as i16 + dx; let y = source.y as i16 + dy; if x < 0 || y < 0 { return 0; } let destination = CellPos { x: x as u16, y: y as u16 }; let Some(source_index) = world.index(source) else { return 0; }; let Some(destination_index) = world.index(destination) else { return 0; }; let Some(entry) = world.cells[source_index].surface.first().cloned() else { return 0; }; let moved = amount.min(entry.volume_vu); remove_fluid(&mut world.cells[source_index].surface, entry.fluid, moved); world.cells[destination_index].add_surface(crate::simulation::FluidEntry { fluid: entry.fluid, volume_vu: moved, temperature_dk: entry.temperature_dk, contamination_bp: entry.contamination_bp }); moved }
 fn remove_fluid(entries: &mut Vec<crate::simulation::FluidEntry>, fluid: FluidId, amount: u32) { if let Some(entry) = entries.iter_mut().find(|entry| entry.fluid == fluid) { entry.volume_vu -= amount.min(entry.volume_vu); } entries.retain(|entry| entry.volume_vu > 0); }
 
-fn footprint_contains(device: &DeviceState, pos: CellPos) -> bool { let (width, height) = device.device.footprint(); pos.x >= device.anchor.x && pos.y >= device.anchor.y && pos.x < device.anchor.x + width && pos.y < device.anchor.y + height }
+fn validate_placement(world: &SimulationWorld, devices: &[DeviceState], queued: &[QueuedPlan], device: DeviceId, anchor: CellPos, rotation: u8) -> Result<(), DeviceError> {
+    if rotation > 3 { return Err(DeviceError::InvalidRotation); }
+    let (width, height) = device.footprint();
+    for dy in 0..height {
+        for dx in 0..width {
+            let pos = CellPos { x: anchor.x + dx, y: anchor.y + dy };
+            let index = world.index(pos).ok_or(DeviceError::OutOfBounds)?;
+            if world.definitions[index].protected { return Err(DeviceError::Protected); }
+            if devices.iter().any(|placed| footprint_contains(placed.device, placed.anchor, pos)) || queued.iter().any(|plan| footprint_contains(plan.device, plan.anchor, pos)) { return Err(DeviceError::Occupied); }
+        }
+    }
+    Ok(())
+}
+fn footprint_contains(device: DeviceId, anchor: CellPos, pos: CellPos) -> bool { let (width, height) = device.footprint(); pos.x >= anchor.x && pos.y >= anchor.y && pos.x < anchor.x + width && pos.y < anchor.y + height }
+fn footprints_overlap(first: DeviceId, first_anchor: CellPos, second: DeviceId, second_anchor: CellPos) -> bool { let (width, height) = first.footprint(); (0..height).any(|dy| (0..width).any(|dx| footprint_contains(second, second_anchor, CellPos { x: first_anchor.x + dx, y: first_anchor.y + dy }))) }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShowcaseReport { pub device: DeviceId, pub placed: bool, pub active_after_tick: bool, pub state_hash: u64 }
@@ -89,4 +114,6 @@ mod tests {
     #[test] fn turbine_and_filter_have_renderer_independent_state() { let turbine = run_showcase(DeviceId::FlowTurbine); let filter = run_showcase(DeviceId::Filter); assert!(turbine.active_after_tick); assert!(filter.active_after_tick); assert_ne!(turbine.state_hash, filter.state_hash); }
     #[test] fn pump_moves_water_in_rotated_direction() { let mut world = SimulationWorld::new(3, 1); let anchor = CellPos { x: 0, y: 0 }; let mut placed = std::mem::take(&mut world.devices); placed.place(&world, DeviceId::Pump, anchor, 0, 100).unwrap(); world.devices = placed; world.inject(anchor, FluidId::Water, 500); let mut devices = std::mem::take(&mut world.devices); devices.tick(&mut world); assert_eq!(world.cells[0].surface_volume(), 250); assert_eq!(world.cells[1].surface_volume(), 250); assert!(devices.devices[0].active); world.devices = devices; }
     #[test] fn filter_removes_contamination_without_losing_volume() { let mut world = SimulationWorld::new(2, 1); let mut devices = std::mem::take(&mut world.devices); devices.place(&world, DeviceId::Filter, CellPos { x: 0, y: 0 }, 0, 100).unwrap(); world.devices = devices; world.inject(CellPos { x: 0, y: 0 }, FluidId::ToxicSlurry, 500); let mut devices = std::mem::take(&mut world.devices); devices.tick(&mut world); let entry = &world.cells[0].surface[0]; assert_eq!(entry.volume_vu, 500); assert_eq!(entry.contamination_bp, 7_500); assert!(devices.devices[0].active); world.devices = devices; }
+    #[test] fn queued_plans_reserve_budget_and_commit_atomically() { let mut world = SimulationWorld::new(4, 2); let mut devices = std::mem::take(&mut world.devices); assert_eq!(devices.queue(&world, DeviceId::Channel, CellPos { x: 0, y: 0 }, 0, 5), Ok(0)); assert_eq!(devices.queue(&world, DeviceId::Pipe, CellPos { x: 1, y: 0 }, 0, 5), Ok(1)); assert_eq!(devices.reserved_budget, 5); let committed = devices.commit_plan(&world, 5).unwrap(); assert_eq!(committed, vec![0, 1]); assert!(devices.queued.is_empty()); assert_eq!(devices.budget_spent, 5); world.devices = devices; }
+    #[test] fn cancelling_a_plan_releases_reserved_budget() { let world = SimulationWorld::new(2, 1); let mut devices = DeviceSystem::default(); devices.queue(&world, DeviceId::Channel, CellPos { x: 0, y: 0 }, 0, 10).unwrap(); assert!(devices.cancel_last_plan()); assert_eq!(devices.reserved_budget, 0); assert!(!devices.cancel_last_plan()); }
 }
