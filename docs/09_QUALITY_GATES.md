@@ -109,6 +109,9 @@ Verification maps are also inspectable in free play: F6 resets the active
 fixture, F8 advances one tick, and the engineering readout reports PASS/FAIL,
 exact balance error, and the injected/drained/reacted/product ledger.
 
+The active build selection also renders a translucent 3D footprint ghost;
+`Z` rotates it through all four quarter turns before queue/commit.
+
 ## 6. 3D functional gates
 
 - Orthographic projection remains perspective-free at all six zoom levels.

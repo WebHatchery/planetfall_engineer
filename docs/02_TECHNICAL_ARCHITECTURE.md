@@ -103,9 +103,10 @@ Frame order MUST be:
 7. Build a read-only view model, rebuild dirty derived 3D meshes, render the 3D
    world, restore the virtual 2D UI camera, and render HUD once.
 
-Campaign orchestration remains in `game.rs`; the player-facing laboratory and
-device-showcase transitions live in `game_verification.rs` so the runtime
-controller stays below the source-file size gate.
+Campaign orchestration remains in `game.rs`; player-facing placement preview
+and verification transitions live in `game_placement.rs` and
+`game_verification.rs` so the runtime controller stays below the source-file
+size gate.
 
 Pause sets simulation time scale to zero. Queued builds may be authored while
 paused but only become world entities on an explicit `CommitPlan` command.
@@ -141,6 +142,11 @@ Each admission returns `Accepted` or one stable rejection code, including
 `protected_cell`, `insufficient_budget`, `tutorial_locked`, and
 `mission_not_active`. UI text maps from codes; simulation logic does not own
 localized prose.
+
+The build palette keeps a selected device and quarter-turn rotation in the
+presentation shell. Its translucent footprint ghost is derived from the same
+device footprint and anchor used by queue admission; `Z` changes the rotation,
+and the resulting `QueuedPlan` carries it through commit into the simulation.
 
 ## 6. Determinism rules
 

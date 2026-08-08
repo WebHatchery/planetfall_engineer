@@ -26,6 +26,8 @@ pub struct Game {
     pub(crate) camera: FoundationCamera,
     pub(crate) lab: FluidsLab,
     pub(crate) notice: String,
+    pub(crate) placement_device: DeviceId,
+    pub(crate) placement_rotation: u8,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -119,7 +121,7 @@ impl Game {
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
-        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
+        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), placement_device: DeviceId::Channel, placement_rotation: 0 }
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
@@ -321,6 +323,16 @@ impl Game {
         if is_key_pressed(KeyCode::F) {
             self.queue_device(DeviceId::Floodgate);
         }
+        if is_key_pressed(KeyCode::Z) {
+            self.placement_rotation = (self.placement_rotation + 1) % 4;
+            self.notice = format!(
+                "Placement rotation {}° — {} at {}, {}",
+                self.placement_rotation * 90,
+                self.placement_device.name(),
+                self.session.selected.x,
+                self.session.selected.y
+            );
+        }
         if is_key_pressed(KeyCode::J) {
             self.set_gate(0);
         }
@@ -464,6 +476,7 @@ impl Game {
     }
 
     fn queue_device(&mut self, device: DeviceId) {
+        self.placement_device = device;
         if !self.admit(CommandKind::QueueDevice(device)) {
             return;
         }
@@ -472,15 +485,16 @@ impl Game {
             &self.session.simulation,
             device,
             self.session.selected,
-            0,
+            self.placement_rotation,
             100,
         );
         self.session.simulation.devices = devices;
         self.notice = result
             .map(|id| {
                 format!(
-                    "Queued {} plan #{id} — Enter commit, Backspace cancel",
-                    device.name()
+                    "Queued {} plan #{id} at {}° — Enter commit, Backspace cancel",
+                    device.name(),
+                    self.placement_rotation * 90
                 )
             })
             .unwrap_or_else(|error| format!("Queue rejected: {error:?}"));
@@ -722,6 +736,7 @@ impl Game {
                 },
             );
         }
+        self.draw_placement_ghost();
         draw_grid_lines();
     }
 }

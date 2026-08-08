@@ -143,6 +143,9 @@ and V cycles the ten authored device maps without losing the campaign session.
 The HUD build palette lists all ten placeables and its mouse hit regions queue
 the same validated plans as the keyboard bindings, including visible rejection
 notices for tutorial, budget, bounds, protected-cell, and overlap failures.
+The selected build has a translucent 3D footprint ghost; `Z` cycles its quarter
+turn rotation, and the queued plan carries that rotation into the authoritative
+device entity and directional behavior.
 Verification maps expose their current PASS/FAIL result, exact balance error,
 and compact injected/drained/reacted/product ledger in the readout. F6 resets
 the active lab or device fixture and F8 advances exactly one verification tick,

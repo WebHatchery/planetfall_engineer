@@ -95,7 +95,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         660.0,
         TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params(),
     );
-    draw_ui_text_ex("Click select   WASD pan   Q/E rotate   +/- zoom   Arrows survey   N next level   F1 lab   F2 showcase/return   V next device   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5 save   F6 checkpoint/reset   F8 step/showcase report   F9 load   F12 reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
+    draw_ui_text_ex("Click select   WASD pan   Q/E camera   +/- zoom   Arrows survey   Z rotate ghost   N next level   F1 lab   F2 showcase/return   V next device   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5 save   F6 checkpoint/reset   F8 step/showcase report   F9 load   F12 reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
     draw_rectangle(
         1010.0,
         104.0,
