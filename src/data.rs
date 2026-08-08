@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn embedded_foundation_data_loads() {
         let data = GameData::load().unwrap();
-        assert_eq!(data.config.world_width, 16);
-        assert_eq!(data.config.world_height, 10);
+        assert_eq!(data.config.world_width, 32);
+        assert_eq!(data.config.world_height, 20);
     }
 }

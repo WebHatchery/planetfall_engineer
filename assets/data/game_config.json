@@ -7,6 +7,6 @@
   "starting_energy": 80.0,
   "max_energy": 100.0,
   "energy_per_second": 3.0,
-  "world_width": 16,
-  "world_height": 10
+  "world_width": 32,
+  "world_height": 20
 }
