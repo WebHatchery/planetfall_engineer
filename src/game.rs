@@ -506,8 +506,6 @@ impl Game {
                     "Mission success — {} complete; choose the next unlocked level from the campaign board",
                     self.session.mission.id.name()
                 );
-            } else {
-                self.notice = format!("Simulation advanced {ticks} tick(s)");
             }
         }
     }
