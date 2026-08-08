@@ -61,6 +61,10 @@ The allowed unexplained difference is exactly zero `vU`. Presentation values
 may round for display; tests use authoritative units. Heat is not conserved by
 the abstract ambient exchange and is excluded from mass balance.
 
+The runtime exposes `SimulationWorld::mass_balance_error()` for scenario and
+showcase assertions; it includes surface, airborne, and pending rock/vitrified
+products and is required to equal zero by the campaign and device replay tests.
+
 ## 5. UI and capture matrix
 
 Automated deterministic captures MUST exist for title/mission selection, every

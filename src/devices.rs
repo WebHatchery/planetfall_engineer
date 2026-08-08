@@ -107,18 +107,18 @@ fn footprint_contains(device: DeviceId, anchor: CellPos, pos: CellPos) -> bool {
 fn footprints_overlap(first: DeviceId, first_anchor: CellPos, second: DeviceId, second_anchor: CellPos) -> bool { let (width, height) = first.footprint(); (0..height).any(|dy| (0..width).any(|dx| footprint_contains(second, second_anchor, CellPos { x: first_anchor.x + dx, y: first_anchor.y + dy }))) }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ShowcaseReport { pub device: DeviceId, pub placed: bool, pub active_after_tick: bool, pub state_hash: u64 }
+pub struct ShowcaseReport { pub device: DeviceId, pub placed: bool, pub active_after_tick: bool, pub mass_balance_ok: bool, pub state_hash: u64 }
 
 pub fn run_showcase(device: DeviceId) -> ShowcaseReport {
     let mut world = SimulationWorld::new(32, 18); let anchor = CellPos { x: 15, y: 8 }; let mut devices = std::mem::take(&mut world.devices); let placed = devices.place(&world, device, anchor, 0, 1_000).is_ok(); world.devices = devices;
     if placed { world.inject(anchor, if matches!(device, DeviceId::Filter) { FluidId::ToxicSlurry } else { FluidId::Water }, 1_000); world.tick(); }
     let active_after_tick = world.devices.devices.first().is_some_and(|state| state.active);
-    ShowcaseReport { device, placed, active_after_tick, state_hash: hash(&world) }
+    ShowcaseReport { device, placed, active_after_tick, mass_balance_ok: world.mass_balance_error() == 0, state_hash: hash(&world) }
 }
 
 pub fn run_all_showcases() -> String {
     let reports: Vec<_> = SHOWCASE_MAPS.into_iter().map(|showcase| run_showcase(showcase.device)).collect();
-    let passed = reports.iter().filter(|report| report.placed).count();
+    let passed = reports.iter().filter(|report| report.placed && report.mass_balance_ok).count();
     let names = reports.iter().map(|report| report.device.name()).collect::<Vec<_>>().join(", ");
     format!("{passed}/{} showcases PASS: {names}", DeviceId::ALL.len())
 }

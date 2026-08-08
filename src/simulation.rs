@@ -156,6 +156,16 @@ impl SimulationWorld {
     pub fn add_source(&mut self, position: CellPos, fluid: FluidId, rate_vu: u32) { self.sources.push(SourceState { position, fluid, rate_vu, enabled: false }); }
     pub fn set_sources_enabled(&mut self, enabled: bool) { for source in &mut self.sources { source.enabled = enabled; } }
 
+    pub fn total_material_volume(&self) -> u64 {
+        self.cells.iter().map(|cell| {
+            cell.surface.iter().map(|entry| entry.volume_vu as u64).sum::<u64>()
+                + cell.airborne.iter().map(|entry| entry.volume_vu as u64).sum::<u64>()
+                + u64::from(cell.pending_rock_vu) + u64::from(cell.pending_vitrified_vu)
+        }).sum()
+    }
+
+    pub fn mass_balance_error(&self) -> i64 { self.ledger.injected as i64 - self.ledger.drained as i64 - self.total_material_volume() as i64 }
+
     pub fn terrain_edit(&mut self, pos: CellPos, action: TerrainAction) -> Result<(), TerrainError> {
         let index = self.index(pos).ok_or(TerrainError::OutOfBounds)?;
         let definition = &self.definitions[index];
@@ -259,4 +269,5 @@ mod tests {
     #[test] fn slurry_contaminates_unsealed_ground_and_lava_vitrifies() { let mut world = SimulationWorld::new(1, 1); world.inject(pos(0, 0), FluidId::ToxicSlurry, 500); world.inject(pos(0, 0), FluidId::Lava, 500); world.tick(); assert_eq!(world.cells[0].ground_contamination_bp, 10_000); assert_eq!(world.cells[0].pending_vitrified_vu, 240); }
     #[test] fn source_backpressure_is_explicit() { let mut world = SimulationWorld::new(1, 1); world.inject(pos(0, 0), FluidId::Water, 9_000); assert!(world.events.iter().any(|event| matches!(event, SimEvent::SourceBackpressure { accepted_vu: 8_000, .. }))); }
     #[test] fn authored_source_stays_stopped_until_enabled() { let mut world = SimulationWorld::new(2, 1); world.add_source(pos(0, 0), FluidId::Water, 180); world.tick(); assert_eq!(world.cells.iter().map(|cell| volume(&cell.surface, FluidId::Water)).sum::<u32>(), 0); world.set_sources_enabled(true); world.tick(); assert_eq!(world.cells.iter().map(|cell| volume(&cell.surface, FluidId::Water)).sum::<u32>(), 180); }
+    #[test] fn material_balance_includes_reaction_products() { let mut world = SimulationWorld::new(1, 1); world.inject(pos(0, 0), FluidId::Water, 500); world.inject(pos(0, 0), FluidId::Lava, 500); world.tick(); assert_eq!(world.mass_balance_error(), 0); }
 }
