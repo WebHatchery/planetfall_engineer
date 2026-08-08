@@ -7,63 +7,39 @@ use macroquad::prelude::*;
 
 impl Game {
     pub(crate) fn handle_palette_click(&mut self) -> bool {
-        let (mouse_x, mouse_y) = mouse_position();
-        let scale_x = screen_width() / ui::LOGICAL_WIDTH;
-        let scale_y = screen_height() / ui::LOGICAL_HEIGHT;
-        let x = mouse_x / scale_x;
-        let y = mouse_y / scale_y;
-        if !(1018.0..1248.0).contains(&x) || !(326.0..456.0).contains(&y) {
-            return false;
-        }
-        let column = if x < 1132.0 { 0 } else { 1 };
-        let row = ((y - 326.0) / 26.0) as usize;
-        let index = row * 2 + column;
-        if let Some(device) = DeviceId::ALL.get(index).copied() {
+        if let Some(BuildClick::Palette(device)) = mouse_build_click() {
             self.queue_device(device);
+            return true;
         }
-        true
+        false
     }
 
     pub(crate) fn handle_build_action_click(&mut self) -> bool {
-        let (mouse_x, mouse_y) = mouse_position();
-        let scale_x = screen_width() / ui::LOGICAL_WIDTH;
-        let scale_y = screen_height() / ui::LOGICAL_HEIGHT;
-        let x = mouse_x / scale_x;
-        let y = mouse_y / scale_y;
-        if !(1018.0..1248.0).contains(&x) || !(468.0..494.0).contains(&y) {
-            return false;
+        match mouse_build_click() {
+            Some(BuildClick::Rotate) => {
+                self.placement_rotation = (self.placement_rotation + 1) % 4;
+                self.notice = format!("Placement rotation {}°", self.placement_rotation * 90);
+                true
+            }
+            Some(BuildClick::Commit) => {
+                self.commit_build_plan();
+                true
+            }
+            Some(BuildClick::Cancel) => {
+                self.cancel_build_plan();
+                true
+            }
+            _ => false,
         }
-        if x < 1092.0 {
-            self.placement_rotation = (self.placement_rotation + 1) % 4;
-            self.notice = format!("Placement rotation {}°", self.placement_rotation * 90);
-        } else if x < 1170.0 {
-            self.commit_build_plan();
-        } else {
-            self.cancel_build_plan();
-        }
-        true
     }
 
     pub(crate) fn handle_time_click(&mut self) -> bool {
-        let (mouse_x, mouse_y) = mouse_position();
-        let scale_x = screen_width() / ui::LOGICAL_WIDTH;
-        let scale_y = screen_height() / ui::LOGICAL_HEIGHT;
-        let x = mouse_x / scale_x;
-        let y = mouse_y / scale_y;
-        if !(1018.0..1250.0).contains(&x) || !(496.0..522.0).contains(&y) {
-            return false;
-        }
-        let time = if x < 1076.0 {
-            TimeControl::Paused
-        } else if x < 1136.0 {
-            TimeControl::OneX
-        } else if x < 1196.0 {
-            TimeControl::TwoX
+        if let Some(BuildClick::Time(time)) = mouse_build_click() {
+            self.set_time(time);
+            true
         } else {
-            TimeControl::FourX
-        };
-        self.set_time(time);
-        true
+            false
+        }
     }
 
     pub(crate) fn queue_device(&mut self, device: DeviceId) {
@@ -113,5 +89,94 @@ impl Game {
             "No queued build plan"
         }
         .into();
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BuildClick {
+    Palette(DeviceId),
+    Rotate,
+    Commit,
+    Cancel,
+    Time(TimeControl),
+}
+
+fn mouse_build_click() -> Option<BuildClick> {
+    let (mouse_x, mouse_y) = mouse_position();
+    let x = mouse_x / (screen_width() / ui::LOGICAL_WIDTH);
+    let y = mouse_y / (screen_height() / ui::LOGICAL_HEIGHT);
+    build_click_at(x, y)
+}
+
+fn build_click_at(x: f32, y: f32) -> Option<BuildClick> {
+    if (1018.0..1248.0).contains(&x) && (326.0..456.0).contains(&y) {
+        let column = usize::from(x >= 1132.0);
+        let row = ((y - 326.0) / 26.0) as usize;
+        return DeviceId::ALL
+            .get(row * 2 + column)
+            .copied()
+            .map(BuildClick::Palette);
+    }
+    if (1018.0..1248.0).contains(&x) && (468.0..494.0).contains(&y) {
+        return if x < 1092.0 {
+            Some(BuildClick::Rotate)
+        } else if x < 1170.0 {
+            Some(BuildClick::Commit)
+        } else {
+            Some(BuildClick::Cancel)
+        };
+    }
+    if (1018.0..1250.0).contains(&x) && (496.0..522.0).contains(&y) {
+        return Some(BuildClick::Time(if x < 1076.0 {
+            TimeControl::Paused
+        } else if x < 1136.0 {
+            TimeControl::OneX
+        } else if x < 1196.0 {
+            TimeControl::TwoX
+        } else {
+            TimeControl::FourX
+        }));
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_visible_build_control_maps_to_its_action() {
+        assert_eq!(
+            build_click_at(1040.0, 337.0),
+            Some(BuildClick::Palette(DeviceId::Channel))
+        );
+        assert_eq!(
+            build_click_at(1200.0, 441.0),
+            Some(BuildClick::Palette(DeviceId::RuneRelay))
+        );
+        assert_eq!(build_click_at(1040.0, 480.0), Some(BuildClick::Rotate));
+        assert_eq!(build_click_at(1120.0, 480.0), Some(BuildClick::Commit));
+        assert_eq!(build_click_at(1200.0, 480.0), Some(BuildClick::Cancel));
+    }
+
+    #[test]
+    fn every_time_button_maps_to_the_expected_speed() {
+        assert_eq!(
+            build_click_at(1040.0, 507.0),
+            Some(BuildClick::Time(TimeControl::Paused))
+        );
+        assert_eq!(
+            build_click_at(1100.0, 507.0),
+            Some(BuildClick::Time(TimeControl::OneX))
+        );
+        assert_eq!(
+            build_click_at(1160.0, 507.0),
+            Some(BuildClick::Time(TimeControl::TwoX))
+        );
+        assert_eq!(
+            build_click_at(1220.0, 507.0),
+            Some(BuildClick::Time(TimeControl::FourX))
+        );
+        assert_eq!(build_click_at(900.0, 507.0), None);
     }
 }

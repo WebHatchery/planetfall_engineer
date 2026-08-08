@@ -313,6 +313,10 @@ fn mouse_choice(mode: FrontendMode) -> Option<usize> {
     let (mouse_x, mouse_y) = mouse_position();
     let x = mouse_x / (screen_width() / ui::LOGICAL_WIDTH);
     let y = mouse_y / (screen_height() / ui::LOGICAL_HEIGHT);
+    frontend_mouse_choice_at(mode, x, y)
+}
+
+pub(crate) fn frontend_mouse_choice_at(mode: FrontendMode, x: f32, y: f32) -> Option<usize> {
     match mode {
         FrontendMode::Title | FrontendMode::CampaignSelect => (MENU_X..=MENU_X + MENU_WIDTH)
             .contains(&x)
@@ -331,5 +335,58 @@ fn mouse_choice(mode: FrontendMode) -> Option<usize> {
             (choice <= 10).then_some(choice)
         }
         FrontendMode::Playing => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn title_buttons_have_distinct_click_targets() {
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::Title, 640.0, 324.0),
+            Some(0)
+        );
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::Title, 640.0, 386.0),
+            Some(1)
+        );
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::Title, 640.0, 448.0),
+            Some(2)
+        );
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::Title, 100.0, 324.0),
+            None
+        );
+    }
+
+    #[test]
+    fn verification_buttons_select_lab_and_each_device_bay() {
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::VerificationSelect, 640.0, 324.0),
+            Some(0)
+        );
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::VerificationSelect, 460.0, 387.0),
+            Some(1)
+        );
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::VerificationSelect, 800.0, 387.0),
+            Some(2)
+        );
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::VerificationSelect, 460.0, 579.0),
+            Some(9)
+        );
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::VerificationSelect, 800.0, 579.0),
+            Some(10)
+        );
+        assert_eq!(
+            frontend_mouse_choice_at(FrontendMode::VerificationSelect, 640.0, 620.0),
+            None
+        );
     }
 }
