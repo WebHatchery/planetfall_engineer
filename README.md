@@ -50,7 +50,7 @@ engineering contract; the GDD remains the source of product intent.
 - Build-plan queue with budget reservation, atomic commit, cancellation, and
   renderer-independent queued-plan state. Runtime controls: `B/P/O` queue a
   channel/pipe/pump, `Enter` commits, `Backspace` cancels, `C` removes the
-  selected device, and `F2` runs all ten showcase checks.
+  selected device, and `F2` opens the ten-device showcase browser.
 
 ## Phase 4/5 Mission Slice
 
