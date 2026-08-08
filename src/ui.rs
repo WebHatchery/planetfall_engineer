@@ -326,6 +326,25 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             TextStyle::new(10.0, Color::new(0.82, 0.87, 0.9, 1.0)).params(),
         );
     }
+    if ctx.verification_label.is_some() {
+        for (x, label) in [(1018.0, "RESET"), (1094.0, "STEP"), (1172.0, "RETURN")] {
+            draw_rectangle(x, 532.0, 72.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
+            draw_rectangle_lines(
+                x,
+                532.0,
+                72.0,
+                28.0,
+                1.0,
+                Color::new(0.35, 0.74, 0.78, 0.95),
+            );
+            draw_ui_text_ex(
+                label,
+                x + 8.0,
+                550.0,
+                TextStyle::new(10.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
+            );
+        }
+    }
     if matches!(
         ctx.session.mission.phase,
         MissionPhase::Success | MissionPhase::Failure | MissionPhase::Debrief
@@ -340,7 +359,8 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             draw_tutorial_prompt(tutorial);
         }
     }
-    if ctx.session.mission.phase == MissionPhase::Active
+    if ctx.verification_label.is_none()
+        && ctx.session.mission.phase == MissionPhase::Active
         && ctx.session.mission.id != crate::mission::MissionId::L01FirstFlow
     {
         draw_stage_guide(ctx.session.mission.id);

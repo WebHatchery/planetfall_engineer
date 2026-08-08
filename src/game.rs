@@ -255,6 +255,7 @@ impl Game {
             && !self.handle_palette_click()
             && !self.handle_build_action_click()
             && !self.handle_time_click()
+            && !self.handle_verification_click()
         {
             self.select_from_pointer();
         }

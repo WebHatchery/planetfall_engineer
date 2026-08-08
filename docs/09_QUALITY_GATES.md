@@ -99,8 +99,9 @@ At every size:
 
 The deterministic UI-unit suite maps logical click coordinates to every title
 entry, the fluid laboratory, all ten device bays, all ten build-palette entries,
-Rotate/Commit/Cancel, and Pause/1X/2X/4X. A control with no matching action or
-an overlapping/off-panel coordinate fails that suite.
+Rotate/Commit/Cancel, Pause/1X/2X/4X, and verification Reset/Step/Return. A
+control with no matching action or an overlapping/off-panel coordinate fails
+that suite.
 
 Mission alert state is authoritative and text-labeled at four levels: clear,
 advisory, warning, and critical. Hazard failure timers remain separate from
