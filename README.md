@@ -61,6 +61,11 @@ ranges from `docs/06_FIRST_THREE_LEVELS.md`. A clean launch opens authored L01
 (`32×20`); L02 and L03 remain campaign progression content rather than generic
 template maps.
 
+Save schema version 3 includes simulation, device, mission/tutorial,
+checkpoint, and campaign progression state in the deterministic hash. F5/F9
+round-trip tests prove that mission progress and best completion data survive
+save/load.
+
 ## 3D Vertical-Slice Presentation
 
 The orthographic world now renders authoritative surface depth, airborne steam,

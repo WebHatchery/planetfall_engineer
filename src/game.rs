@@ -1,12 +1,12 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CampaignProgress, CommandKind, MissionId, MissionPhase, MissionState}, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
+use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData, devices::{run_all_showcases, DeviceId}, mission::{campaign_summary, CommandKind, MissionId, MissionPhase}, simulation::{FluidId, TerrainAction}, state::{save_session, load_session, CellPos, GameSession, TimeControl, WorldState}, verification::FluidsLab};
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
 use crate::ui::{self, UiContext};
 
-pub struct Game { pub data: GameData, pub session: GameSession, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, mission: MissionState, campaign: CampaignProgress, notice: String }
+pub struct Game { pub data: GameData, pub session: GameSession, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
 
 #[derive(Debug, Clone, Copy)]
 struct FoundationCamera { target: Vec2, yaw: u8, zoom: f32 }
@@ -47,10 +47,8 @@ impl Game {
         session.simulation = campaign.world;
         session.world = WorldState::new(32, 20);
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
-        let mut mission = MissionState::new(MissionId::L01FirstFlow);
-        mission.start();
         let (width, height) = MissionId::L01FirstFlow.map_size();
-        Self { data, session, assets, camera, lab: FluidsLab::new(), mission, campaign: CampaignProgress::default(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
+        Self { data, session, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1) }
     }
 
     pub fn update(&mut self, dt: f32) {
@@ -72,11 +70,11 @@ impl Game {
         if is_key_pressed(KeyCode::F1) { let report = self.lab.automatic_scenario(); self.notice = format!("lab_fluids_all {} tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash); }
         if is_key_pressed(KeyCode::F2) { self.notice = run_all_showcases(); }
         if is_key_pressed(KeyCode::F3) { self.notice = campaign_summary(); }
-        if is_key_pressed(KeyCode::F4) { self.mission.skip_tutorial(); let complete = self.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()); self.notice = if complete { "Tutorial skipped — L01 build kit unlocked" } else { "Tutorial skip unavailable" }.into(); }
-        if is_key_pressed(KeyCode::F6) { self.mission.checkpoint(); self.notice = format!("Mission checkpoint recorded at tick {}", self.mission.checkpoint_tick); }
-        if is_key_pressed(KeyCode::F7) { self.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
-        if is_key_pressed(KeyCode::F8) { let admission = self.mission.admit(CommandKind::DismissPrompt); self.notice = format!("Tutorial command: {admission:?}"); }
-        if is_key_pressed(KeyCode::F10) { let mut campaign = load_campaign(self.mission.id); seed_reference_materials(&mut campaign); self.session.simulation = campaign.world; self.notice = "Reference material fixture loaded".into(); }
+        if is_key_pressed(KeyCode::F4) { self.session.mission.skip_tutorial(); let complete = self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.is_complete()); self.notice = if complete { "Tutorial skipped — L01 build kit unlocked" } else { "Tutorial skip unavailable" }.into(); }
+        if is_key_pressed(KeyCode::F6) { self.session.mission.checkpoint(); self.notice = format!("Mission checkpoint recorded at tick {}", self.session.mission.checkpoint_tick); }
+        if is_key_pressed(KeyCode::F7) { self.session.mission.fail("manual failure-path check"); self.notice = "Mission failed — reset to checkpoint".into(); }
+        if is_key_pressed(KeyCode::F8) { let admission = self.session.mission.admit(CommandKind::DismissPrompt); self.notice = format!("Tutorial command: {admission:?}"); }
+        if is_key_pressed(KeyCode::F10) { let mut campaign = load_campaign(self.session.mission.id); seed_reference_materials(&mut campaign); self.session.simulation = campaign.world; self.notice = "Reference material fixture loaded".into(); }
         if is_key_pressed(KeyCode::C) { if let Some(entity_id) = self.session.simulation.devices.devices.iter().find(|device| device.anchor == self.session.selected).map(|device| device.entity_id) { self.session.simulation.devices.remove(entity_id); self.notice = "Device removed and budget released".into(); } }
         if is_key_pressed(KeyCode::B) { self.place_device(DeviceId::Channel); }
         if is_key_pressed(KeyCode::P) { self.place_device(DeviceId::Pipe); }
@@ -84,7 +82,7 @@ impl Game {
         if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
         if is_key_pressed(KeyCode::F9) { match load_session(&self.data.config) { Ok(s) => { self.session = s; self.notice = "Checkpoint loaded".into(); }, Err(e) => self.notice = e } }
         let ticks = self.session.update(dt);
-        if ticks > 0 { self.mission.on_tick(&self.session.simulation); if self.mission.phase == MissionPhase::Success { self.campaign.record_success(self.mission.id, self.mission.tick); } self.notice = format!("Simulation advanced {ticks} tick(s)"); }
+        if ticks > 0 { self.session.mission.on_tick(&self.session.simulation); if self.session.mission.phase == MissionPhase::Success { self.session.campaign.record_success(self.session.mission.id, self.session.mission.tick); } self.notice = format!("Simulation advanced {ticks} tick(s)"); }
     }
 
     fn apply_terrain(&mut self, action: TerrainAction) {
