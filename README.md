@@ -90,7 +90,9 @@ untouched.
 
 The campaign replay harness runs L01, L02, and L03 from authored constructors,
 checks terminal stability, resumes from a midpoint snapshot, and compares the
-uninterrupted/resumed final hashes. `F11` reports the three-reference result.
+uninterrupted/resumed final hashes. It now covers reference and alternate
+success routes, all three authored hazard failures, and the L03 insufficient-
+water recovery state. `F11` reports the complete ten-scenario result.
 Campaign and device reports now also require exact material conservation across
 surface, airborne, and pending terrain products; the authoritative balance
 error is exposed by the simulation and covered by reaction tests.

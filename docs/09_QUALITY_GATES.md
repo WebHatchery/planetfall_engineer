@@ -112,6 +112,11 @@ exact balance error, and the injected/drained/reacted/product ledger.
 The active build selection also renders a translucent 3D footprint ghost;
 `Z` rotates it through all four quarter turns before queue/commit.
 
+The replay owner covers the ten campaign scenarios listed above, including
+alternate success paths, authored hazard failures, and the L03 insufficient-
+water recovery path. Each report includes midpoint continuation and the four
+material ledger counters.
+
 ## 6. 3D functional gates
 
 - Orthographic projection remains perspective-free at all six zoom levels.

@@ -6,7 +6,7 @@ use crate::{
     data::GameData,
     devices::{run_all_showcases, DeviceId, SHOWCASE_MAPS},
     mission::{campaign_summary, CommandKind, MissionId, MissionPhase},
-    replay::run_all_references,
+    replay::run_all_scenarios,
     simulation::{FluidId, TerrainAction},
     state::{load_session, save_session, CellPos, GameSession, TimeControl, WorldState},
     verification::FluidsLab,
@@ -295,7 +295,7 @@ impl Game {
             self.notice = "Reference material fixture loaded".into();
         }
         if is_key_pressed(KeyCode::F11) {
-            self.notice = run_all_references();
+            self.notice = run_all_scenarios();
         }
         if is_key_pressed(KeyCode::C) {
             if let Some(entity_id) = self
