@@ -20,6 +20,10 @@ pub struct UiContext<'a> {
     pub loaded_assets: usize,
     pub verification_label: Option<&'a str>,
     pub pause_menu: bool,
+    pub placement_device: crate::devices::DeviceId,
+    pub placement_rotation: u8,
+    pub placement_valid: bool,
+    pub placement_reason: &'a str,
 }
 
 pub fn draw_hud(ctx: UiContext<'_>) {
@@ -160,6 +164,16 @@ pub fn draw_hud(ctx: UiContext<'_>) {
                 objective_target(ctx.session.mission.id)
             )
         });
+    let objective = if ctx.verification_label.is_some() {
+        objective
+    } else {
+        format!(
+            "{}  STAB {}/{}",
+            objective,
+            ctx.session.mission.stability_ticks,
+            stability_target(ctx.session.mission.id)
+        )
+    };
     draw_ui_text_ex(&objective, 1024.0, 172.0, style.params());
     draw_ui_text_ex(
         &format!("ALERT {}", ctx.session.mission.alert_level.name()),
@@ -232,7 +246,23 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             )
         })
         .unwrap_or_else(|| "Ledger inactive".into());
-    draw_ui_text_ex(&verification_status, 1024.0, 316.0, style.params());
+    let placement_status = if ctx.placement_valid {
+        "READY"
+    } else {
+        "BLOCKED"
+    };
+    let build_readout = if ctx.verification_label.is_some() {
+        verification_status
+    } else {
+        format!(
+            "BUILD {} {} {}c {}°",
+            placement_status,
+            ctx.placement_reason,
+            ctx.placement_device.cost(),
+            ctx.placement_rotation * 90
+        )
+    };
+    draw_ui_text_ex(&build_readout, 1024.0, 316.0, style.params());
     draw_ui_text_ex(
         "BUILD PALETTE // click to queue",
         1024.0,
@@ -287,6 +317,13 @@ fn objective_target(id: crate::mission::MissionId) -> u32 {
             6_000
         }
         crate::mission::MissionId::L03Firebreak => 3_000,
+    }
+}
+
+fn stability_target(id: crate::mission::MissionId) -> u32 {
+    match id {
+        crate::mission::MissionId::L01FirstFlow => 100,
+        crate::mission::MissionId::L02HoldingLine | crate::mission::MissionId::L03Firebreak => 150,
     }
 }
 

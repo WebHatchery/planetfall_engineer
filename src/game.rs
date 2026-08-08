@@ -518,7 +518,7 @@ impl Game {
             device,
             self.session.selected,
             self.placement_rotation,
-            100,
+            self.session.mission.budget,
         );
         self.session.simulation.devices = devices;
         self.notice = result
@@ -537,7 +537,7 @@ impl Game {
             return;
         }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let result = devices.commit_plan(&self.session.simulation, 100);
+        let result = devices.commit_plan(&self.session.simulation, self.session.mission.budget);
         self.session.simulation.devices = devices;
         self.notice = result
             .map(|entities| format!("Committed {} build plan(s)", entities.len()))
@@ -662,6 +662,7 @@ impl Game {
         set_camera(&self.camera.camera3d());
         self.draw_world();
         set_default_camera();
+        let (placement_valid, placement_reason) = self.placement_preview();
         begin_virtual_ui_frame(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
         ui::draw_hud(UiContext {
             session: &self.session,
@@ -685,6 +686,10 @@ impl Game {
                 },
             }),
             pause_menu: self.pause_menu,
+            placement_device: self.placement_device,
+            placement_rotation: self.placement_rotation,
+            placement_valid,
+            placement_reason,
         });
         end_virtual_ui_frame();
     }

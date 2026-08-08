@@ -159,7 +159,8 @@ the same validated plans as the keyboard bindings, including visible rejection
 notices for tutorial, budget, bounds, protected-cell, and overlap failures.
 The selected build has a translucent 3D footprint ghost; `Z` cycles its quarter
 turn rotation, and the queued plan carries that rotation into the authoritative
-device entity and directional behavior.
+device entity and directional behavior. The readout shows its cost and
+`READY`/`BLOCKED` reason for bounds, protection, overlap, or budget before queue.
 Verification maps expose their current PASS/FAIL result, exact balance error,
 and compact injected/drained/reacted/product ledger in the readout. F6 resets
 the active lab or device fixture and F8 advances exactly one verification tick,
