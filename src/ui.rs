@@ -346,6 +346,12 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         }
     }
     if ctx.verification_label.is_none() {
+        draw_ui_text_ex(
+            "FIELD TOOLS",
+            1018.0,
+            528.0,
+            TextStyle::new(10.0, Color::new(0.8, 0.68, 0.4, 1.0)).params(),
+        );
         for (x, label) in [(1018.0, "INSPECT"), (1094.0, "TERRAIN"), (1172.0, "EXCAVATE")] {
             draw_rectangle(x, 532.0, 72.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
             draw_rectangle_lines(x, 532.0, 72.0, 28.0, 1.0, Color::new(0.35, 0.74, 0.78, 0.95));
@@ -728,7 +734,7 @@ fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
         "tutorial_l01_inspect_grade" => (
             "INSPECT",
             "Inspect the selected cell before changing it.",
-            "Tap INSPECT",
+            "In FIELD TOOLS at right, tap INSPECT",
         ),
         "tutorial_l01_pause_plan" => (
             "PAUSE AND PLAN",
