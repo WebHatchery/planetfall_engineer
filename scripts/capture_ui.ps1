@@ -6,8 +6,8 @@
     Thin wrapper around the shared macroquad-toolkit capture script. Builds the
     debug exe and drives it through the env-var capture hook
     (PLANETFALL_ENGINEER_CAPTURE_*) provided by macroquad_toolkit::capture in
-    src/main.rs. Phase 0 has a single boot state, so the capture photographs
-    the Ashfall Basin survey screen; the scene name only picks the output filename.
+    src/main.rs. The default boot state is the title screen. Scene names select
+    the title, campaign, laboratory, or device-showcase state before capture.
 
 .EXAMPLE
     ./scripts/capture_ui.ps1

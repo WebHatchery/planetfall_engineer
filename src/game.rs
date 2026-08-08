@@ -1,6 +1,6 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
-use crate::ui::{self, UiContext};
+use crate::ui;
 use crate::{
     campaign::{load_campaign, seed_reference_materials},
     data::GameData,
@@ -13,7 +13,6 @@ use crate::{
 };
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
-use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
 use macroquad_toolkit::render3d::picking::{screen_ray, Aabb3};
 
 pub struct Game {
@@ -22,6 +21,7 @@ pub struct Game {
     pub(crate) checkpoint_session: Option<GameSession>,
     pub(crate) saved_campaign_session: Option<GameSession>,
     pub(crate) verification_mode: Option<VerificationMode>,
+    pub(crate) frontend_mode: FrontendMode,
     pub(crate) assets: AssetManager,
     pub(crate) camera: FoundationCamera,
     pub(crate) lab: FluidsLab,
@@ -38,11 +38,19 @@ pub(crate) enum VerificationMode {
     Showcase(DeviceId),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FrontendMode {
+    Title,
+    CampaignSelect,
+    VerificationSelect,
+    Playing,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FoundationCamera {
     target: Vec2,
-    yaw: u8,
-    zoom: f32,
+    pub(crate) yaw: u8,
+    pub(crate) zoom: f32,
 }
 
 impl FoundationCamera {
@@ -84,7 +92,7 @@ impl FoundationCamera {
         }
         before != (self.target, self.yaw, self.zoom)
     }
-    fn camera3d(&self) -> Camera3D {
+    pub(crate) fn camera3d(&self) -> Camera3D {
         let angle = self.yaw as f32 * std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4;
         let distance = self.zoom * 1.65;
         let target = vec3(self.target.x, 0.0, self.target.y);
@@ -108,6 +116,16 @@ impl FoundationCamera {
     }
 }
 
+fn overlay_name(mode: u8) -> &'static str {
+    match mode {
+        1 => "GRADE",
+        2 => "FLOW",
+        3 => "HEAT",
+        4 => "CONTAMINATION",
+        _ => "MATERIAL",
+    }
+}
+
 impl Game {
     pub async fn new() -> Self {
         let data = GameData::load().expect("embedded foundation data must be valid");
@@ -123,10 +141,15 @@ impl Game {
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
-        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
+        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, frontend_mode: FrontendMode::Title, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow ready — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
+        if scene.starts_with("title") {
+            self.frontend_mode = FrontendMode::Title;
+            return;
+        }
+        self.frontend_mode = FrontendMode::Playing;
         if scene.starts_with("lab_fluids_all") {
             self.toggle_lab_mode();
         }
@@ -168,6 +191,10 @@ impl Game {
     }
 
     pub fn update(&mut self, dt: f32) {
+        if self.frontend_mode != FrontendMode::Playing {
+            self.update_frontend();
+            return;
+        }
         if is_key_pressed(KeyCode::Escape) {
             self.pause_menu = !self.pause_menu;
             if self.pause_menu {
@@ -556,7 +583,7 @@ impl Game {
         }
     }
 
-    fn load_mission(&mut self, id: MissionId, reason: &str) {
+    pub(crate) fn load_mission(&mut self, id: MissionId, reason: &str) {
         let campaign_progress = self.session.campaign.clone();
         let campaign = load_campaign(id);
         let (width, height) = (
@@ -579,6 +606,7 @@ impl Game {
         self.session.time_control = TimeControl::Paused;
         self.camera = FoundationCamera::new(width, height);
         self.checkpoint_session = None;
+        self.frontend_mode = FrontendMode::Playing;
         self.notice = format!("{} {reason}", id.name());
     }
 
@@ -613,180 +641,4 @@ impl Game {
             }
         }
     }
-
-    pub fn draw(&mut self) {
-        clear_background(Color::new(0.035, 0.045, 0.065, 1.0));
-        set_camera(&self.camera.camera3d());
-        self.draw_world();
-        set_default_camera();
-        let (placement_valid, placement_reason) = self.placement_preview();
-        begin_virtual_ui_frame(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
-        ui::draw_hud(UiContext {
-            session: &self.session,
-            camera_yaw: self.camera.yaw,
-            camera_zoom: self.camera.zoom,
-            notice: &self.notice,
-            loaded_assets: self.assets.len(),
-            verification_label: self.verification_mode.map(|mode| match mode {
-                VerificationMode::Lab => "LAB_FLUIDS_ALL",
-                VerificationMode::Showcase(device) => match device {
-                    DeviceId::Channel => "DEVICE_CHANNEL",
-                    DeviceId::Pipe => "DEVICE_PIPE",
-                    DeviceId::Pump => "DEVICE_PUMP",
-                    DeviceId::Floodgate => "DEVICE_FLOODGATE",
-                    DeviceId::Reservoir => "DEVICE_RESERVOIR",
-                    DeviceId::Spillway => "DEVICE_SPILLWAY",
-                    DeviceId::FlowTurbine => "DEVICE_FLOW_TURBINE",
-                    DeviceId::Sensor => "DEVICE_SENSOR",
-                    DeviceId::Filter => "DEVICE_FILTER",
-                    DeviceId::RuneRelay => "DEVICE_RUNE_RELAY",
-                },
-            }),
-            pause_menu: self.pause_menu,
-            placement_device: self.placement_device,
-            placement_rotation: self.placement_rotation,
-            placement_valid,
-            placement_reason,
-            overlay_mode: self.overlay_mode,
-        });
-        end_virtual_ui_frame();
-    }
-
-    fn draw_world(&self) {
-        let selected = self.session.selected;
-        for y in 0..self.session.world.height {
-            for x in 0..self.session.world.width {
-                let pos = CellPos { x, y };
-                let cell = &self.session.world.cells[self.session.world.index(pos).unwrap()];
-                let h = cell.height_hu as f32 * 0.0005;
-                let center = vec3(x as f32 + 0.5, h * 0.5, y as f32 + 0.5);
-                let size = vec3(0.96, h.max(0.12), 0.96);
-                let tint = if self.overlay_mode == 0 && pos == selected {
-                    Color::new(0.82, 0.66, 0.24, 1.0)
-                } else if cell.sealed {
-                    Color::new(0.25, 0.29, 0.35, 1.0)
-                } else {
-                    Color::new(0.32 + x as f32 * 0.005, 0.24 + y as f32 * 0.004, 0.20, 1.0)
-                };
-                let sim_cell =
-                    &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()];
-                let tint = if self.overlay_mode == 0 {
-                    tint
-                } else {
-                    overlay_tint(self.overlay_mode, cell.height_hu, sim_cell)
-                };
-                draw_cube(center, size, None, tint);
-                draw_cube_wires(center, size, Color::new(0.08, 0.09, 0.12, 0.55));
-                let surface_depth = sim_cell.surface_volume() as f32 * 0.0005;
-                if surface_depth > 0.0 {
-                    let surface_center = vec3(
-                        x as f32 + 0.5,
-                        h + surface_depth * 0.5 + 0.02,
-                        y as f32 + 0.5,
-                    );
-                    let surface_color = sim_cell
-                        .surface
-                        .first()
-                        .map(|material| fluid_color(material.fluid))
-                        .unwrap_or(WHITE);
-                    draw_cube(
-                        surface_center,
-                        vec3(0.88, surface_depth.max(0.04), 0.88),
-                        None,
-                        surface_color,
-                    );
-                }
-                let steam_depth = sim_cell.airborne_volume() as f32 * 0.00035;
-                if steam_depth > 0.0 {
-                    draw_cube(
-                        vec3(x as f32 + 0.5, h + 0.35 + steam_depth * 0.5, y as f32 + 0.5),
-                        vec3(0.7, steam_depth.max(0.08), 0.7),
-                        None,
-                        Color::new(0.76, 0.86, 0.92, 0.38),
-                    );
-                }
-            }
-        }
-        for device in &self.session.simulation.devices.devices {
-            let (width, height) = device.device.footprint();
-            let anchor = &self.session.simulation.cells
-                [self.session.simulation.index(device.anchor).unwrap()];
-            let center = vec3(
-                device.anchor.x as f32 + width as f32 * 0.5,
-                anchor.height_hu as f32 * 0.0005 + 0.35,
-                device.anchor.y as f32 + height as f32 * 0.5,
-            );
-            let color = if device.active {
-                Color::new(0.35, 0.92, 0.72, 1.0)
-            } else {
-                Color::new(0.72, 0.52, 0.25, 1.0)
-            };
-            draw_cube(
-                center,
-                vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72),
-                None,
-                color,
-            );
-            draw_cube_wires(
-                center,
-                vec3(width as f32 * 0.78, 0.74, height as f32 * 0.78),
-                if device.anchor == selected {
-                    WHITE
-                } else {
-                    Color::new(0.08, 0.09, 0.12, 0.8)
-                },
-            );
-        }
-        self.draw_placement_ghost();
-        draw_grid_lines();
-    }
-}
-
-fn fluid_color(fluid: FluidId) -> Color {
-    match fluid {
-        FluidId::Water => Color::new(0.12, 0.48, 0.9, 0.78),
-        FluidId::Lava => Color::new(0.95, 0.22, 0.06, 0.9),
-        FluidId::ToxicSlurry => Color::new(0.62, 0.72, 0.16, 0.86),
-        FluidId::Steam => Color::new(0.76, 0.86, 0.92, 0.38),
-    }
-}
-
-fn overlay_name(mode: u8) -> &'static str {
-    match mode {
-        1 => "GRADE",
-        2 => "FLOW",
-        3 => "HEAT",
-        4 => "CONTAMINATION",
-        _ => "MATERIAL",
-    }
-}
-
-fn overlay_tint(mode: u8, height_hu: i16, cell: &crate::simulation::SimCell) -> Color {
-    match mode {
-        1 => {
-            let value = (height_hu as f32 / 8_000.0).clamp(0.0, 1.0);
-            Color::new(0.12 + value * 0.72, 0.24 + (1.0 - value) * 0.44, 0.34, 1.0)
-        }
-        2 => {
-            let value = (cell.surface_volume() as f32 / 8_000.0).clamp(0.0, 1.0);
-            Color::new(0.12, 0.3 + value * 0.6, 0.65 + value * 0.25, 1.0)
-        }
-        3 => {
-            let temperature = cell
-                .surface
-                .first()
-                .map(|material| material.temperature_dk)
-                .unwrap_or(2_930);
-            let value = ((temperature - 2_930) as f32 / 10_000.0).clamp(0.0, 1.0);
-            Color::new(0.18 + value * 0.78, 0.28 + (1.0 - value) * 0.32, 0.22, 1.0)
-        }
-        4 => {
-            let value = cell.ground_contamination_bp as f32 / 10_000.0;
-            Color::new(0.22 + value * 0.7, 0.24 + (1.0 - value) * 0.4, 0.12, 1.0)
-        }
-        _ => Color::new(0.32, 0.24, 0.2, 1.0),
-    }
-}
-
-fn draw_grid_lines() { /* Depth-tested cube silhouettes provide the stepped grid in R0. */
 }

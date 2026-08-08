@@ -1,7 +1,8 @@
 # Planetfall Engineer
 
-Playable foundation with the first terrain and material-simulation slice for a
-Rust + Macroquad planetary-engineering puzzle game.
+Playable vertical slice for a Rust + Macroquad planetary-engineering puzzle
+game. Launch opens a title screen with a new-campaign route, campaign board,
+and verification grounds for the all-fluid laboratory and every device bay.
 The project uses `macroquad-toolkit` for the shared runtime, UI, persistence,
 camera, and data-loading patterns used by the Rust games in this workspace.
 
@@ -194,6 +195,11 @@ toolkit async loaders, and save data uses macroquad-toolkit persistence.
 ```powershell
 cargo run
 ```
+
+Start a new campaign to enter L01's guided onboarding. The title-screen
+campaign board shows which of L01–L03 is unlocked, while Verification Grounds
+opens the laboratory and all ten device showcases without disturbing a campaign
+in progress.
 
 ## Test
 
