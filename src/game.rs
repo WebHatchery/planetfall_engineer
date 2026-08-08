@@ -14,7 +14,8 @@ struct FoundationCamera { target: Vec2, yaw: u8, zoom: f32 }
 
 impl FoundationCamera {
     fn new(width: usize, height: usize) -> Self { Self { target: vec2(width as f32 / 2.0, height as f32 / 2.0), yaw: 0, zoom: width.max(height) as f32 } }
-    fn update(&mut self, dt: f32, width: usize, height: usize) {
+    fn update(&mut self, dt: f32, width: usize, height: usize) -> bool {
+        let before = (self.target, self.yaw, self.zoom);
         let speed = dt * self.zoom * 0.8;
         if is_key_down(KeyCode::A) { self.target.x -= speed; }
         if is_key_down(KeyCode::D) { self.target.x += speed; }
@@ -25,6 +26,7 @@ impl FoundationCamera {
         if is_key_pressed(KeyCode::E) { self.yaw = (self.yaw + 1) % 4; }
         if is_key_pressed(KeyCode::Minus) { self.zoom = (self.zoom + 4.0).min(54.0); }
         if is_key_pressed(KeyCode::Equal) { self.zoom = (self.zoom - 4.0).max(12.0); }
+        before != (self.target, self.yaw, self.zoom)
     }
     fn camera3d(&self) -> Camera3D {
         let angle = self.yaw as f32 * std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4;
@@ -53,20 +55,22 @@ impl Game {
     }
 
     pub fn update(&mut self, dt: f32) {
-        self.camera.update(dt, self.data.config.world_width, self.data.config.world_height);
+        if self.camera.update(dt, self.data.config.world_width, self.data.config.world_height) { let _ = self.session.mission.admit(CommandKind::Camera); }
         if is_mouse_button_pressed(MouseButton::Left) { self.select_from_pointer(); }
-        if is_key_pressed(KeyCode::Space) { self.session.time_control = match self.session.time_control { TimeControl::Paused => TimeControl::OneX, TimeControl::OneX => TimeControl::Paused, _ => TimeControl::Paused }; }
-        if is_key_pressed(KeyCode::Key1) { self.session.time_control = TimeControl::OneX; }
-        if is_key_pressed(KeyCode::Key2) { self.session.time_control = TimeControl::TwoX; }
-        if is_key_pressed(KeyCode::Key4) { self.session.time_control = TimeControl::FourX; }
-        if is_key_pressed(KeyCode::Up) { self.session.move_selected(0, -1); }
-        if is_key_pressed(KeyCode::Down) { self.session.move_selected(0, 1); }
-        if is_key_pressed(KeyCode::Left) { self.session.move_selected(-1, 0); }
-        if is_key_pressed(KeyCode::Right) { self.session.move_selected(1, 0); }
+        if is_key_pressed(KeyCode::Space) { self.set_time(match self.session.time_control { TimeControl::Paused => TimeControl::OneX, TimeControl::OneX => TimeControl::Paused, _ => TimeControl::Paused }); }
+        if is_key_pressed(KeyCode::Key1) { self.set_time(TimeControl::OneX); }
+        if is_key_pressed(KeyCode::Key2) { self.set_time(TimeControl::TwoX); }
+        if is_key_pressed(KeyCode::Key4) { self.set_time(TimeControl::FourX); }
+        let mut cursor_moved = false;
+        if is_key_pressed(KeyCode::Up) { self.session.move_selected(0, -1); cursor_moved = true; }
+        if is_key_pressed(KeyCode::Down) { self.session.move_selected(0, 1); cursor_moved = true; }
+        if is_key_pressed(KeyCode::Left) { self.session.move_selected(-1, 0); cursor_moved = true; }
+        if is_key_pressed(KeyCode::Right) { self.session.move_selected(1, 0); cursor_moved = true; }
+        if cursor_moved { let _ = self.session.mission.admit(CommandKind::Select); }
         if is_key_pressed(KeyCode::X) { self.apply_terrain(TerrainAction::Excavate); }
         if is_key_pressed(KeyCode::R) { self.apply_terrain(TerrainAction::Raise); }
         if is_key_pressed(KeyCode::T) { self.apply_terrain(TerrainAction::Seal); }
-        if is_key_pressed(KeyCode::I) { self.session.simulation.inject(self.session.selected, FluidId::Water, 500); }
+        if is_key_pressed(KeyCode::I) && self.admit(CommandKind::Inspect) { self.notice = format!("Inspecting cell {}, {}", self.session.selected.x, self.session.selected.y); }
         if is_key_pressed(KeyCode::L) { self.session.simulation.inject(self.session.selected, FluidId::Lava, 500); }
         if is_key_pressed(KeyCode::G) { self.session.simulation.inject(self.session.selected, FluidId::ToxicSlurry, 500); }
         if is_key_pressed(KeyCode::F1) { let report = self.lab.automatic_scenario(); self.notice = format!("lab_fluids_all {} tick {} hash {:016X}", if report.passed { "PASS" } else { "FAIL" }, report.tick, report.state_hash); }
@@ -86,7 +90,7 @@ impl Game {
         if is_key_pressed(KeyCode::J) { self.set_gate(0); }
         if is_key_pressed(KeyCode::K) { self.set_gate(5_000); }
         if is_key_pressed(KeyCode::H) { self.set_gate(10_000); }
-        if is_key_pressed(KeyCode::Enter) { self.commit_build_plan(); }
+        if is_key_pressed(KeyCode::Enter) { if self.session.simulation.devices.queued.is_empty() { let _ = self.admit(CommandKind::DismissPrompt); } else { self.commit_build_plan(); } }
         if is_key_pressed(KeyCode::Backspace) { self.cancel_build_plan(); }
         if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
         if is_key_pressed(KeyCode::F9) { match load_session(&self.data.config) { Ok(s) => { self.session = s; self.notice = "Checkpoint loaded".into(); }, Err(e) => self.notice = e } }
@@ -95,6 +99,8 @@ impl Game {
     }
 
     fn apply_terrain(&mut self, action: TerrainAction) {
+        let command = if action == TerrainAction::Excavate { CommandKind::QueueExcavate } else { CommandKind::SelectTerrain };
+        if !self.admit(command) { return; }
         self.notice = self.session.simulation.terrain_edit(self.session.selected, action).map(|_| "Terrain edit committed".into()).unwrap_or_else(|error| format!("Terrain edit rejected: {error:?}"));
         if let Some(index) = self.session.simulation.index(self.session.selected) { self.session.world.cells[index].height_hu = self.session.simulation.cells[index].height_hu; self.session.world.cells[index].sealed = self.session.simulation.cells[index].sealed; }
     }
@@ -113,6 +119,7 @@ impl Game {
     }
 
     fn queue_device(&mut self, device: DeviceId) {
+        if !self.admit(CommandKind::QueueDevice(device)) { return; }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
         let result = devices.queue(&self.session.simulation, device, self.session.selected, 0, 100);
         self.session.simulation.devices = devices;
@@ -120,6 +127,7 @@ impl Game {
     }
 
     fn commit_build_plan(&mut self) {
+        if !self.admit(CommandKind::CommitPlan) { return; }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
         let result = devices.commit_plan(&self.session.simulation, 100);
         self.session.simulation.devices = devices;
@@ -134,10 +142,23 @@ impl Game {
     }
 
     fn set_gate(&mut self, setting_bp: u16) {
+        if !self.admit(CommandKind::SetGate(setting_bp)) { return; }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
         let changed = devices.set_selected_gate(self.session.selected, setting_bp);
         self.session.simulation.devices = devices;
         self.notice = if changed { format!("Floodgate set to {}%", setting_bp / 100) } else { "No floodgate selected".into() };
+    }
+
+    fn set_time(&mut self, time: TimeControl) {
+        let command = if time == TimeControl::Paused { CommandKind::SetPaused } else { CommandKind::SetTimeRunning };
+        if self.admit(command) { self.session.time_control = time; }
+    }
+
+    fn admit(&mut self, command: CommandKind) -> bool {
+        match self.session.mission.admit(command) {
+            crate::mission::Admission::Accepted => true,
+            result => { self.notice = format!("Command unavailable: {result:?}"); false }
+        }
     }
 
     pub fn draw(&mut self) {

@@ -60,6 +60,9 @@ engineering contract; the GDD remains the source of product intent.
 - Event-driven L01 tutorial state with twelve ordered steps, stable
   `tutorial_locked` admissions, skip behavior, saved progress fields, and
   deterministic tutorial tests.
+- Camera changes, selection, inspection, time controls, terrain edits, device
+  queues, plan commits, and floodgate settings now pass through tutorial
+  admission, so the playable path cannot bypass locked L01 steps.
 - Runtime controls: `F3` shows the campaign sequence, `F4` skips the tutorial,
   `F6` records a checkpoint, `F7` exercises failure recovery, and `F8` reports
   a tutorial command admission. `F10` loads the current campaign's deterministic
