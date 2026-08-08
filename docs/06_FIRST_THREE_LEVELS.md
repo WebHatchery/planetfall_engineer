@@ -189,3 +189,9 @@ water for the surge. Expected completion is ticks 1,500–2,100.
 - Active saves restore the exact mission tick and tutorial state. A content
   version mismatch returns to the latest mission-start checkpoint with a clear
   notice and never silently runs an incompatible state.
+
+The runtime objective strip evaluates L03 firebreak progress from formed and
+pending rock/vitrified products, rather than counting the water input used to
+make them. Its deterministic reference stream supplies two reaction pockets,
+replays through the same fixed-tick engine, and requires exact material
+conservation after terrain products are formed into the heightfield.

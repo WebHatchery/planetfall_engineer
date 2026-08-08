@@ -75,9 +75,10 @@ impl MissionState {
         self.tick = world.tick;
         if let Some(tutorial) = &mut self.tutorial { tutorial.ticks_in_step = tutorial.ticks_in_step.saturating_add(1); }
         let water = world.cells.iter().map(|cell| cell.surface.iter().filter(|m| m.fluid == crate::simulation::FluidId::Water).map(|m| m.volume_vu).sum::<u32>()).sum::<u32>();
-        self.objective_progress = water;
-        let target = match self.id { MissionId::L01FirstFlow => 6_000, MissionId::L02HoldingLine => 6_000, MissionId::L03Firebreak => 3_000 };
-        if water >= target { self.stability_ticks = self.stability_ticks.saturating_add(1); } else { self.stability_ticks = 0; }
+        let formed_rock = world.cells.iter().map(|cell| cell.pending_rock_vu + cell.pending_vitrified_vu + cell.formed_rock_vu + cell.formed_vitrified_vu).sum::<u32>();
+        self.objective_progress = if self.id == MissionId::L03Firebreak { formed_rock } else { water };
+        let target = match self.id { MissionId::L01FirstFlow | MissionId::L02HoldingLine => 6_000, MissionId::L03Firebreak => 3_000 };
+        if self.objective_progress >= target { self.stability_ticks = self.stability_ticks.saturating_add(1); } else { self.stability_ticks = 0; }
         let required = match self.id { MissionId::L01FirstFlow => 100, MissionId::L02HoldingLine => 150, MissionId::L03Firebreak => 150 };
         if self.stability_ticks >= required { self.phase = MissionPhase::Success; }
     }
@@ -104,5 +105,6 @@ mod tests {
     #[test] fn skip_completes_tutorial_without_mutating_budget() { let mut mission = MissionState::new(MissionId::L01FirstFlow); mission.start(); let budget = mission.budget; assert_eq!(mission.skip_tutorial(), Admission::Accepted); assert!(mission.tutorial.as_ref().unwrap().is_complete()); assert_eq!(mission.budget, budget); }
     #[test] fn normal_tutorial_path_reaches_completion() { let mut mission = MissionState::new(MissionId::L01FirstFlow); mission.start(); for (index, command) in [CommandKind::DismissPrompt, CommandKind::Camera, CommandKind::Select, CommandKind::Inspect, CommandKind::DismissPrompt, CommandKind::SelectTerrain, CommandKind::QueueExcavate, CommandKind::QueueDevice(DeviceId::Channel), CommandKind::CommitPlan, CommandKind::Select, CommandKind::SetGate(5_000), CommandKind::SetGate(0), CommandKind::SetTimeRunning].into_iter().enumerate() { assert_eq!(mission.admit(command), Admission::Accepted, "step {index} current {:?}", mission.tutorial.as_ref().unwrap().current_step_id); } assert!(mission.tutorial.as_ref().unwrap().is_complete()); }
     #[test] fn success_requires_stability_and_terminal_state_stops_ticks() { let mut mission = MissionState::new(MissionId::L02HoldingLine); mission.start(); let mut world = SimulationWorld::new(2, 2); world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Water, 8_000); for _ in 0..150 { world.tick(); mission.on_tick(&world); } assert_eq!(mission.phase, MissionPhase::Success); let tick = mission.tick; mission.on_tick(&world); assert_eq!(mission.tick, tick); }
+    #[test] fn firebreak_progress_uses_formed_rock() { let mut mission = MissionState::new(MissionId::L03Firebreak); mission.start(); let mut world = SimulationWorld::new(1, 1); world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Water, 4_000); world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Lava, 4_000); world.tick(); mission.on_tick(&world); assert_eq!(mission.objective_progress, 250); assert_eq!(mission.stability_ticks, 0); }
     #[test] fn completion_unlocks_next_campaign_level_and_keeps_best_time() { let mut progress = CampaignProgress::default(); progress.record_success(MissionId::L01FirstFlow, 700); progress.record_success(MissionId::L01FirstFlow, 800); assert_eq!(progress.unlocked, [true, true, false]); assert_eq!(progress.best_ticks[0], Some(700)); }
 }

@@ -91,6 +91,10 @@ uninterrupted/resumed final hashes. `F11` reports the three-reference result.
 Campaign and device reports now also require exact material conservation across
 surface, airborne, and pending terrain products; the authoritative balance
 error is exposed by the simulation and covered by reaction tests.
+L03 objective progress now reports formed firebreak products rather than the
+water input, matching its authored reaction objective and reference replay.
+Formed rock and vitrified terrain remain in the authoritative material ledger
+after they raise the terrain, so the reference balance remains exactly zero.
 
 The showcase index names exactly one executable map for each enabled device:
 `device_channel`, `device_pipe`, `device_pump`, `device_floodgate`,
