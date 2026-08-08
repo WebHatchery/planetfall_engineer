@@ -110,6 +110,12 @@ fn seed_scenario(world: &mut SimulationWorld, id: MissionId, kind: ScenarioKind)
         },
         ScenarioKind::InsufficientWaterRecovery => {
             if id == MissionId::L03Firebreak {
+                for pos in [CellPos { x: 22, y: 14 }, CellPos { x: 23, y: 14 }] {
+                    if let Some(index) = world.index(pos) {
+                        world.cells[index].surface.clear();
+                    }
+                }
+                world.ledger.injected = world.ledger.injected.saturating_sub(6_000);
                 world.inject(CellPos { x: 22, y: 14 }, FluidId::Water, 500);
                 world.inject(CellPos { x: 22, y: 14 }, FluidId::Lava, 500);
             } else {

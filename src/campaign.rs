@@ -80,6 +80,10 @@ fn author_l02(world: &mut SimulationWorld) {
 fn author_l03(world: &mut SimulationWorld) {
     set_ambient(world, 3_230);
     world.add_source(CellPos { x: 5, y: 15 }, FluidId::Lava, 100);
+    // The cistern's first controlled pocket makes the documented water/lava
+    // reaction observable from the authored campaign start.
+    world.inject(CellPos { x: 22, y: 14 }, FluidId::Water, 3_000);
+    world.inject(CellPos { x: 23, y: 14 }, FluidId::Lava, 3_000);
     for y in 12..=18 {
         for x in 35..=40 {
             protect(world, CellPos { x, y });
@@ -181,6 +185,25 @@ mod tests {
         assert!(map.world.definitions[map.world.index(CellPos { x: 10, y: 6 }).unwrap()].protected);
         assert!(map.world.cells[map.world.index(CellPos { x: 22, y: 7 }).unwrap()].sealed);
         assert_eq!(map.reference_tick_range, (480, 750));
+    }
+
+    #[test]
+    fn l03_authored_start_contains_water_and_lava_reaction_materials() {
+        let map = load_campaign(MissionId::L03Firebreak);
+        let water = map
+            .world
+            .cells
+            .iter()
+            .flat_map(|cell| cell.surface.iter())
+            .any(|entry| entry.fluid == FluidId::Water && entry.volume_vu >= 3_000);
+        let lava = map
+            .world
+            .cells
+            .iter()
+            .flat_map(|cell| cell.surface.iter())
+            .any(|entry| entry.fluid == FluidId::Lava && entry.volume_vu >= 3_000);
+        assert!(water && lava);
+        assert_eq!(map.world.sources[0].rate_vu, 100);
     }
     #[test]
     fn reference_material_seed_is_deterministic() {

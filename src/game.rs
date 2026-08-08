@@ -135,6 +135,10 @@ impl Game {
         if scene.starts_with("campaign_l03") {
             self.load_mission(MissionId::L03Firebreak, "capture briefing");
         }
+        if scene.contains("active") {
+            self.session.time_control = TimeControl::OneX;
+            self.notice = "Authored campaign source active — observe the live material loop".into();
+        }
         if let Some(showcase) = SHOWCASE_MAPS
             .iter()
             .find(|map| scene == map.map_id || scene.starts_with(&format!("{}_", map.map_id)))
@@ -549,6 +553,9 @@ impl Game {
         self.session = GameSession::new(&self.data.config);
         self.session.world = WorldState::new(width, height);
         self.session.simulation = campaign.world;
+        self.session
+            .simulation
+            .set_sources_enabled(id != MissionId::L01FirstFlow);
         self.session.mission = crate::mission::MissionState::new(id);
         self.session.mission.start();
         self.session.campaign = campaign_progress;

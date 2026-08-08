@@ -80,7 +80,9 @@ Campaign constructors now author the exact L01/L02/L03 map sizes, budgets,
 ambient temperatures, protected zones, basins/shelves, and reference tick
 ranges from `docs/06_FIRST_THREE_LEVELS.md`. A clean launch opens authored L01
 (`32×20`); L02 and L03 remain campaign progression content rather than generic
-template maps.
+template maps. L02/L03 campaign starts enable their authored sources, and L03
+begins with its documented water/lava reaction pocket so the live campaign can
+be observed without replay-only material injection.
 
 Save schema version 3 includes simulation, device, mission/tutorial,
 checkpoint, and campaign progression state in the deterministic hash. F5/F9
