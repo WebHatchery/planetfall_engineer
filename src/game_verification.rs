@@ -6,6 +6,7 @@ use crate::mission::{MissionId, MissionState};
 use crate::state::{CellPos, GameSession, TimeControl, WorldState};
 use crate::ui;
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::virtual_mouse_position;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum VerificationClick {
@@ -19,10 +20,8 @@ impl Game {
         if self.verification_mode.is_none() || !is_mouse_button_pressed(MouseButton::Left) {
             return false;
         }
-        let (mouse_x, mouse_y) = mouse_position();
-        let x = mouse_x / (screen_width() / ui::LOGICAL_WIDTH);
-        let y = mouse_y / (screen_height() / ui::LOGICAL_HEIGHT);
-        match verification_click_at(x, y) {
+        let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
+        match verification_click_at(point.x, point.y) {
             Some(VerificationClick::Reset) => self.reset_verification(),
             Some(VerificationClick::Step) => self.step_verification(),
             Some(VerificationClick::Return) => self.restore_campaign_session(),

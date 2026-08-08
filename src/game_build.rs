@@ -4,6 +4,7 @@ use crate::game::Game;
 use crate::state::TimeControl;
 use crate::{devices::DeviceId, ui};
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::virtual_mouse_position;
 
 impl Game {
     pub(crate) fn handle_palette_click(&mut self) -> bool {
@@ -102,10 +103,8 @@ enum BuildClick {
 }
 
 fn mouse_build_click() -> Option<BuildClick> {
-    let (mouse_x, mouse_y) = mouse_position();
-    let x = mouse_x / (screen_width() / ui::LOGICAL_WIDTH);
-    let y = mouse_y / (screen_height() / ui::LOGICAL_HEIGHT);
-    build_click_at(x, y)
+    let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
+    build_click_at(point.x, point.y)
 }
 
 fn build_click_at(x: f32, y: f32) -> Option<BuildClick> {

@@ -14,6 +14,7 @@ use crate::{
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::render3d::picking::{screen_ray, Aabb3};
+use macroquad_toolkit::ui::virtual_mouse_position;
 
 pub struct Game {
     pub(crate) data: GameData,
@@ -648,10 +649,8 @@ impl Game {
         if !is_mouse_button_pressed(MouseButton::Left) {
             return false;
         }
-        let (mouse_x, mouse_y) = mouse_position();
-        let x = mouse_x / (screen_width() / ui::LOGICAL_WIDTH);
-        let y = mouse_y / (screen_height() / ui::LOGICAL_HEIGHT);
-        (490.0..=790.0).contains(&x) && (492.0..=542.0).contains(&y)
+        let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
+        (490.0..=790.0).contains(&point.x) && (492.0..=542.0).contains(&point.y)
     }
 
     pub(crate) fn admit(&mut self, command: CommandKind) -> bool {
