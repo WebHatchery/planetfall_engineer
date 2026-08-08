@@ -106,6 +106,8 @@ The L02 and L03 authored source-rate surges are applied at their documented
 ticks and are covered by schedule tests plus deterministic scenario replay.
 Active L02/L03 capture scenes run those authored sources through the production
 session update loop rather than a replay-only fixture.
+Campaign tests also advance both authored constructors through their terminal
+success state with only those live sources and scheduled events.
 
 Captures live under `docs/verification/` with stable names
 `<map_or_screen>_<width>x<height>.png`. `catalog_thumbnail.png` at repository

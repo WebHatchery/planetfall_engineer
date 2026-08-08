@@ -205,6 +205,29 @@ mod tests {
         assert!(water && lava);
         assert_eq!(map.world.sources[0].rate_vu, 100);
     }
+
+    #[test]
+    fn authored_l02_and_l03_material_loops_reach_terminal_success() {
+        for id in [MissionId::L02HoldingLine, MissionId::L03Firebreak] {
+            let mut map = load_campaign(id);
+            map.world.set_sources_enabled(true);
+            let mut mission = crate::mission::MissionState::new(id);
+            mission.start();
+            for _ in 0..2_200 {
+                apply_scheduled_events(&mut map.world, id);
+                map.world.tick();
+                mission.on_tick(&map.world);
+                if mission.phase != crate::mission::MissionPhase::Active {
+                    break;
+                }
+            }
+            assert_eq!(
+                mission.phase,
+                crate::mission::MissionPhase::Success,
+                "{id:?}: {mission:?}"
+            );
+        }
+    }
     #[test]
     fn reference_material_seed_is_deterministic() {
         let mut first = load_campaign(MissionId::L03Firebreak);
