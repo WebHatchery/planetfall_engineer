@@ -47,12 +47,23 @@ impl Game {
         match field_control_click() {
             Some(FieldControl::Inspect) => {
                 if self.admit(crate::mission::CommandKind::Inspect) {
-                    self.notice = format!("Inspecting cell {}, {}", self.session.selected.x, self.session.selected.y);
+                    self.notice = format!(
+                        "Inspecting cell {}, {}",
+                        self.session.selected.x, self.session.selected.y
+                    );
                 }
                 true
             }
             Some(FieldControl::Excavate) => {
                 self.apply_terrain(crate::simulation::TerrainAction::Excavate);
+                true
+            }
+            Some(FieldControl::Raise) => {
+                self.apply_terrain(crate::simulation::TerrainAction::Raise);
+                true
+            }
+            Some(FieldControl::Seal) => {
+                self.apply_terrain(crate::simulation::TerrainAction::Seal);
                 true
             }
             Some(FieldControl::Gate(setting)) => {
@@ -117,22 +128,45 @@ impl Game {
 enum FieldControl {
     Inspect,
     Excavate,
+    Raise,
+    Seal,
     Gate(u16),
 }
 
 fn field_control_click() -> Option<FieldControl> {
     let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
-    if (1018.0..1248.0).contains(&point.x) && (532.0..560.0).contains(&point.y) {
-        return Some(if point.x < 1126.0 {
+    field_control_at(point.x, point.y)
+}
+
+fn field_control_at(x: f32, y: f32) -> Option<FieldControl> {
+    if (1018.0..1248.0).contains(&x) && (532.0..560.0).contains(&y) {
+        return Some(if x < 1126.0 {
             FieldControl::Inspect
-        } else if point.x >= 1138.0 {
+        } else if x >= 1138.0 {
             FieldControl::Excavate
         } else {
             return None;
         });
     }
-    if (1018.0..1248.0).contains(&point.x) && (566.0..594.0).contains(&point.y) {
-        return Some(FieldControl::Gate(if point.x < 1092.0 { 0 } else if point.x < 1170.0 { 5_000 } else { 10_000 }));
+    if (1018.0..1248.0).contains(&x) && (566.0..594.0).contains(&y) {
+        return Some(if x < 1126.0 {
+            FieldControl::Raise
+        } else if x >= 1138.0 {
+            FieldControl::Seal
+        } else {
+            return None;
+        });
+    }
+    if (1018.0..1248.0).contains(&x) && (600.0..628.0).contains(&y) {
+        return Some(FieldControl::Gate(if x < 1074.0 {
+            0
+        } else if x < 1132.0 {
+            2_500
+        } else if x < 1190.0 {
+            5_000
+        } else {
+            10_000
+        }));
     }
     None
 }
@@ -221,5 +255,29 @@ mod tests {
             Some(BuildClick::Time(TimeControl::FourX))
         );
         assert_eq!(build_click_at(900.0, 507.0), None);
+    }
+
+    #[test]
+    fn every_field_action_has_a_visible_touch_target() {
+        assert_eq!(field_control_at(1040.0, 546.0), Some(FieldControl::Inspect));
+        assert_eq!(
+            field_control_at(1200.0, 546.0),
+            Some(FieldControl::Excavate)
+        );
+        assert_eq!(field_control_at(1040.0, 580.0), Some(FieldControl::Raise));
+        assert_eq!(field_control_at(1200.0, 580.0), Some(FieldControl::Seal));
+        assert_eq!(field_control_at(1040.0, 614.0), Some(FieldControl::Gate(0)));
+        assert_eq!(
+            field_control_at(1100.0, 614.0),
+            Some(FieldControl::Gate(2_500))
+        );
+        assert_eq!(
+            field_control_at(1160.0, 614.0),
+            Some(FieldControl::Gate(5_000))
+        );
+        assert_eq!(
+            field_control_at(1220.0, 614.0),
+            Some(FieldControl::Gate(10_000))
+        );
     }
 }

@@ -413,9 +413,13 @@ fn tutorial_allows(step: &str, command: CommandKind) -> bool {
         "tutorial_l01_run_and_observe" => {
             matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
         }
-        "tutorial_l01_control_gate" => matches!(command, CommandKind::Select | CommandKind::SetGate(_)),
-        "tutorial_l01_see_impact" => matches!(command, CommandKind::SetGate(_)),
-        "tutorial_l01_stabilize" => matches!(command, CommandKind::SetTimeRunning),
+        "tutorial_l01_control_gate" => {
+            matches!(command, CommandKind::Select | CommandKind::SetGate(_))
+        }
+        "tutorial_l01_see_impact" => {
+            matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
+        }
+        "tutorial_l01_stabilize" => matches!(command, CommandKind::SetGate(0)),
         _ => true,
     }
 }
@@ -440,8 +444,8 @@ fn advance_tutorial(tutorial: &mut TutorialState, command: CommandKind) {
             | ("tutorial_l01_commit_plan", CommandKind::CommitPlan)
             | ("tutorial_l01_run_and_observe", CommandKind::SetTimeRunning)
             | ("tutorial_l01_control_gate", CommandKind::SetGate(5_000))
-            | ("tutorial_l01_see_impact", CommandKind::SetGate(0))
-            | ("tutorial_l01_stabilize", CommandKind::SetTimeRunning)
+            | ("tutorial_l01_see_impact", CommandKind::SetTimeRunning)
+            | ("tutorial_l01_stabilize", CommandKind::SetGate(0))
     ) || (tutorial.current_step_id == "tutorial_l01_inspect_grade"
         && tutorial.dismissed_prompt
         && matches!(command, CommandKind::DismissPrompt));
@@ -539,8 +543,8 @@ mod tests {
             CommandKind::SetTimeRunning,
             CommandKind::Select,
             CommandKind::SetGate(5_000),
-            CommandKind::SetGate(0),
             CommandKind::SetTimeRunning,
+            CommandKind::SetGate(0),
         ]
         .into_iter()
         .enumerate()
@@ -566,13 +570,19 @@ mod tests {
         ] {
             assert_eq!(mission.admit(command), Admission::Accepted);
         }
-        assert_eq!(mission.admit(CommandKind::DismissPrompt), Admission::Accepted);
+        assert_eq!(
+            mission.admit(CommandKind::DismissPrompt),
+            Admission::Accepted
+        );
         assert_eq!(
             mission.tutorial.as_ref().unwrap().current_step_id,
             "tutorial_l01_inspect_grade"
         );
         assert_eq!(mission.admit(CommandKind::Inspect), Admission::Accepted);
-        assert_eq!(mission.admit(CommandKind::DismissPrompt), Admission::Accepted);
+        assert_eq!(
+            mission.admit(CommandKind::DismissPrompt),
+            Admission::Accepted
+        );
         assert_eq!(
             mission.tutorial.as_ref().unwrap().current_step_id,
             "tutorial_l01_pause_plan"

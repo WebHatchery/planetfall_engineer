@@ -117,7 +117,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         1010.0,
         104.0,
         238.0,
-        420.0,
+        532.0,
         Color::new(0.04, 0.06, 0.09, 0.9),
     );
     draw_ui_text_ex(
@@ -374,12 +374,39 @@ pub fn draw_hud(ctx: UiContext<'_>) {
                 TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
             );
         }
-        for (x, label) in [(1018.0, "CLOSED"), (1094.0, "50%"), (1172.0, "OPEN")] {
-            draw_rectangle(x, 566.0, 72.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
+        for (x, label) in [(1018.0, "RAISE"), (1138.0, "SEAL")] {
+            draw_rectangle(x, 566.0, 108.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
             draw_rectangle_lines(
                 x,
                 566.0,
-                72.0,
+                108.0,
+                28.0,
+                1.0,
+                Color::new(0.35, 0.74, 0.78, 0.95),
+            );
+            draw_ui_text_ex(
+                label,
+                x + 14.0,
+                584.0,
+                TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
+            );
+        }
+        let reservoir_selected = ctx.session.simulation.devices.devices.iter().any(|device| {
+            device.anchor == ctx.session.selected
+                && device.device == crate::devices::DeviceId::Reservoir
+        });
+        let flow_labels = if reservoir_selected {
+            ["DRAIN", "25%", "50%", "HOLD"]
+        } else {
+            ["STOP", "25%", "50%", "FULL"]
+        };
+        for (index, label) in flow_labels.into_iter().enumerate() {
+            let x = 1018.0 + index as f32 * 58.0;
+            draw_rectangle(x, 600.0, 54.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
+            draw_rectangle_lines(
+                x,
+                600.0,
+                54.0,
                 28.0,
                 1.0,
                 Color::new(0.35, 0.74, 0.78, 0.95),
@@ -387,8 +414,8 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             draw_ui_text_ex(
                 label,
                 x + 6.0,
-                584.0,
-                TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
+                618.0,
+                TextStyle::new(8.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
             );
         }
     }

@@ -732,13 +732,21 @@ impl Game {
     pub(crate) fn admit(&mut self, command: CommandKind) -> bool {
         match self.session.mission.admit(command) {
             crate::mission::Admission::Accepted => {
-                if self
-                    .session
-                    .mission
-                    .tutorial
-                    .as_ref()
-                    .is_some_and(|tutorial| tutorial.is_complete())
-                {
+                let source_should_run =
+                    self.session
+                        .mission
+                        .tutorial
+                        .as_ref()
+                        .is_some_and(|tutorial| {
+                            tutorial.is_complete()
+                                || matches!(
+                                    tutorial.current_step_id.as_str(),
+                                    "tutorial_l01_control_gate"
+                                        | "tutorial_l01_see_impact"
+                                        | "tutorial_l01_stabilize"
+                                )
+                        });
+                if source_should_run {
                     self.session.simulation.set_sources_enabled(true);
                 }
                 true
