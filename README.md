@@ -74,8 +74,9 @@ save/load.
 The orthographic world now renders authoritative surface depth, airborne steam,
 device footprints, active/inactive machine state, and selected-device outlines
 as derived depth-tested geometry. Camera movement, quarter-turn rotation,
-survey selection, terrain edits, materials, and device placement remain on the
-same production 3D path.
+survey selection by keyboard or mouse ray, terrain edits, materials, and device
+placement remain on the same production 3D path. The shared toolkit owns
+viewport-aware screen rays and AABB hits.
 
 Release evidence is captured under `docs/verification/` at 1280×720,
 1024×768, and 800×600. `catalog_thumbnail.png` is a current title-screen

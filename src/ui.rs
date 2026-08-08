@@ -19,7 +19,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     draw_rectangle(24.0, 604.0, 1232.0, 88.0, Color::new(0.04, 0.06, 0.09, 0.96));
     draw_ui_text_ex(&format!("SURVEY CURSOR  {}, {}", ctx.session.selected.x, ctx.session.selected.y), 44.0, 634.0, TextStyle::new(18.0, Color::new(0.95, 0.8, 0.35, 1.0)).params());
     draw_ui_text_ex(ctx.notice, 44.0, 660.0, TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params());
-    draw_ui_text_ex("WASD pan   Q/E rotate   +/- zoom   Arrows survey   Space pause   1/2/4 speed   F5 save   F9 load", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
+    draw_ui_text_ex("Click select   WASD pan   Q/E rotate   +/- zoom   Arrows survey   Space pause   1/2/4 speed   B/P/O build   C remove   F5/F9 save/load", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
     draw_rectangle(1010.0, 104.0, 238.0, 130.0, Color::new(0.04, 0.06, 0.09, 0.9));
     draw_ui_text_ex("ENGINEERING READOUT", 1024.0, 130.0, TextStyle::new(14.0, Color::new(0.8, 0.68, 0.4, 1.0)).params());
     let selected = &ctx.session.simulation.cells[ctx.session.simulation.index(ctx.session.selected).unwrap()];

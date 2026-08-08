@@ -4,6 +4,7 @@ use crate::{campaign::{load_campaign, seed_reference_materials}, data::GameData,
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
 use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
+use macroquad_toolkit::render3d::picking::{screen_ray, Aabb3};
 use crate::ui::{self, UiContext};
 
 pub struct Game { pub data: GameData, pub session: GameSession, assets: AssetManager, camera: FoundationCamera, lab: FluidsLab, notice: String }
@@ -53,6 +54,7 @@ impl Game {
 
     pub fn update(&mut self, dt: f32) {
         self.camera.update(dt, self.data.config.world_width, self.data.config.world_height);
+        if is_mouse_button_pressed(MouseButton::Left) { self.select_from_pointer(); }
         if is_key_pressed(KeyCode::Space) { self.session.time_control = match self.session.time_control { TimeControl::Paused => TimeControl::OneX, TimeControl::OneX => TimeControl::Paused, _ => TimeControl::Paused }; }
         if is_key_pressed(KeyCode::Key1) { self.session.time_control = TimeControl::OneX; }
         if is_key_pressed(KeyCode::Key2) { self.session.time_control = TimeControl::TwoX; }
@@ -88,6 +90,19 @@ impl Game {
     fn apply_terrain(&mut self, action: TerrainAction) {
         self.notice = self.session.simulation.terrain_edit(self.session.selected, action).map(|_| "Terrain edit committed".into()).unwrap_or_else(|error| format!("Terrain edit rejected: {error:?}"));
         if let Some(index) = self.session.simulation.index(self.session.selected) { self.session.world.cells[index].height_hu = self.session.simulation.cells[index].height_hu; self.session.world.cells[index].sealed = self.session.simulation.cells[index].sealed; }
+    }
+
+    fn select_from_pointer(&mut self) {
+        let (mouse_x, mouse_y) = mouse_position();
+        if !(82.0..=604.0).contains(&mouse_y) || mouse_x > 1_000.0 { return; }
+        let ray = screen_ray(&self.camera.camera3d(), vec2(mouse_x, mouse_y), None);
+        let mut closest: Option<(CellPos, f32)> = None;
+        for y in 0..self.session.simulation.height { for x in 0..self.session.simulation.width {
+            let pos = CellPos { x, y }; let cell = &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()]; let height = (cell.height_hu as f32 * 0.0005).max(0.12);
+            if let Some(distance) = Aabb3::from_center_size(vec3(x as f32 + 0.5, height * 0.5, y as f32 + 0.5), vec3(0.96, height, 0.96)).intersect(ray) { if closest.is_none_or(|(_, current)| distance < current) { closest = Some((pos, distance)); } }
+        }}
+        for device in &self.session.simulation.devices.devices { let (width, height) = device.device.footprint(); let cell = &self.session.simulation.cells[self.session.simulation.index(device.anchor).unwrap()]; let base = cell.height_hu as f32 * 0.0005; if let Some(distance) = Aabb3::from_center_size(vec3(device.anchor.x as f32 + width as f32 * 0.5, base + 0.35, device.anchor.y as f32 + height as f32 * 0.5), vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72)).intersect(ray) { if closest.is_none_or(|(_, current)| distance < current) { closest = Some((device.anchor, distance)); } } }
+        if let Some((selected, _)) = closest { self.session.selected = selected; let _ = self.session.mission.admit(CommandKind::Select); self.notice = format!("Survey target selected: {}, {}", selected.x, selected.y); }
     }
 
     fn place_device(&mut self, device: DeviceId) {
