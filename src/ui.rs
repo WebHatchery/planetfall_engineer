@@ -59,7 +59,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         TextStyle::new(13.0, Color::new(0.48, 0.62, 0.72, 1.0)).params(),
     );
     draw_ui_text_ex(
-        &format!("OVERLAY {} // Y cycle", overlay_name(ctx.overlay_mode)),
+        &format!("OVERLAY {}", overlay_name(ctx.overlay_mode)),
         30.0,
         78.0,
         TextStyle::new(12.0, Color::new(0.5, 0.7, 0.72, 1.0)).params(),
@@ -107,7 +107,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         660.0,
         TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params(),
     );
-    draw_ui_text_ex("Click select   WASD pan   Q/E camera   +/- zoom   Arrows survey   Y overlay   Z rotate ghost   N next level   F1 lab   F2 showcase/return   V next device   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5 save   F6 checkpoint/reset   F8 step/showcase report   F9 load   F12 reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
+    draw_ui_text_ex("Tap the map to survey. Use the engineering controls at right to build and manage time.", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
     draw_rectangle(
         1010.0,
         104.0,
@@ -345,6 +345,18 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             );
         }
     }
+    if ctx.verification_label.is_none() {
+        for (x, label) in [(1018.0, "INSPECT"), (1094.0, "TERRAIN"), (1172.0, "EXCAVATE")] {
+            draw_rectangle(x, 532.0, 72.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
+            draw_rectangle_lines(x, 532.0, 72.0, 28.0, 1.0, Color::new(0.35, 0.74, 0.78, 0.95));
+            draw_ui_text_ex(label, x + 5.0, 550.0, TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params());
+        }
+        for (x, label) in [(1018.0, "CLOSED"), (1094.0, "50%"), (1172.0, "OPEN")] {
+            draw_rectangle(x, 566.0, 72.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
+            draw_rectangle_lines(x, 566.0, 72.0, 28.0, 1.0, Color::new(0.35, 0.74, 0.78, 0.95));
+            draw_ui_text_ex(label, x + 6.0, 584.0, TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params());
+        }
+    }
     if matches!(
         ctx.session.mission.phase,
         MissionPhase::Success | MissionPhase::Failure | MissionPhase::Debrief
@@ -479,11 +491,7 @@ fn draw_terminal_panel(session: &GameSession) {
         TextStyle::new(15.0, Color::new(0.76, 0.82, 0.86, 1.0)).params(),
     );
     draw_ui_text_ex(
-        if success {
-            "N  next unlocked level     F12  restart this mission"
-        } else {
-            "F12  restore checkpoint or restart     F9  load saved session"
-        },
+        if success { "Campaign progress updated" } else { "Recovery is available from the mission menu" },
         336.0,
         396.0,
         TextStyle::new(15.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
@@ -563,7 +571,7 @@ fn draw_mission_briefing(session: &GameSession) {
         TextStyle::new(18.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
     );
     draw_ui_text_ex(
-        "Click the order or press Enter",
+        "Tap BEGIN OPERATION",
         530.0,
         574.0,
         TextStyle::new(14.0, Color::new(0.56, 0.66, 0.72, 1.0)).params(),
@@ -640,19 +648,19 @@ fn draw_pause_menu() {
         TextStyle::new(16.0, Color::new(0.76, 0.82, 0.86, 1.0)).params(),
     );
     draw_ui_text_ex(
-        "Escape  resume survey",
+        "Use the time controls to resume survey",
         478.0,
         304.0,
         TextStyle::new(16.0, WHITE).params(),
     );
     draw_ui_text_ex(
-        "F5  save checkpoint     F9  load checkpoint",
+        "Mission progress is saved at checkpoints",
         478.0,
         334.0,
         TextStyle::new(16.0, WHITE).params(),
     );
     draw_ui_text_ex(
-        "F12  reset mission",
+        "Reset is available from the mission menu",
         478.0,
         364.0,
         TextStyle::new(16.0, WHITE).params(),
@@ -705,62 +713,62 @@ fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
         "tutorial_l01_welcome" => (
             "WELCOME",
             "Survey the ash basin and dismiss this briefing.",
-            "Dismiss prompt",
+            "Tap this panel to continue",
         ),
         "tutorial_l01_move_camera" => (
             "CAMERA",
             "Pan across the map to inspect the ridge.",
-            "W/A/S/D or drag",
+            "Drag across the map",
         ),
         "tutorial_l01_move_cursor" => (
             "SURVEY CURSOR",
             "Move the survey cursor to the marked grade.",
-            "Arrow keys",
+            "Tap the marked grade",
         ),
         "tutorial_l01_inspect_grade" => (
             "INSPECT",
             "Inspect the selected cell before changing it.",
-            "I",
+            "Tap INSPECT",
         ),
         "tutorial_l01_pause_plan" => (
             "PAUSE AND PLAN",
             "Keep the simulation paused while preparing terrain.",
-            "Space, then select terrain",
+            "Tap PAUSE, then TERRAIN",
         ),
         "tutorial_l01_excavate" => (
             "EXCAVATE",
             "Lower the selected route cell to open the flow path.",
-            "X",
+            "Tap EXCAVATE",
         ),
         "tutorial_l01_place_channel" => (
             "PLACE CHANNEL",
             "Choose a channel and queue it on the route.",
-            "B or palette",
+            "Tap CHANNEL in the palette",
         ),
         "tutorial_l01_commit_plan" => (
             "COMMIT",
             "Commit the queued engineering plan.",
-            "Enter or COMMIT",
+            "Tap COMMIT",
         ),
         "tutorial_l01_run_and_observe" => (
             "OBSERVE",
             "Run time and watch water enter the route.",
-            "Space or 1",
+            "Tap 1X",
         ),
         "tutorial_l01_control_gate" => (
             "OPEN GATE",
             "Set the floodgate to the half-open control point.",
-            "K",
+            "Select the gate, then tap 50%",
         ),
         "tutorial_l01_see_impact" => (
             "CLOSE GATE",
             "Close the gate and observe the flow change.",
-            "J",
+            "Tap CLOSED",
         ),
         "tutorial_l01_stabilize" => (
             "STABILIZE",
             "Run the basin until the stability window completes.",
-            "Space or 1",
+            "Tap 1X",
         ),
         _ => (
             "TUTORIAL",

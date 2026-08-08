@@ -69,7 +69,7 @@ impl Game {
         );
         self.frontend_mode = crate::game::FrontendMode::Playing;
         self.notice =
-            format!("lab_fluids_all ready at tick 0 — Step / 1X observes transfers; F1 returns");
+            format!("lab_fluids_all ready at tick 0 — use the visible time controls to observe transfers");
     }
 
     pub(crate) fn enter_showcase(&mut self, device: DeviceId) {
@@ -86,7 +86,7 @@ impl Game {
         self.verification_mode = Some(VerificationMode::Showcase(device));
         self.camera = FoundationCamera::new(32, 18);
         self.frontend_mode = crate::game::FrontendMode::Playing;
-        self.notice = format!("device_{} — F2 return — V next showcase", device.name());
+        self.notice = format!("device_{} ready", device.name());
     }
 
     pub(crate) fn restore_campaign_session(&mut self) {
@@ -116,7 +116,7 @@ impl Game {
         self.session.world = world_state_for(&self.session.simulation);
         self.session.tick = self.session.simulation.tick;
         self.session.time_control = TimeControl::Paused;
-        self.notice = "Verification map reset — F8 advances one tick".into();
+        self.notice = "Verification map reset".into();
     }
 
     pub(crate) fn step_verification(&mut self) {

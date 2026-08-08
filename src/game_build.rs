@@ -43,6 +43,32 @@ impl Game {
         }
     }
 
+    pub(crate) fn handle_field_control_click(&mut self) -> bool {
+        match field_control_click() {
+            Some(FieldControl::Inspect) => {
+                if self.admit(crate::mission::CommandKind::Inspect) {
+                    self.notice = format!("Inspecting cell {}, {}", self.session.selected.x, self.session.selected.y);
+                }
+                true
+            }
+            Some(FieldControl::Terrain) => {
+                if self.admit(crate::mission::CommandKind::SelectTerrain) {
+                    self.notice = "Terrain tool ready — tap EXCAVATE to lower the selected cell".into();
+                }
+                true
+            }
+            Some(FieldControl::Excavate) => {
+                self.apply_terrain(crate::simulation::TerrainAction::Excavate);
+                true
+            }
+            Some(FieldControl::Gate(setting)) => {
+                self.set_gate(setting);
+                true
+            }
+            None => false,
+        }
+    }
+
     pub(crate) fn queue_device(&mut self, device: DeviceId) {
         self.placement_device = device;
         if !self.admit(crate::mission::CommandKind::QueueDevice(device)) {
@@ -60,7 +86,7 @@ impl Game {
         self.notice = result
             .map(|id| {
                 format!(
-                    "Queued {} plan #{id} at {}° — Enter commit, Backspace cancel",
+                    "Queued {} plan #{id} at {}° — use COMMIT or CANCEL",
                     device.name(),
                     self.placement_rotation * 90
                 )
@@ -91,6 +117,25 @@ impl Game {
         }
         .into();
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FieldControl {
+    Inspect,
+    Terrain,
+    Excavate,
+    Gate(u16),
+}
+
+fn field_control_click() -> Option<FieldControl> {
+    let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
+    if (1018.0..1248.0).contains(&point.x) && (532.0..560.0).contains(&point.y) {
+        return Some(if point.x < 1092.0 { FieldControl::Inspect } else if point.x < 1170.0 { FieldControl::Terrain } else { FieldControl::Excavate });
+    }
+    if (1018.0..1248.0).contains(&point.x) && (566.0..594.0).contains(&point.y) {
+        return Some(FieldControl::Gate(if point.x < 1092.0 { 0 } else if point.x < 1170.0 { 5_000 } else { 10_000 }));
+    }
+    None
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -222,7 +222,7 @@ impl Game {
             self.session
                 .mission
                 .fail("capture failure/recovery fixture");
-            self.notice = "Failure fixture — F12 restores checkpoint or restarts".into();
+            self.notice = "Failure fixture ready for recovery".into();
         }
         if scene.contains("pause") {
             self.pause_menu = true;
@@ -250,7 +250,7 @@ impl Game {
             self.pause_menu = !self.pause_menu;
             if self.pause_menu {
                 self.session.time_control = TimeControl::Paused;
-                self.notice = "Pause menu open — Escape resumes survey".into();
+                self.notice = "Pause menu open".into();
             }
         }
         if self.pause_menu {
@@ -279,11 +279,22 @@ impl Game {
         ) {
             let _ = self.session.mission.admit(CommandKind::Camera);
         }
+        if is_mouse_button_down(MouseButton::Left) {
+            let (mouse_x, mouse_y) = mouse_position();
+            let drag = mouse_delta_position();
+            if (82.0..=604.0).contains(&mouse_y) && mouse_x < 1_000.0 && drag.length_squared() > 0.0 {
+                self.camera.target.x = (self.camera.target.x - drag.x * 0.03).clamp(0.0, self.session.simulation.width as f32);
+                self.camera.target.y = (self.camera.target.y - drag.y * 0.03).clamp(0.0, self.session.simulation.height as f32);
+                let _ = self.session.mission.admit(CommandKind::Camera);
+            }
+        }
         let verification_control_claimed = self.handle_verification_click();
         if is_mouse_button_pressed(MouseButton::Left)
+            && !self.handle_tutorial_prompt_click()
             && !self.handle_palette_click()
             && !self.handle_build_action_click()
             && !self.handle_time_click()
+            && !self.handle_field_control_click()
             && !verification_control_claimed
         {
             self.select_from_pointer();
@@ -504,7 +515,7 @@ impl Game {
                     .campaign
                     .record_success(self.session.mission.id, self.session.mission.tick);
                 self.notice = format!(
-                    "Mission success — {} complete; press N for the next unlocked level",
+                    "Mission success — {} complete; choose the next unlocked level from the campaign board",
                     self.session.mission.id.name()
                 );
             } else {
@@ -513,7 +524,7 @@ impl Game {
         }
     }
 
-    fn apply_terrain(&mut self, action: TerrainAction) {
+    pub(crate) fn apply_terrain(&mut self, action: TerrainAction) {
         let command = if action == TerrainAction::Excavate {
             CommandKind::QueueExcavate
         } else {
@@ -581,13 +592,19 @@ impl Game {
             }
         }
         if let Some((selected, _)) = closest {
+            if selected == self.session.selected
+                && self.session.mission.tutorial.as_ref().is_some_and(|tutorial| tutorial.current_step_id == "tutorial_l01_inspect_grade")
+            {
+                let _ = self.admit(CommandKind::Inspect);
+                return;
+            }
             self.session.selected = selected;
             let _ = self.session.mission.admit(CommandKind::Select);
             self.notice = format!("Survey target selected: {}, {}", selected.x, selected.y);
         }
     }
 
-    fn set_gate(&mut self, setting_bp: u16) {
+    pub(crate) fn set_gate(&mut self, setting_bp: u16) {
         if !self.admit(CommandKind::SetGate(setting_bp)) {
             return;
         }
@@ -676,6 +693,19 @@ impl Game {
         }
         let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
         (490.0..=790.0).contains(&point.x) && (492.0..=542.0).contains(&point.y)
+    }
+
+    fn handle_tutorial_prompt_click(&mut self) -> bool {
+        let Some(tutorial) = self.session.mission.tutorial.as_ref() else { return false };
+        if !matches!(tutorial.current_step_id.as_str(), "tutorial_l01_welcome" | "tutorial_l01_inspect_grade") {
+            return false;
+        }
+        let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
+        if (24.0..=544.0).contains(&point.x) && (104.0..=206.0).contains(&point.y) {
+            let _ = self.admit(CommandKind::DismissPrompt);
+            return true;
+        }
+        false
     }
 
     pub(crate) fn admit(&mut self, command: CommandKind) -> bool {

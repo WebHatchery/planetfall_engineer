@@ -118,7 +118,7 @@ impl Game {
             true,
         );
         draw_ui_text_ex(
-            "Enter starts a new campaign   C opens the campaign board   V opens verification",
+            "Tap an option to begin",
             320.0,
             548.0,
             TextStyle::new(14.0, Color::new(0.54, 0.63, 0.68, 1.0)).params(),
@@ -147,7 +147,7 @@ impl Game {
             );
         }
         draw_ui_text_ex(
-            "Press 1, 2, or 3 to deploy an unlocked stage. Escape returns to the title screen.",
+            "Tap an unlocked stage to deploy it.",
             296.0,
             520.0,
             TextStyle::new(14.0, Color::new(0.54, 0.63, 0.68, 1.0)).params(),
@@ -183,7 +183,7 @@ impl Game {
             );
         }
         draw_ui_text_ex(
-            "Press 1 for the fluid laboratory; 2–0 select device bays; - selects the final bay; Escape returns.",
+            "Tap a verification option to open it.",
             282.0,
             652.0,
             TextStyle::new(14.0, Color::new(0.54, 0.63, 0.68, 1.0)).params(),
