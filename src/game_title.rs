@@ -10,7 +10,7 @@ use crate::{
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
-use macroquad_toolkit::ui::virtual_mouse_position;
+use macroquad_toolkit::ui::{Pointer, VirtualUi};
 
 const MENU_X: f32 = 418.0;
 const MENU_WIDTH: f32 = 444.0;
@@ -308,11 +308,13 @@ fn keyboard_choice(mode: FrontendMode) -> Option<usize> {
 }
 
 fn mouse_choice(mode: FrontendMode) -> Option<usize> {
-    if !is_mouse_button_pressed(MouseButton::Left) {
+    let pointer = Pointer::read(|point| {
+        VirtualUi::new(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT).screen_to_ui(point)
+    });
+    if !pointer.released {
         return None;
     }
-    let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
-    frontend_mouse_choice_at(mode, point.x, point.y)
+    frontend_mouse_choice_at(mode, pointer.position.x, pointer.position.y)
 }
 
 pub(crate) fn frontend_mouse_choice_at(mode: FrontendMode, x: f32, y: f32) -> Option<usize> {

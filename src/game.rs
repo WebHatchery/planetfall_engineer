@@ -252,11 +252,12 @@ impl Game {
         ) {
             let _ = self.session.mission.admit(CommandKind::Camera);
         }
+        let verification_control_claimed = self.handle_verification_click();
         if is_mouse_button_pressed(MouseButton::Left)
             && !self.handle_palette_click()
             && !self.handle_build_action_click()
             && !self.handle_time_click()
-            && !self.handle_verification_click()
+            && !verification_control_claimed
         {
             self.select_from_pointer();
         }

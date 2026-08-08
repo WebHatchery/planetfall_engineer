@@ -6,7 +6,7 @@ use crate::mission::{MissionId, MissionState};
 use crate::state::{CellPos, GameSession, TimeControl, WorldState};
 use crate::ui;
 use macroquad::prelude::*;
-use macroquad_toolkit::ui::virtual_mouse_position;
+use macroquad_toolkit::ui::{Pointer, VirtualUi};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum VerificationClick {
@@ -17,11 +17,16 @@ enum VerificationClick {
 
 impl Game {
     pub(crate) fn handle_verification_click(&mut self) -> bool {
-        if self.verification_mode.is_none() || !is_mouse_button_pressed(MouseButton::Left) {
+        if self.verification_mode.is_none() {
             return false;
         }
-        let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
-        match verification_click_at(point.x, point.y) {
+        let pointer = Pointer::read(|point| {
+            VirtualUi::new(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT).screen_to_ui(point)
+        });
+        if !pointer.released {
+            return false;
+        }
+        match verification_click_at(pointer.position.x, pointer.position.y) {
             Some(VerificationClick::Reset) => self.reset_verification(),
             Some(VerificationClick::Step) => self.step_verification(),
             Some(VerificationClick::Return) => self.restore_campaign_session(),
@@ -60,6 +65,7 @@ impl Game {
             self.session.simulation.width as usize,
             self.session.simulation.height as usize,
         );
+        self.frontend_mode = crate::game::FrontendMode::Playing;
         self.notice = format!(
             "lab_fluids_all {} — F1 return — tick {} hash {:016X}",
             if report.passed { "PASS" } else { "FAIL" },
@@ -81,6 +87,7 @@ impl Game {
         self.session.time_control = TimeControl::Paused;
         self.verification_mode = Some(VerificationMode::Showcase(device));
         self.camera = FoundationCamera::new(32, 18);
+        self.frontend_mode = crate::game::FrontendMode::Playing;
         self.notice = format!("device_{} — F2 return — V next showcase", device.name());
     }
 
