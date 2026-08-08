@@ -101,6 +101,10 @@ Captures live under `docs/verification/` with stable names
 `<map_or_screen>_<width>x<height>.png`. `catalog_thumbnail.png` at repository
 root MUST be a current title-screen capture before release publishing.
 
+Current evidence includes the three campaign briefings, `lab_fluids_all`, all
+ten `device_*` showcases, gameplay at the three required viewport sizes, and a
+`failure_recovery` terminal panel capture.
+
 ## 6. 3D functional gates
 
 - Orthographic projection remains perspective-free at all six zoom levels.

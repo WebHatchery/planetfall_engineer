@@ -121,6 +121,11 @@ cell and device readout.
 
 Terminal success and failure now open a readable debrief/recovery panel with
 the objective result, failure reason when present, and the valid next action.
+Authored hazard timers now enforce the L01 protected-beacon, L02 camp-zone,
+and L03 ancient-foundation failure predicates, with failure taking precedence
+over same-tick success.
+The `failure_recovery` capture scene exercises the terminal recovery panel and
+is stored with the campaign and showcase evidence.
 
 Release evidence is captured under `docs/verification/` at 1280×720,
 1024×768, and 800×600. `catalog_thumbnail.png` is a current title-screen

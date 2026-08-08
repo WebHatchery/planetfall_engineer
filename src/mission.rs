@@ -54,10 +54,12 @@ pub struct MissionState {
     pub failure_reason: Option<String>,
     pub tutorial: Option<TutorialState>,
     pub checkpoint_tick: u64,
+    #[serde(default)]
+    pub failure_ticks: u32,
 }
 
 impl MissionState {
-    pub fn new(id: MissionId) -> Self { Self { id, phase: MissionPhase::Briefing, tick: 0, stability_ticks: 0, objective_progress: 0, budget: match id { MissionId::L01FirstFlow => 40, MissionId::L02HoldingLine => 105, MissionId::L03Firebreak => 160 }, command_count: 0, failure_reason: None, tutorial: (id == MissionId::L01FirstFlow).then(TutorialState::l01), checkpoint_tick: 0 } }
+    pub fn new(id: MissionId) -> Self { Self { id, phase: MissionPhase::Briefing, tick: 0, stability_ticks: 0, objective_progress: 0, budget: match id { MissionId::L01FirstFlow => 40, MissionId::L02HoldingLine => 105, MissionId::L03Firebreak => 160 }, command_count: 0, failure_reason: None, tutorial: (id == MissionId::L01FirstFlow).then(TutorialState::l01), checkpoint_tick: 0, failure_ticks: 0 } }
     pub fn start(&mut self) { if self.phase == MissionPhase::Briefing { self.phase = MissionPhase::Active; } }
     pub fn admit(&mut self, command: CommandKind) -> Admission {
         if !matches!(self.phase, MissionPhase::Active) { return if matches!(self.phase, MissionPhase::Success | MissionPhase::Failure | MissionPhase::Debrief) { Admission::AlreadyComplete } else { Admission::MissionNotActive }; }
@@ -77,6 +79,14 @@ impl MissionState {
         let water = world.cells.iter().map(|cell| cell.surface.iter().filter(|m| m.fluid == crate::simulation::FluidId::Water).map(|m| m.volume_vu).sum::<u32>()).sum::<u32>();
         let formed_rock = world.cells.iter().map(|cell| cell.pending_rock_vu + cell.pending_vitrified_vu + cell.formed_rock_vu + cell.formed_vitrified_vu).sum::<u32>();
         self.objective_progress = if self.id == MissionId::L03Firebreak { formed_rock } else { water };
+        let hazard_active = match self.id {
+            MissionId::L01FirstFlow => cell_water(world, crate::state::CellPos { x: 10, y: 6 }) >= 1_500,
+            MissionId::L02HoldingLine => zone_water(world, 24..=28, 14..=18) >= 1_500,
+            MissionId::L03Firebreak => zone_fluid(world, 35..=40, 12..=18, crate::simulation::FluidId::Lava) > 0,
+        };
+        self.failure_ticks = if hazard_active { self.failure_ticks.saturating_add(1) } else { 0 };
+        let failure_limit = if self.id == MissionId::L01FirstFlow { 10 } else { 20 };
+        if self.failure_ticks >= failure_limit { self.fail(match self.id { MissionId::L01FirstFlow => "protected beacon flooded", MissionId::L02HoldingLine => "camp zone flooded", MissionId::L03Firebreak => "ancient foundation reached by lava" }); return; }
         let target = match self.id { MissionId::L01FirstFlow | MissionId::L02HoldingLine => 6_000, MissionId::L03Firebreak => 3_000 };
         if self.objective_progress >= target { self.stability_ticks = self.stability_ticks.saturating_add(1); } else { self.stability_ticks = 0; }
         let required = match self.id { MissionId::L01FirstFlow => 100, MissionId::L02HoldingLine => 150, MissionId::L03Firebreak => 150 };
@@ -84,6 +94,10 @@ impl MissionState {
     }
     pub fn fail(&mut self, reason: impl Into<String>) { if self.phase == MissionPhase::Active { self.failure_reason = Some(reason.into()); self.phase = MissionPhase::Failure; } }
 }
+
+fn cell_water(world: &SimulationWorld, pos: crate::state::CellPos) -> u32 { world.index(pos).map(|index| world.cells[index].surface.iter().filter(|entry| entry.fluid == crate::simulation::FluidId::Water).map(|entry| entry.volume_vu).sum()).unwrap_or(0) }
+fn zone_water(world: &SimulationWorld, xs: std::ops::RangeInclusive<u16>, ys: std::ops::RangeInclusive<u16>) -> u32 { xs.flat_map(|x| ys.clone().map(move |y| crate::state::CellPos { x, y })).map(|pos| cell_water(world, pos)).sum() }
+fn zone_fluid(world: &SimulationWorld, xs: std::ops::RangeInclusive<u16>, ys: std::ops::RangeInclusive<u16>, fluid: crate::simulation::FluidId) -> u32 { xs.flat_map(|x| ys.clone().map(move |y| crate::state::CellPos { x, y })).map(|pos| world.index(pos).map(|index| world.cells[index].surface.iter().filter(|entry| entry.fluid == fluid).map(|entry| entry.volume_vu).sum()).unwrap_or(0)).sum() }
 
 fn tutorial_allows(step: &str, command: CommandKind) -> bool { match step { "tutorial_l01_welcome" => matches!(command, CommandKind::Camera | CommandKind::Select | CommandKind::Inspect | CommandKind::DismissPrompt | CommandKind::SkipTutorial), "tutorial_l01_move_camera" => matches!(command, CommandKind::Camera | CommandKind::DismissPrompt), "tutorial_l01_move_cursor" => matches!(command, CommandKind::Select | CommandKind::Camera), "tutorial_l01_inspect_grade" => matches!(command, CommandKind::Inspect | CommandKind::DismissPrompt), "tutorial_l01_pause_plan" => matches!(command, CommandKind::SetPaused | CommandKind::SelectTerrain), "tutorial_l01_excavate" => matches!(command, CommandKind::QueueExcavate), "tutorial_l01_place_channel" => matches!(command, CommandKind::QueueDevice(DeviceId::Channel)), "tutorial_l01_commit_plan" => matches!(command, CommandKind::CommitPlan), "tutorial_l01_run_and_observe" => matches!(command, CommandKind::SetTimeRunning | CommandKind::Select), "tutorial_l01_control_gate" => matches!(command, CommandKind::SetPaused | CommandKind::SetGate(_)), "tutorial_l01_see_impact" => matches!(command, CommandKind::SetGate(_)), "tutorial_l01_stabilize" => matches!(command, CommandKind::SetTimeRunning), _ => true } }
 fn advance_tutorial(tutorial: &mut TutorialState, command: CommandKind) { let completes = matches!((tutorial.current_step_id.as_str(), command), ("tutorial_l01_welcome", CommandKind::DismissPrompt) | ("tutorial_l01_move_camera", CommandKind::Camera) | ("tutorial_l01_move_cursor", CommandKind::Select) | ("tutorial_l01_inspect_grade", CommandKind::DismissPrompt) | ("tutorial_l01_pause_plan", CommandKind::SelectTerrain) | ("tutorial_l01_excavate", CommandKind::QueueExcavate) | ("tutorial_l01_place_channel", CommandKind::QueueDevice(DeviceId::Channel)) | ("tutorial_l01_commit_plan", CommandKind::CommitPlan) | ("tutorial_l01_run_and_observe", CommandKind::Select) | ("tutorial_l01_control_gate", CommandKind::SetGate(5_000)) | ("tutorial_l01_see_impact", CommandKind::SetGate(0)) | ("tutorial_l01_stabilize", CommandKind::SetTimeRunning)); if completes { tutorial.complete_current(); } }
@@ -106,5 +120,6 @@ mod tests {
     #[test] fn normal_tutorial_path_reaches_completion() { let mut mission = MissionState::new(MissionId::L01FirstFlow); mission.start(); for (index, command) in [CommandKind::DismissPrompt, CommandKind::Camera, CommandKind::Select, CommandKind::Inspect, CommandKind::DismissPrompt, CommandKind::SelectTerrain, CommandKind::QueueExcavate, CommandKind::QueueDevice(DeviceId::Channel), CommandKind::CommitPlan, CommandKind::Select, CommandKind::SetGate(5_000), CommandKind::SetGate(0), CommandKind::SetTimeRunning].into_iter().enumerate() { assert_eq!(mission.admit(command), Admission::Accepted, "step {index} current {:?}", mission.tutorial.as_ref().unwrap().current_step_id); } assert!(mission.tutorial.as_ref().unwrap().is_complete()); }
     #[test] fn success_requires_stability_and_terminal_state_stops_ticks() { let mut mission = MissionState::new(MissionId::L02HoldingLine); mission.start(); let mut world = SimulationWorld::new(2, 2); world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Water, 8_000); for _ in 0..150 { world.tick(); mission.on_tick(&world); } assert_eq!(mission.phase, MissionPhase::Success); let tick = mission.tick; mission.on_tick(&world); assert_eq!(mission.tick, tick); }
     #[test] fn firebreak_progress_uses_formed_rock() { let mut mission = MissionState::new(MissionId::L03Firebreak); mission.start(); let mut world = SimulationWorld::new(1, 1); world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Water, 4_000); world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Lava, 4_000); world.tick(); mission.on_tick(&world); assert_eq!(mission.objective_progress, 250); assert_eq!(mission.stability_ticks, 0); }
+    #[test] fn authored_hazard_fails_before_success() { let mut mission = MissionState::new(MissionId::L01FirstFlow); mission.start(); let mut world = SimulationWorld::new(32, 20); let beacon = crate::state::CellPos { x: 10, y: 6 }; let index = world.index(beacon).unwrap(); world.cells[index].sealed = true; world.inject(beacon, FluidId::Water, 1_500); for _ in 0..10 { mission.on_tick(&world); } assert_eq!(mission.phase, MissionPhase::Failure); assert_eq!(mission.failure_reason.as_deref(), Some("protected beacon flooded")); }
     #[test] fn completion_unlocks_next_campaign_level_and_keeps_best_time() { let mut progress = CampaignProgress::default(); progress.record_success(MissionId::L01FirstFlow, 700); progress.record_success(MissionId::L01FirstFlow, 800); assert_eq!(progress.unlocked, [true, true, false]); assert_eq!(progress.best_ticks[0], Some(700)); }
 }

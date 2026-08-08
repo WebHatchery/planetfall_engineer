@@ -59,7 +59,9 @@ fn draw_terminal_panel(session: &GameSession) {
     draw_rectangle_lines(300.0, 230.0, 680.0, 190.0, 2.0, if success { Color::new(0.35, 0.92, 0.72, 1.0) } else { Color::new(0.95, 0.35, 0.3, 1.0) });
     let title = if success { "MISSION SUCCESS // STABLE RESULT" } else { "MISSION FAILURE // RECOVERY AVAILABLE" };
     draw_ui_text_ex(title, 336.0, 274.0, TextStyle::new(24.0, if success { Color::new(0.35, 0.92, 0.72, 1.0) } else { Color::new(0.95, 0.45, 0.38, 1.0) }).params());
-    draw_ui_text_ex(&format!("{}\nObjective progress: {} vU\n{}", session.mission.id.name(), session.mission.objective_progress, session.mission.failure_reason.as_deref().unwrap_or("All mandatory conditions held through the stability window.")), 336.0, 310.0, TextStyle::new(16.0, Color::new(0.76, 0.82, 0.86, 1.0)).params());
+    draw_ui_text_ex(session.mission.id.name(), 336.0, 310.0, TextStyle::new(16.0, Color::new(0.76, 0.82, 0.86, 1.0)).params());
+    draw_ui_text_ex(&format!("Objective progress: {} vU", session.mission.objective_progress), 336.0, 334.0, TextStyle::new(16.0, Color::new(0.76, 0.82, 0.86, 1.0)).params());
+    draw_ui_text_ex(session.mission.failure_reason.as_deref().unwrap_or("All mandatory conditions held through the stability window."), 336.0, 358.0, TextStyle::new(15.0, Color::new(0.76, 0.82, 0.86, 1.0)).params());
     draw_ui_text_ex(if success { "N  next unlocked level     F12  restart this mission" } else { "F12  restore checkpoint or restart     F9  load saved session" }, 336.0, 396.0, TextStyle::new(15.0, Color::new(0.95, 0.8, 0.35, 1.0)).params());
 }
 
