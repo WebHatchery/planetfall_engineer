@@ -2,12 +2,14 @@
 
 use crate::{
     mission::MissionPhase,
-    simulation::FluidId,
     state::{GameSession, TimeControl},
 };
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
+
+mod status;
+use status::{device_status, mission_primary_status, mission_secondary_status};
 
 pub const LOGICAL_WIDTH: f32 = 1280.0;
 pub const LOGICAL_HEIGHT: f32 = 720.0;
@@ -17,7 +19,6 @@ pub struct UiContext<'a> {
     pub camera_yaw: u8,
     pub camera_zoom: f32,
     pub notice: &'a str,
-    pub loaded_assets: usize,
     pub verification_label: Option<&'a str>,
     pub pause_menu: bool,
     pub placement_device: crate::devices::DeviceId,
@@ -142,14 +143,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         .devices
         .iter()
         .find(|device| device.anchor == ctx.session.selected)
-        .map(|device| {
-            format!(
-                "Device {} {}% {}",
-                device.device.name(),
-                device.setting_bp / 100,
-                if device.active { "ACTIVE" } else { "IDLE" }
-            )
-        })
+        .map(device_status)
         .unwrap_or_else(|| "Device none".into());
     let tutorial = ctx
         .session
@@ -176,13 +170,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     let objective = ctx
         .verification_label
         .map(|label| format!("{} tick {}", label, ctx.session.simulation.tick))
-        .unwrap_or_else(|| {
-            format!(
-                "Objective {} / {} vU",
-                ctx.session.mission.objective_progress,
-                objective_target(ctx.session.mission.id)
-            )
-        });
+        .unwrap_or_else(|| mission_primary_status(ctx.session));
     let objective = if ctx.verification_label.is_some() {
         objective
     } else {
@@ -194,10 +182,18 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         )
     };
     draw_ui_text_ex(&objective, 1024.0, 172.0, style.params());
+    if ctx.verification_label.is_none() {
+        draw_ui_text_ex(
+            &mission_secondary_status(ctx.session),
+            1024.0,
+            190.0,
+            style.params(),
+        );
+    }
     draw_ui_text_ex(
         &format!("ALERT {}", ctx.session.mission.alert_level.name()),
         1024.0,
-        210.0,
+        208.0,
         TextStyle::new(
             13.0,
             if ctx.session.mission.alert_level == crate::mission::AlertLevel::Critical {
@@ -210,16 +206,6 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     );
     draw_ui_text_ex(
         &format!("Tutorial {}", tutorial),
-        1024.0,
-        208.0,
-        style.params(),
-    );
-    draw_ui_text_ex(
-        &format!(
-            "Assets {}   Fluids {}",
-            ctx.loaded_assets,
-            FluidId::ALL.len()
-        ),
         1024.0,
         226.0,
         style.params(),
@@ -471,15 +457,6 @@ fn overlay_name(mode: u8) -> &'static str {
         _ => "MATERIAL",
     }
 }
-fn objective_target(id: crate::mission::MissionId) -> u32 {
-    match id {
-        crate::mission::MissionId::L01FirstFlow | crate::mission::MissionId::L02HoldingLine => {
-            6_000
-        }
-        crate::mission::MissionId::L03Firebreak => 3_000,
-    }
-}
-
 fn stability_target(id: crate::mission::MissionId) -> u32 {
     match id {
         crate::mission::MissionId::L01FirstFlow => 100,

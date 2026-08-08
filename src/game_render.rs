@@ -29,7 +29,6 @@ impl Game {
             camera_yaw: self.camera.yaw,
             camera_zoom: self.camera.zoom,
             notice: &self.notice,
-            loaded_assets: self.assets.len(),
             verification_label: self.verification_mode.map(verification_label),
             pause_menu: self.pause_menu,
             placement_device: self.placement_device,

@@ -17,7 +17,6 @@ pub enum FluidId {
 }
 
 impl FluidId {
-    pub const ALL: [Self; 4] = [Self::Lava, Self::Steam, Self::ToxicSlurry, Self::Water];
 
     pub const fn max_transfer(self) -> u32 {
         match self {

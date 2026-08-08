@@ -24,7 +24,7 @@ pub struct Game {
     pub(crate) verification_mode: Option<VerificationMode>,
     pub(crate) verification_returns_to_menu: bool,
     pub(crate) frontend_mode: FrontendMode,
-    pub(crate) assets: AssetManager,
+    pub(crate) _assets: AssetManager,
     pub(crate) terrain_texture: Texture2D,
     pub(crate) camera: FoundationCamera,
     pub(crate) lab: FluidsLab,
@@ -170,7 +170,7 @@ impl Game {
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
-        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, verification_returns_to_menu: false, frontend_mode: FrontendMode::Title, assets, terrain_texture, camera, lab: FluidsLab::new(), notice: format!("First Flow ready — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
+        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, verification_returns_to_menu: false, frontend_mode: FrontendMode::Title, _assets: assets, terrain_texture, camera, lab: FluidsLab::new(), notice: format!("First Flow ready — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
