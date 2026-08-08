@@ -68,7 +68,7 @@ engineering contract; the GDD remains the source of product intent.
   converge on the same deterministic flow.
 - Runtime controls: `F3` shows the campaign sequence, `F4` skips the tutorial,
   `F6` records a checkpoint, `F7` exercises failure recovery, and `F8` reports
-  a tutorial command admission. `F12` restores the last checkpoint or restarts
+  the ten-scenario deterministic campaign suite. `F12` restores the last checkpoint or restarts
   the current authored mission when no checkpoint exists. `F10` loads the
   current campaign's deterministic reference-material fixture.
 - `N` selects the next unlocked authored campaign level, rebuilding its map and
@@ -165,7 +165,8 @@ Visible `ROTATE`, `COMMIT`, and `CANCEL` buttons mirror the keyboard actions so
 the core placement loop is fully mouse-reachable.
 Verification maps expose their current PASS/FAIL result, exact balance error,
 and compact injected/drained/reacted/product ledger in the readout. F6 resets
-the active lab or device fixture and F8 advances exactly one verification tick,
+the active lab or device fixture and F8 advances exactly one verification tick
+while in verification mode,
 making the test maps inspectable without relying on an automatic run.
 
 The initial orthographic zoom is derived from the authored map dimensions, so
