@@ -450,44 +450,71 @@ impl DeviceSystem {
                         .find(|entry| entry.fluid == FluidId::Steam)
                         .map(|entry| entry.volume_vu)
                         .unwrap_or(0);
-                    let consumed_local = local_steam.min(400);
-                    if consumed_local > 0 {
-                        remove_fluid(
-                            &mut world.cells[index].airborne,
-                            FluidId::Steam,
-                            consumed_local,
-                        );
+                    let mut pipe_sources = Vec::new();
+                    for pipe in topology.iter().filter(|candidate| {
+                        candidate.device == DeviceId::Pipe
+                            && pipe_connected(&topology, device.anchor, candidate.anchor)
+                    }) {
+                        for position in [
+                            pipe.anchor,
+                            step(pipe.anchor, (0, -1)),
+                            step(pipe.anchor, (1, 0)),
+                            step(pipe.anchor, (0, 1)),
+                            step(pipe.anchor, (-1, 0)),
+                        ] {
+                            let Some(source) = world.index(position) else {
+                                continue;
+                            };
+                            if source != index
+                                && !pipe_sources.contains(&source)
+                                && world.cells[source]
+                                    .airborne
+                                    .iter()
+                                    .find(|entry| entry.fluid == FluidId::Steam)
+                                    .map(|entry| entry.volume_vu)
+                                    .unwrap_or(0)
+                                    > 0
+                            {
+                                pipe_sources.push(source);
+                            }
+                        }
                     }
-                    let pipe_source = topology
+                    let piped_steam: u32 = pipe_sources
                         .iter()
-                        .filter(|candidate| {
-                            candidate.device == DeviceId::Pipe
-                                && pipe_connected(&topology, device.anchor, candidate.anchor)
-                        })
-                        .find_map(|pipe| {
-                            let index = world.index(pipe.anchor)?;
-                            (world.cells[index]
-                                .airborne
-                                .iter()
-                                .find(|entry| entry.fluid == FluidId::Steam)
-                                .map(|entry| entry.volume_vu)
-                                .unwrap_or(0)
-                                > 0)
-                            .then_some(index)
-                        });
-                    let piped_steam = pipe_source
                         .map(|source| {
-                            let amount = world.cells[source]
+                            world.cells[*source]
                                 .airborne
                                 .iter()
                                 .find(|entry| entry.fluid == FluidId::Steam)
                                 .map(|entry| entry.volume_vu.min(400))
-                                .unwrap_or(0);
-                            remove_fluid(&mut world.cells[source].airborne, FluidId::Steam, amount);
-                            amount
+                                .unwrap_or(0)
                         })
-                        .unwrap_or(0);
-                    let flow = consumed_local.saturating_add(piped_steam);
+                        .sum();
+                    // One power unit requires a complete 40 vU packet. Leave
+                    // smaller remnants in the world for a later tick instead
+                    // of deleting them without power or condensate.
+                    let available_flow = local_steam.saturating_add(piped_steam).min(400);
+                    let flow = available_flow / 40 * 40;
+                    let consumed_local = local_steam.min(flow);
+                    remove_fluid(
+                        &mut world.cells[index].airborne,
+                        FluidId::Steam,
+                        consumed_local,
+                    );
+                    let mut consumed_piped = flow - consumed_local;
+                    for source in pipe_sources {
+                        let amount = world.cells[source]
+                            .airborne
+                            .iter()
+                            .find(|entry| entry.fluid == FluidId::Steam)
+                            .map(|entry| entry.volume_vu.min(consumed_piped))
+                            .unwrap_or(0);
+                        remove_fluid(&mut world.cells[source].airborne, FluidId::Steam, amount);
+                        consumed_piped -= amount;
+                        if consumed_piped == 0 {
+                            break;
+                        }
+                    }
                     device.power_generated = (flow / 40).min(10);
                     device.cumulative_power = device
                         .cumulative_power

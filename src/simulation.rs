@@ -380,8 +380,6 @@ impl SimulationWorld {
                         let delta = source.surface_head_hu() - dest.surface_head_hu();
                         let gate_factor = self.devices.surface_flow_factor(source_pos, dest_pos);
                         if delta <= 1
-                            || (dest.sealed
-                                && !self.devices.controls_surface_edge(source_pos, dest_pos))
                             || (source.contained != dest.contained
                                 && !self.devices.controls_surface_edge(source_pos, dest_pos))
                             || dest.surface_volume() >= CELL_CAPACITY_VU
@@ -543,7 +541,8 @@ impl SimulationWorld {
                     .iter()
                     .find(|m| m.fluid == FluidId::Steam)
                     .map(|m| m.volume_vu.min(200))
-                    .unwrap_or(0);
+                    .unwrap_or(0)
+                    .min(CELL_CAPACITY_VU.saturating_sub(self.cells[index].surface_volume()));
                 if amount > 0 && self.cells[index].surface_volume() < CELL_CAPACITY_VU {
                     remove_fluid(&mut self.cells[index].airborne, FluidId::Steam, amount);
                     self.cells[index].add_surface(FluidEntry::new(FluidId::Water, amount));
@@ -764,9 +763,11 @@ mod tests {
             world.terrain_edit(pos(1, 0), TerrainAction::Raise),
             Err(TerrainError::Capacity)
         );
-        assert!(world
-            .terrain_edit(pos(1, 0), TerrainAction::Excavate)
-            .is_ok());
+        assert!(
+            world
+                .terrain_edit(pos(1, 0), TerrainAction::Excavate)
+                .is_ok()
+        );
     }
     #[test]
     fn water_flows_downhill_and_respects_limit() {
@@ -792,6 +793,15 @@ mod tests {
     }
 
     #[test]
+    fn sealed_floor_prevents_contamination_not_surface_flow() {
+        let mut world = SimulationWorld::new(2, 1);
+        world.cells[1].sealed = true;
+        world.inject(pos(0, 0), FluidId::Water, 1_000);
+        world.flow_surface();
+        assert_eq!(volume(&world.cells[1].surface, FluidId::Water), 250);
+    }
+
+    #[test]
     fn steam_competing_transfers_share_one_material_cap() {
         let mut world = SimulationWorld::new(3, 3);
         for definition in &mut world.definitions {
@@ -812,6 +822,16 @@ mod tests {
         assert_eq!(center, 1_700);
         assert_eq!(neighbors.iter().sum::<u32>(), 300);
         assert!(neighbors.iter().all(|amount| (74..=76).contains(amount)));
+    }
+
+    #[test]
+    fn condensation_preserves_steam_blocked_by_surface_capacity() {
+        let mut world = SimulationWorld::new(1, 1);
+        world.inject(pos(0, 0), FluidId::Water, CELL_CAPACITY_VU - 50);
+        world.inject(pos(0, 0), FluidId::Steam, 200);
+        world.flow_steam();
+        assert_eq!(world.total_material_volume(), CELL_CAPACITY_VU as u64 + 150);
+        assert_eq!(volume(&world.cells[0].airborne, FluidId::Steam), 150);
     }
     #[test]
     fn mixed_surface_transfer_preserves_material_proportions() {

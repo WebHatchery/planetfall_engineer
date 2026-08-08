@@ -149,6 +149,8 @@ through a flow turbine fixture, and powers a dormant rune relay.
 - `lava_route`: authored trough toward protected `ancient_foundation` zone at
   x=35..40, y=12..18.
 - `water_cistern`: x=8..11, y=3..6, starts with 12,000 `vU`, no replenishment.
+- The reaction shelf has no material source. Lava enters from `lava_vent`
+  through the trough headworks; water must be pumped from `water_cistern`.
 - `reaction_shelf`: x=20..25, y=12..16, sealed and 500 `hU` below approach.
 - `steam_capture`: x=24..30, y=8..11, cold edge at x=30.
 - One authored flow-turbine fixture socket at (27,9); player places the turbine.

@@ -136,6 +136,7 @@ fn author_l02(world: &mut SimulationWorld) {
         for x in 3..=7 {
             set_height(world, CellPos { x, y }, 0);
             set_sealed(world, CellPos { x, y });
+            set_contained(world, CellPos { x, y });
         }
     }
     world.inject(CellPos { x: 5, y: 16 }, FluidId::Water, 8_000);
@@ -193,10 +194,6 @@ fn author_l02(world: &mut SimulationWorld) {
 fn author_l03(world: &mut SimulationWorld) {
     set_ambient(world, 3_230);
     world.add_source(CellPos { x: 5, y: 15 }, FluidId::Lava, 100);
-    // Paired vents at the reaction shelf make the firebreak a live system,
-    // while the cistern remains the player's visible reserve.
-    world.add_source(CellPos { x: 22, y: 14 }, FluidId::Water, 220);
-    world.add_source(CellPos { x: 22, y: 14 }, FluidId::Lava, 220);
     // Caldera walls and a descending lava trough frame the reaction shelf.
     for y in 0..world.height {
         for x in 0..world.width {
@@ -209,6 +206,13 @@ fn author_l03(world: &mut SimulationWorld) {
         if x % 3 != 0 {
             set_height(world, CellPos { x, y: 14 }, 650);
         }
+    }
+    // Geothermal ground keeps the authored approach molten long enough to
+    // reach the reaction shelf; the shelf itself remains cool so water contact
+    // produces steam and durable basalt there.
+    for x in 5..=19 {
+        set_cell_ambient(world, CellPos { x, y: 15 }, 10_000);
+        set_contained(world, CellPos { x, y: 15 });
     }
     for y in 3..=6 {
         for x in 8..=11 {
@@ -239,6 +243,32 @@ fn author_l03(world: &mut SimulationWorld) {
     }
     for x in 24..=30 {
         set_height(world, CellPos { x, y: 9 }, 300);
+    }
+    // Lava enters the sealed shelf through a real headworks gate. Water must
+    // arrive independently from the finite cistern through the service line.
+    install_device(
+        world,
+        DeviceId::Floodgate,
+        CellPos { x: 19, y: 15 },
+        0,
+        10_000,
+    );
+    for pos in [
+        (12, 5),
+        (13, 5),
+        (14, 5),
+        (16, 5),
+        (18, 5),
+        (20, 5),
+        (20, 7),
+        (20, 9),
+        (20, 11),
+        (20, 13),
+        (20, 15),
+        (21, 15),
+        (22, 15),
+    ] {
+        install_device(world, DeviceId::Pipe, CellPos { x: pos.0, y: pos.1 }, 0, 0);
     }
     install_device(world, DeviceId::Channel, CellPos { x: 30, y: 9 }, 0, 0);
 }
@@ -310,6 +340,13 @@ fn set_ambient(world: &mut SimulationWorld, ambient: i32) {
     }
 }
 
+fn set_cell_ambient(world: &mut SimulationWorld, pos: CellPos, ambient: i32) {
+    let index = world
+        .index(pos)
+        .expect("authored campaign anchor is in bounds");
+    world.definitions[index].ambient_temperature_dk = ambient;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -378,6 +415,9 @@ mod tests {
             .flat_map(|cell| cell.surface.iter())
             .any(|entry| entry.fluid == FluidId::Water && entry.volume_vu >= 750);
         assert!(water);
+        assert_eq!(map.world.sources.len(), 1);
+        assert_eq!(map.world.sources[0].position, CellPos { x: 5, y: 15 });
+        assert_eq!(map.world.sources[0].fluid, FluidId::Lava);
         assert_eq!(map.world.sources[0].rate_vu, 100);
     }
 

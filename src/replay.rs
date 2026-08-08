@@ -153,13 +153,15 @@ fn seed_scenario(
         },
         ScenarioKind::InsufficientWaterRecovery => {
             if id == MissionId::L03Firebreak {
-                for pos in [CellPos { x: 22, y: 14 }, CellPos { x: 23, y: 14 }] {
+                let mut removed = 0u64;
+                for pos in (8..=11).flat_map(|x| (3..=6).map(move |y| CellPos { x, y })) {
                     if let Some(index) = world.index(pos) {
+                        removed += world.cells[index].surface_volume() as u64;
                         world.cells[index].surface.clear();
                     }
                 }
-                world.inject(CellPos { x: 22, y: 14 }, FluidId::Water, 500);
-                world.inject(CellPos { x: 22, y: 14 }, FluidId::Lava, 500);
+                world.ledger.drained += removed;
+                world.inject(CellPos { x: 11, y: 5 }, FluidId::Water, 500);
             }
         }
     }
@@ -229,6 +231,43 @@ fn install_reference_build(
             }
         }
         MissionId::L03Firebreak => {
+            let _ = admit_build(
+                world,
+                mission,
+                crate::devices::DeviceId::Pump,
+                CellPos { x: 11, y: 5 },
+                0,
+            );
+            for pos in [
+                (15, 5),
+                (17, 5),
+                (19, 5),
+                (20, 6),
+                (20, 8),
+                (20, 10),
+                (20, 12),
+                (20, 14),
+            ] {
+                let _ = admit_build(
+                    world,
+                    mission,
+                    crate::devices::DeviceId::Pipe,
+                    CellPos { x: pos.0, y: pos.1 },
+                    0,
+                );
+            }
+            let _ = admit_build(
+                world,
+                mission,
+                crate::devices::DeviceId::Floodgate,
+                CellPos { x: 21, y: 14 },
+                0,
+            );
+            if mission.admit(CommandKind::SetGate(2_500)) == Admission::Accepted {
+                world
+                    .devices
+                    .set_selected_gate(CellPos { x: 21, y: 14 }, 2_500);
+            }
             let _ = admit_build(
                 world,
                 mission,
