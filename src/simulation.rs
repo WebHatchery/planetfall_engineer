@@ -401,29 +401,31 @@ impl SimulationWorld {
                     let amount = (budget as u64 * weight as u64 / total_weight as u64) as u32;
                     assigned += amount;
                     if amount > 0 {
-                        let (fluid, temp, contamination) = mixture_for(source, amount);
-                        transfers.push((
-                            source_index,
-                            self.index(dest_pos).unwrap(),
-                            fluid,
-                            amount,
-                            temp,
-                            contamination,
-                        ));
+                        for (fluid, amount, temp, contamination) in mixture_split(source, amount) {
+                            transfers.push((
+                                source_index,
+                                self.index(dest_pos).unwrap(),
+                                fluid,
+                                amount,
+                                temp,
+                                contamination,
+                            ));
+                        }
                     }
                 }
                 if assigned < budget {
                     if let Some((dest_pos, _, _)) = options.first().copied() {
                         let amount = budget - assigned;
-                        let (fluid, temp, contamination) = mixture_for(source, amount);
-                        transfers.push((
-                            source_index,
-                            self.index(dest_pos).unwrap(),
-                            fluid,
-                            amount,
-                            temp,
-                            contamination,
-                        ));
+                        for (fluid, amount, temp, contamination) in mixture_split(source, amount) {
+                            transfers.push((
+                                source_index,
+                                self.index(dest_pos).unwrap(),
+                                fluid,
+                                amount,
+                                temp,
+                                contamination,
+                            ));
+                        }
                     }
                 }
             }
@@ -464,7 +466,10 @@ impl SimulationWorld {
                 for (dest, _) in self.neighbors(pos) {
                     let di = self.index(dest).unwrap();
                     let target = &snapshot[di];
-                    if target.airborne_volume() >= source.airborne_volume() || target.sealed {
+                    if target.airborne_volume() >= source.airborne_volume()
+                        || target.sealed
+                        || self.definitions[di].gas_blocked
+                    {
                         continue;
                     }
                     let amount = ((source.airborne_volume() - target.airborne_volume()) / 5)
@@ -686,13 +691,29 @@ fn merge_entry(entries: &mut Vec<FluidEntry>, entry: FluidEntry) {
         entries.sort_by_key(|m| m.fluid);
     }
 }
-fn mixture_for(source: &SimCell, _amount: u32) -> (FluidId, i32, u16) {
-    let entry = source
-        .surface
-        .iter()
-        .max_by_key(|m| m.volume_vu)
-        .expect("mixture source is nonempty");
-    (entry.fluid, entry.temperature_dk, entry.contamination_bp)
+fn mixture_split(source: &SimCell, amount: u32) -> Vec<(FluidId, u32, i32, u16)> {
+    let total = source.surface_volume();
+    let mut remaining = amount.min(total);
+    let mut split = Vec::new();
+    for (index, entry) in source.surface.iter().enumerate() {
+        let part = if index + 1 == source.surface.len() {
+            remaining
+        } else {
+            (amount as u64 * entry.volume_vu as u64 / total as u64) as u32
+        }
+        .min(entry.volume_vu)
+        .min(remaining);
+        if part > 0 {
+            split.push((
+                entry.fluid,
+                part,
+                entry.temperature_dk,
+                entry.contamination_bp,
+            ));
+            remaining -= part;
+        }
+    }
+    split
 }
 
 #[cfg(test)]
@@ -727,6 +748,17 @@ mod tests {
         world.tick();
         assert_eq!(volume(&world.cells[0].surface, FluidId::Water), 600);
         assert_eq!(volume(&world.cells[1].surface, FluidId::Water), 400);
+    }
+    #[test]
+    fn mixed_surface_transfer_preserves_material_proportions() {
+        let mut world = SimulationWorld::new(2, 1);
+        world.cells[0].height_hu = 2_000;
+        world.cells[1].height_hu = 0;
+        world.inject(pos(0, 0), FluidId::Water, 600);
+        world.inject(pos(0, 0), FluidId::Lava, 400);
+        world.flow_surface();
+        assert_eq!(volume(&world.cells[1].surface, FluidId::Water), 72);
+        assert_eq!(volume(&world.cells[1].surface, FluidId::Lava), 48);
     }
     #[test]
     fn lava_and_water_make_steam_and_rock() {
@@ -792,5 +824,16 @@ mod tests {
         world.inject(pos(0, 0), FluidId::Lava, 500);
         world.tick();
         assert_eq!(world.mass_balance_error(), 0);
+    }
+    #[test]
+    fn gas_blocked_cells_reject_steam_transfers() {
+        let mut world = SimulationWorld::new(2, 1);
+        world.definitions[1].gas_blocked = true;
+        world.definitions[0].ambient_temperature_dk = 4_730;
+        world.definitions[1].ambient_temperature_dk = 4_730;
+        world.inject(pos(0, 0), FluidId::Steam, 1_000);
+        world.tick();
+        assert_eq!(volume(&world.cells[1].airborne, FluidId::Steam), 0);
+        assert!(volume(&world.cells[0].airborne, FluidId::Steam) > 0);
     }
 }

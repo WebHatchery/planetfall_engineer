@@ -69,6 +69,7 @@ impl WorldState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn index(&self, pos: CellPos) -> Option<usize> {
         (pos.x < self.width && pos.y < self.height)
             .then_some(pos.y as usize * self.width as usize + pos.x as usize)

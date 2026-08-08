@@ -58,16 +58,22 @@ impl Game {
                 } else {
                     top
                 };
-                let tint = if self.overlay_mode == 0 {
+                let tint = if self.overlay_mode == 0 || self.overlay_mode == 2 {
                     base_tint
                 } else {
                     overlay_tint(self.overlay_mode, cell.height_hu, cell)
                 };
-                draw_terrain_column(world, pos, h, tint);
+                draw_terrain_column(world, pos, h, tint, &self.terrain_texture);
+                if self.overlay_mode == 0 && cell.surface_volume() == 0 {
+                    draw_terrain_scatter(pos, h, self.session.mission.id);
+                }
                 let surface_depth = cell.surface_volume() as f32 * 0.0005;
                 if surface_depth > 0.0 {
                     let material = cell.surface.first().unwrap();
                     draw_fluid_surface(x, y, h, surface_depth, material.fluid, world.tick);
+                    if self.overlay_mode == 2 {
+                        draw_flow_arrow(world, pos, h + surface_depth + 0.065);
+                    }
                 }
                 let steam_depth = cell.airborne_volume() as f32 * 0.00035;
                 if steam_depth > 0.0 {
@@ -150,6 +156,33 @@ impl Game {
                 Color::new(0.96, 0.86, 0.98, 1.0),
             );
         }
+        for event in &self.session.simulation.events {
+            let crate::simulation::SimEvent::MaterialReacted {
+                cell, volume_vu, ..
+            } = event
+            else {
+                continue;
+            };
+            let index = self.session.simulation.index(*cell).unwrap();
+            let base = self.session.simulation.cells[index].height_hu as f32 * 0.0005;
+            let scale = (*volume_vu as f32 / 250.0).clamp(0.35, 1.0);
+            draw_sphere(
+                vec3(
+                    cell.x as f32 + 0.5,
+                    base + 0.35 + scale * 0.22,
+                    cell.y as f32 + 0.5,
+                ),
+                0.16 + scale * 0.12,
+                None,
+                Color::new(0.94, 0.78, 0.40, 0.78),
+            );
+            draw_cube(
+                vec3(cell.x as f32 + 0.5, base + 0.07, cell.y as f32 + 0.5),
+                vec3(0.36, 0.14, 0.36),
+                None,
+                Color::new(0.20, 0.18, 0.16, 1.0),
+            );
+        }
     }
 }
 
@@ -158,12 +191,13 @@ fn draw_terrain_column(
     pos: CellPos,
     height: f32,
     top: Color,
+    texture: &Texture2D,
 ) {
     let center = vec3(pos.x as f32 + 0.5, height * 0.5, pos.y as f32 + 0.5);
     // Dense wireframes made every map read as a debug grid.  A warm top and
     // shaded cliff block make elevation legible while retaining Macroquad's
     // inexpensive cube geometry.
-    draw_cube(center, vec3(1.0, height.max(0.10), 1.0), None, top);
+    draw_cube(center, vec3(1.0, height.max(0.10), 1.0), Some(texture), top);
     let side = darken(top, 0.54);
     for (dx, dy, horizontal) in [
         (0i16, -1i16, true),
@@ -198,7 +232,7 @@ fn draw_terrain_column(
             } else {
                 vec3(0.035, rise, 1.0)
             };
-            draw_cube(c, s, None, side);
+            draw_cube(c, s, Some(texture), side);
         }
     }
 }
@@ -212,13 +246,13 @@ fn draw_fluid_surface(x: u16, y: u16, ground: f32, depth: f32, fluid: FluidId, t
             ground + depth.max(0.035) * 0.5 + 0.018,
             y as f32 + 0.5,
         ),
-        vec3(0.94, depth.max(0.035), 0.94),
+        vec3(0.995, depth.max(0.035), 0.995),
         None,
         color,
     );
     draw_cube(
         vec3(x as f32 + 0.5, ground + depth + 0.038, y as f32 + 0.5),
-        vec3(0.87, 0.012, 0.87),
+        vec3(0.985, 0.012, 0.985),
         None,
         lighten(color, 0.22 + ripple),
     );
@@ -241,6 +275,41 @@ fn draw_steam(x: u16, y: u16, ground: f32, depth: f32, tick: u64) {
     }
 }
 
+fn draw_flow_arrow(world: &crate::simulation::SimulationWorld, pos: CellPos, y: f32) {
+    let index = world.index(pos).unwrap();
+    let head = world.cells[index].surface_head_hu();
+    let candidates = [(1i16, 0i16), (-1, 0), (0, 1), (0, -1)];
+    let Some((dx, dz, drop)) = candidates
+        .into_iter()
+        .filter_map(|(dx, dz)| {
+            let target = CellPos {
+                x: pos.x.checked_add_signed(dx)?,
+                y: pos.y.checked_add_signed(dz)?,
+            };
+            let target = world.index(target)?;
+            let difference = head - world.cells[target].surface_head_hu();
+            (difference > 1).then_some((dx, dz, difference))
+        })
+        .max_by_key(|(_, _, difference)| *difference)
+    else {
+        return;
+    };
+    let length = (drop as f32 / 4_000.0).clamp(0.18, 0.48);
+    let center = vec3(
+        pos.x as f32 + 0.5 + dx as f32 * length * 0.16,
+        y,
+        pos.y as f32 + 0.5 + dz as f32 * length * 0.16,
+    );
+    let size = if dx != 0 {
+        vec3(length, 0.018, 0.07)
+    } else {
+        vec3(0.07, 0.018, length)
+    };
+    draw_cube(center, size, None, Color::new(0.92, 0.97, 0.92, 0.92));
+    let tip = center + vec3(dx as f32 * length * 0.55, 0.006, dz as f32 * length * 0.55);
+    draw_sphere(tip, 0.07, None, Color::new(1.0, 0.84, 0.25, 0.96));
+}
+
 fn draw_blob_shadow(center: Vec3, width: f32, depth: f32) {
     draw_cube(
         vec3(center.x + 0.08, center.y - 0.34, center.z + 0.08),
@@ -248,6 +317,49 @@ fn draw_blob_shadow(center: Vec3, width: f32, depth: f32) {
         None,
         Color::new(0.03, 0.025, 0.02, 0.34),
     );
+}
+
+fn draw_terrain_scatter(pos: CellPos, height: f32, mission: crate::mission::MissionId) {
+    let seed = (u32::from(pos.x) * 73 + u32::from(pos.y) * 151) % 97;
+    let base = vec3(pos.x as f32 + 0.5, height + 0.045, pos.y as f32 + 0.5);
+    if seed == 0 || seed == 3 {
+        let offset = if seed == 0 {
+            vec3(-0.22, 0.0, 0.17)
+        } else {
+            vec3(0.19, 0.0, -0.18)
+        };
+        draw_cube(
+            base + offset + vec3(0.0, 0.07, 0.0),
+            vec3(0.16, 0.13, 0.13),
+            None,
+            Color::new(0.22, 0.21, 0.18, 1.0),
+        );
+        draw_cube(
+            base + offset + vec3(0.03, 0.15, -0.02),
+            vec3(0.10, 0.10, 0.09),
+            None,
+            Color::new(0.29, 0.27, 0.22, 1.0),
+        );
+    }
+    if matches!(
+        mission,
+        crate::mission::MissionId::L01FirstFlow | crate::mission::MissionId::L02HoldingLine
+    ) && (seed == 11 || seed == 17)
+    {
+        let offset = if seed == 11 { -0.13 } else { 0.13 };
+        for blade in 0..3 {
+            draw_cube(
+                base + vec3(
+                    offset + blade as f32 * 0.05,
+                    0.11,
+                    -0.13 + blade as f32 * 0.04,
+                ),
+                vec3(0.018, 0.20 + blade as f32 * 0.035, 0.018),
+                None,
+                Color::new(0.33, 0.43, 0.23, 1.0),
+            );
+        }
+    }
 }
 
 fn draw_device_silhouette(

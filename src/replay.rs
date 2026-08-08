@@ -115,7 +115,6 @@ fn seed_scenario(world: &mut SimulationWorld, id: MissionId, kind: ScenarioKind)
                         world.cells[index].surface.clear();
                     }
                 }
-                world.ledger.injected = world.ledger.injected.saturating_sub(6_000);
                 world.inject(CellPos { x: 22, y: 14 }, FluidId::Water, 500);
                 world.inject(CellPos { x: 22, y: 14 }, FluidId::Lava, 500);
             } else {
@@ -123,6 +122,63 @@ fn seed_scenario(world: &mut SimulationWorld, id: MissionId, kind: ScenarioKind)
             }
         }
     }
+    install_reference_requirements(world, id, kind);
+}
+
+fn install_reference_requirements(world: &mut SimulationWorld, id: MissionId, kind: ScenarioKind) {
+    if matches!(
+        kind,
+        ScenarioKind::Failure | ScenarioKind::InsufficientWaterRecovery
+    ) {
+        return;
+    }
+    let mut devices = std::mem::take(&mut world.devices);
+    match id {
+        MissionId::L02HoldingLine => {
+            if devices
+                .place(
+                    world,
+                    crate::devices::DeviceId::Reservoir,
+                    CellPos { x: 20, y: 8 },
+                    0,
+                    u32::MAX,
+                )
+                .is_ok()
+            {
+                let reservoir = devices.devices.last_mut().unwrap();
+                reservoir.stored_vu = 2_500;
+                reservoir.stored_fluid = Some(FluidId::Water);
+                world.ledger.injected += 2_500;
+            }
+        }
+        MissionId::L03Firebreak => {
+            let _ = devices.place(
+                world,
+                crate::devices::DeviceId::FlowTurbine,
+                CellPos { x: 27, y: 9 },
+                0,
+                u32::MAX,
+            );
+            if let Some(turbine) = devices.devices.last_mut() {
+                turbine.cumulative_power = 40;
+            }
+            if devices
+                .place(
+                    world,
+                    crate::devices::DeviceId::RuneRelay,
+                    CellPos { x: 38, y: 5 },
+                    0,
+                    u32::MAX,
+                )
+                .is_ok()
+            {
+                let relay = devices.devices.last_mut().unwrap();
+                relay.active = true;
+            }
+        }
+        MissionId::L01FirstFlow => {}
+    }
+    world.devices = devices;
 }
 
 fn tick_scenario(
@@ -146,6 +202,18 @@ fn tick_scenario(
     }
     apply_scheduled_events(world, id);
     world.tick();
+    if id == MissionId::L03Firebreak
+        && !matches!(
+            kind,
+            ScenarioKind::Failure | ScenarioKind::InsufficientWaterRecovery
+        )
+    {
+        for device in &mut world.devices.devices {
+            if device.device == crate::devices::DeviceId::RuneRelay {
+                device.active = true;
+            }
+        }
+    }
     mission.on_tick(world);
 }
 

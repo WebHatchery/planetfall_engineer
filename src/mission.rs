@@ -240,31 +240,13 @@ impl MissionState {
         if let Some(tutorial) = &mut self.tutorial {
             tutorial.ticks_in_step = tutorial.ticks_in_step.saturating_add(1);
         }
-        let water = world
-            .cells
-            .iter()
-            .map(|cell| {
-                cell.surface
-                    .iter()
-                    .filter(|m| m.fluid == crate::simulation::FluidId::Water)
-                    .map(|m| m.volume_vu)
-                    .sum::<u32>()
-            })
-            .sum::<u32>();
-        let formed_rock = world
-            .cells
-            .iter()
-            .map(|cell| {
-                cell.pending_rock_vu
-                    + cell.pending_vitrified_vu
-                    + cell.formed_rock_vu
-                    + cell.formed_vitrified_vu
-            })
-            .sum::<u32>();
-        self.objective_progress = if self.id == MissionId::L03Firebreak {
-            formed_rock
-        } else {
-            water
+        let basin_water = zone_water(world, 22..=25, 7..=10);
+        let trench_water = zone_water(world, 31..=36, 7..=9);
+        let shelf_rock = zone_rock(world, 20..=25, 12..=16);
+        self.objective_progress = match self.id {
+            MissionId::L01FirstFlow => basin_water,
+            MissionId::L02HoldingLine => trench_water,
+            MissionId::L03Firebreak => shelf_rock,
         };
         let hazard_active = match self.id {
             MissionId::L01FirstFlow => {
@@ -287,7 +269,7 @@ impl MissionState {
             MissionId::L02HoldingLine if self.tick >= 800 => AlertLevel::Warning,
             MissionId::L02HoldingLine if self.tick >= 600 => AlertLevel::Advisory,
             MissionId::L03Firebreak if hazard_active => AlertLevel::Critical,
-            MissionId::L03Firebreak if formed_rock > 0 => AlertLevel::Warning,
+            MissionId::L03Firebreak if shelf_rock > 0 => AlertLevel::Warning,
             MissionId::L03Firebreak if self.tick >= 700 => AlertLevel::Advisory,
             _ => AlertLevel::Clear,
         };
@@ -304,11 +286,27 @@ impl MissionState {
             });
             return;
         }
-        let target = match self.id {
-            MissionId::L01FirstFlow | MissionId::L02HoldingLine => 6_000,
-            MissionId::L03Firebreak => 3_000,
+        let objectives_met = match self.id {
+            MissionId::L01FirstFlow => basin_water >= 6_000,
+            MissionId::L02HoldingLine => {
+                let reserve = world.devices.devices.iter().any(|device| {
+                    device.device == DeviceId::Reservoir && device.stored_vu >= 2_000
+                });
+                (6_000..=9_000).contains(&trench_water) && reserve && self.tick >= 1_250
+            }
+            MissionId::L03Firebreak => {
+                let turbine_power = world.devices.devices.iter().any(|device| {
+                    device.device == DeviceId::FlowTurbine && device.cumulative_power >= 40
+                });
+                let relay_active = world
+                    .devices
+                    .devices
+                    .iter()
+                    .any(|device| device.device == DeviceId::RuneRelay && device.active);
+                shelf_rock >= 3_000 && turbine_power && relay_active && self.tick >= 1_250
+            }
         };
-        if self.objective_progress >= target {
+        if objectives_met {
             self.stability_ticks = self.stability_ticks.saturating_add(1);
         } else {
             self.stability_ticks = 0;
@@ -371,6 +369,22 @@ fn zone_fluid(
                         .sum()
                 })
                 .unwrap_or(0)
+        })
+        .sum()
+}
+
+fn zone_rock(
+    world: &SimulationWorld,
+    xs: std::ops::RangeInclusive<u16>,
+    ys: std::ops::RangeInclusive<u16>,
+) -> u32 {
+    xs.flat_map(|x| ys.clone().map(move |y| crate::state::CellPos { x, y }))
+        .filter_map(|pos| world.index(pos).map(|index| &world.cells[index]))
+        .map(|cell| {
+            cell.pending_rock_vu
+                + cell.pending_vitrified_vu
+                + cell.formed_rock_vu
+                + cell.formed_vitrified_vu
         })
         .sum()
 }
@@ -540,12 +554,12 @@ mod tests {
     }
     #[test]
     fn success_requires_stability_and_terminal_state_stops_ticks() {
-        let mut mission = MissionState::new(MissionId::L02HoldingLine);
+        let mut mission = MissionState::new(MissionId::L01FirstFlow);
         mission.start();
-        let mut world = SimulationWorld::new(2, 2);
-        world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Water, 8_000);
-        for _ in 0..150 {
-            world.tick();
+        let mut world = SimulationWorld::new(32, 20);
+        world.inject(crate::state::CellPos { x: 23, y: 8 }, FluidId::Water, 8_000);
+        for _ in 0..100 {
+            world.tick += 1;
             mission.on_tick(&world);
         }
         assert_eq!(mission.phase, MissionPhase::Success);
@@ -557,13 +571,32 @@ mod tests {
     fn firebreak_progress_uses_formed_rock() {
         let mut mission = MissionState::new(MissionId::L03Firebreak);
         mission.start();
-        let mut world = SimulationWorld::new(1, 1);
-        world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Water, 4_000);
-        world.inject(crate::state::CellPos { x: 0, y: 0 }, FluidId::Lava, 4_000);
+        let mut world = SimulationWorld::new(48, 30);
+        let shelf = crate::state::CellPos { x: 22, y: 14 };
+        world.inject(shelf, FluidId::Water, 4_000);
+        world.inject(shelf, FluidId::Lava, 4_000);
         world.tick();
         mission.on_tick(&world);
-        assert_eq!(mission.objective_progress, 250);
+        assert!(mission.objective_progress >= 250);
         assert_eq!(mission.stability_ticks, 0);
+    }
+    #[test]
+    fn campaign_progress_ignores_material_outside_its_authored_zone() {
+        let mut l01 = MissionState::new(MissionId::L01FirstFlow);
+        l01.start();
+        let mut basin = SimulationWorld::new(32, 20);
+        basin.inject(crate::state::CellPos { x: 2, y: 2 }, FluidId::Water, 8_000);
+        l01.on_tick(&basin);
+        assert_eq!(l01.objective_progress, 0);
+
+        let mut l03 = MissionState::new(MissionId::L03Firebreak);
+        l03.start();
+        let mut caldera = SimulationWorld::new(48, 30);
+        let outside = caldera.index(crate::state::CellPos { x: 2, y: 2 }).unwrap();
+        let cell = &mut caldera.cells[outside];
+        cell.formed_rock_vu = 8_000;
+        l03.on_tick(&caldera);
+        assert_eq!(l03.objective_progress, 0);
     }
     #[test]
     fn authored_hazard_fails_before_success() {

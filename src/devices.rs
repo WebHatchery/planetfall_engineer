@@ -137,7 +137,11 @@ pub struct DeviceState {
     pub powered: bool,
     pub setting_bp: u16,
     pub stored_vu: u32,
+    #[serde(default)]
+    pub stored_fluid: Option<FluidId>,
     pub power_generated: u32,
+    #[serde(default)]
+    pub cumulative_power: u64,
     pub active: bool,
 }
 
@@ -188,7 +192,9 @@ impl DeviceSystem {
             powered: true,
             setting_bp: 10_000,
             stored_vu: 0,
+            stored_fluid: None,
             power_generated: 0,
+            cumulative_power: 0,
             active: false,
         });
         Ok(entity_id)
@@ -297,6 +303,7 @@ impl DeviceSystem {
     }
 
     pub fn tick(&mut self, world: &mut SimulationWorld) {
+        let topology = self.devices.clone();
         for device in &mut self.devices {
             device.active = false;
             device.power_generated = 0;
@@ -308,14 +315,12 @@ impl DeviceSystem {
                         .surface_volume()
                         .min(250)
                         .min(device.setting_bp as u32 * 250 / 10_000);
+                    let outlet = step(device.anchor, direction(device.rotation));
+                    let destination = pipe_endpoint(&topology, outlet, direction(device.rotation))
+                        .unwrap_or(outlet);
                     if amount > 0
                         && device.powered
-                        && transfer_surface(
-                            world,
-                            device.anchor,
-                            direction(device.rotation),
-                            amount,
-                        ) > 0
+                        && transfer_surface_to(world, device.anchor, destination, amount) > 0
                     {
                         device.active = true;
                     }
@@ -330,7 +335,28 @@ impl DeviceSystem {
                         if let Some(fluid) = fluid {
                             remove_fluid(&mut world.cells[index].surface, fluid, accepted);
                             device.stored_vu += accepted;
+                            device.stored_fluid = Some(fluid);
                             device.active = true;
+                        }
+                    }
+                    // Release through the physical outlet when its valve is
+                    // lowered. Stored contents remain visible and conserved.
+                    let release = device
+                        .stored_vu
+                        .min((10_000u32.saturating_sub(device.setting_bp as u32)) * 800 / 10_000);
+                    if release > 0 {
+                        if let Some(fluid) = device.stored_fluid {
+                            let destination = step(device.anchor, direction(device.rotation));
+                            if let Some(destination_index) = world.index(destination) {
+                                let moved = world.cells[destination_index].add_surface(
+                                    crate::simulation::FluidEntry::new(fluid, release),
+                                );
+                                device.stored_vu -= moved;
+                                if device.stored_vu == 0 {
+                                    device.stored_fluid = None;
+                                }
+                                device.active |= moved > 0;
+                            }
                         }
                     }
                 }
@@ -348,8 +374,18 @@ impl DeviceSystem {
                 }
                 DeviceId::FlowTurbine => {
                     let index = world.index(device.anchor).unwrap();
-                    let flow = world.cells[index].surface_volume();
+                    // Turbines are steam machines: standing surface water no
+                    // longer creates free power.
+                    let flow = world.cells[index]
+                        .airborne
+                        .iter()
+                        .find(|entry| entry.fluid == FluidId::Steam)
+                        .map(|entry| entry.volume_vu)
+                        .unwrap_or(0);
                     device.power_generated = (flow / 100).min(4);
+                    device.cumulative_power = device
+                        .cumulative_power
+                        .saturating_add(device.power_generated as u64);
                     device.active = device.power_generated > 0;
                 }
                 DeviceId::Sensor => {
@@ -374,6 +410,23 @@ impl DeviceSystem {
                 DeviceId::Pipe | DeviceId::Floodgate => {}
             }
         }
+        // Pipe trunks also carry the compact slice's power signal.  A relay
+        // cannot wake simply because it sits in water; it must be connected to
+        // an operating steam turbine through the authored/placed topology.
+        let powered_topology = self.devices.clone();
+        for relay in self
+            .devices
+            .iter_mut()
+            .filter(|device| device.device == DeviceId::RuneRelay)
+        {
+            relay.powered = powered_topology.iter().any(|turbine| {
+                turbine.device == DeviceId::FlowTurbine
+                    && turbine.active
+                    && pipe_connected(&powered_topology, relay.anchor, turbine.anchor)
+            });
+            let index = world.index(relay.anchor).unwrap();
+            relay.active = relay.powered && world.cells[index].surface_volume() >= 100;
+        }
     }
 }
 
@@ -384,6 +437,78 @@ fn direction(rotation: u8) -> (i16, i16) {
         2 => (-1, 0),
         _ => (0, -1),
     }
+}
+fn step(source: CellPos, (dx, dy): (i16, i16)) -> CellPos {
+    CellPos {
+        x: source.x.saturating_add_signed(dx),
+        y: source.y.saturating_add_signed(dy),
+    }
+}
+fn adjacent(a: CellPos, b: CellPos) -> bool {
+    a.x.abs_diff(b.x) + a.y.abs_diff(b.y) == 1
+}
+
+fn pipe_connected(devices: &[DeviceState], first: CellPos, second: CellPos) -> bool {
+    let mut frontier = vec![first];
+    let mut visited = Vec::new();
+    while let Some(position) = frontier.pop() {
+        if visited.contains(&position) {
+            continue;
+        }
+        visited.push(position);
+        if adjacent(position, second) {
+            return true;
+        }
+        for pipe in devices
+            .iter()
+            .filter(|device| device.device == DeviceId::Pipe)
+        {
+            if adjacent(position, pipe.anchor) && !visited.contains(&pipe.anchor) {
+                frontier.push(pipe.anchor);
+            }
+        }
+    }
+    false
+}
+
+fn pipe_endpoint(
+    devices: &[DeviceState],
+    start: CellPos,
+    direction: (i16, i16),
+) -> Option<CellPos> {
+    let first_pipe = devices
+        .iter()
+        .any(|device| device.device == DeviceId::Pipe && device.anchor == start);
+    if !first_pipe {
+        return None;
+    }
+    let mut frontier = vec![start];
+    let mut visited = Vec::new();
+    while let Some(position) = frontier.pop() {
+        if visited.contains(&position) {
+            continue;
+        }
+        visited.push(position);
+        let endpoints: Vec<_> = devices
+            .iter()
+            .filter(|device| {
+                device.device != DeviceId::Pipe
+                    && device.device != DeviceId::Pump
+                    && device.anchor != start
+                    && adjacent(position, device.anchor)
+            })
+            .collect();
+        if let Some(endpoint) = endpoints.into_iter().min_by_key(|device| device.entity_id) {
+            return Some(endpoint.anchor);
+        }
+        for pipe in devices
+            .iter()
+            .filter(|device| device.device == DeviceId::Pipe && adjacent(position, device.anchor))
+        {
+            frontier.push(pipe.anchor);
+        }
+    }
+    Some(step(start, direction))
 }
 fn transfer_surface(
     world: &mut SimulationWorld,
@@ -400,6 +525,37 @@ fn transfer_surface(
         x: x as u16,
         y: y as u16,
     };
+    let Some(source_index) = world.index(source) else {
+        return 0;
+    };
+    let Some(destination_index) = world.index(destination) else {
+        return 0;
+    };
+    let Some(entry) = world.cells[source_index].surface.first().cloned() else {
+        return 0;
+    };
+    let moved = amount.min(entry.volume_vu).min(
+        crate::simulation::CELL_CAPACITY_VU
+            .saturating_sub(world.cells[destination_index].surface_volume()),
+    );
+    if moved == 0 {
+        return 0;
+    }
+    remove_fluid(&mut world.cells[source_index].surface, entry.fluid, moved);
+    world.cells[destination_index].add_surface(crate::simulation::FluidEntry {
+        fluid: entry.fluid,
+        volume_vu: moved,
+        temperature_dk: entry.temperature_dk,
+        contamination_bp: entry.contamination_bp,
+    });
+    moved
+}
+fn transfer_surface_to(
+    world: &mut SimulationWorld,
+    source: CellPos,
+    destination: CellPos,
+    amount: u32,
+) -> u32 {
     let Some(source_index) = world.index(source) else {
         return 0;
     };
@@ -531,6 +687,11 @@ pub fn showcase_world(device: DeviceId) -> SimulationWorld {
 
 fn build_showcase_world(device: DeviceId) -> (SimulationWorld, bool) {
     let mut world = SimulationWorld::new(32, 18);
+    if device == DeviceId::FlowTurbine {
+        for definition in &mut world.definitions {
+            definition.ambient_temperature_dk = 4_730;
+        }
+    }
     let anchor = CellPos { x: 15, y: 8 };
     let mut devices = std::mem::take(&mut world.devices);
     let placed = devices.place(&world, device, anchor, 0, 1_000).is_ok();
@@ -538,7 +699,9 @@ fn build_showcase_world(device: DeviceId) -> (SimulationWorld, bool) {
     if placed {
         world.inject(
             anchor,
-            if matches!(device, DeviceId::Filter) {
+            if matches!(device, DeviceId::FlowTurbine) {
+                FluidId::Steam
+            } else if matches!(device, DeviceId::Filter) {
                 FluidId::ToxicSlurry
             } else {
                 FluidId::Water
@@ -752,5 +915,61 @@ mod tests {
         world.inject(CellPos { x: 0, y: 0 }, FluidId::Water, 1_000);
         world.tick();
         assert!(world.cells[1].surface_volume() > 0);
+    }
+
+    #[test]
+    fn pump_transports_into_a_connected_pipe_endpoint() {
+        let mut world = SimulationWorld::new(5, 2);
+        let mut devices = std::mem::take(&mut world.devices);
+        devices
+            .place(&world, DeviceId::Pump, CellPos { x: 0, y: 0 }, 0, 100)
+            .unwrap();
+        devices
+            .place(&world, DeviceId::Pipe, CellPos { x: 1, y: 0 }, 0, 100)
+            .unwrap();
+        devices
+            .place(&world, DeviceId::Pipe, CellPos { x: 2, y: 0 }, 0, 100)
+            .unwrap();
+        devices
+            .place(&world, DeviceId::Reservoir, CellPos { x: 3, y: 0 }, 0, 100)
+            .unwrap();
+        assert_eq!(
+            pipe_endpoint(&devices.devices, CellPos { x: 1, y: 0 }, (1, 0)),
+            Some(CellPos { x: 3, y: 0 })
+        );
+        world.inject(CellPos { x: 0, y: 0 }, FluidId::Water, 500);
+        devices.tick(&mut world);
+        assert_eq!(devices.devices[3].stored_vu, 250);
+        assert_eq!(world.cells[0].surface_volume(), 250);
+    }
+
+    #[test]
+    fn relay_requires_an_operating_turbine_and_pipe_link() {
+        let mut world = SimulationWorld::new(5, 2);
+        let mut devices = std::mem::take(&mut world.devices);
+        devices
+            .place(
+                &world,
+                DeviceId::FlowTurbine,
+                CellPos { x: 0, y: 0 },
+                0,
+                100,
+            )
+            .unwrap();
+        devices
+            .place(&world, DeviceId::Pipe, CellPos { x: 1, y: 0 }, 0, 100)
+            .unwrap();
+        devices
+            .place(&world, DeviceId::RuneRelay, CellPos { x: 2, y: 0 }, 0, 100)
+            .unwrap();
+        world.inject(CellPos { x: 0, y: 0 }, FluidId::Steam, 500);
+        world.inject(CellPos { x: 2, y: 0 }, FluidId::Water, 100);
+        devices.tick(&mut world);
+        let relay = devices
+            .devices
+            .iter()
+            .find(|device| device.device == DeviceId::RuneRelay)
+            .unwrap();
+        assert!(relay.powered && relay.active);
     }
 }

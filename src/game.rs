@@ -25,6 +25,7 @@ pub struct Game {
     pub(crate) verification_returns_to_menu: bool,
     pub(crate) frontend_mode: FrontendMode,
     pub(crate) assets: AssetManager,
+    pub(crate) terrain_texture: Texture2D,
     pub(crate) camera: FoundationCamera,
     pub(crate) lab: FluidsLab,
     pub(crate) notice: String,
@@ -120,6 +121,29 @@ impl FoundationCamera {
     }
 }
 
+fn make_terrain_texture() -> Texture2D {
+    let mut image = Image::gen_image_color(32, 32, WHITE);
+    for y in 0..32 {
+        for x in 0..32 {
+            let grain = ((x * 17 + y * 29 + (x ^ y) * 11) % 19) as f32 / 255.0;
+            let seam = (x % 8 == 0 || y % 8 == 0) as u8 as f32 * 0.045;
+            image.set_pixel(
+                x,
+                y,
+                Color::new(
+                    0.83 - grain - seam,
+                    0.76 - grain - seam,
+                    0.56 - grain * 0.7 - seam,
+                    1.0,
+                ),
+            );
+        }
+    }
+    let texture = Texture2D::from_image(&image);
+    texture.set_filter(FilterMode::Nearest);
+    texture
+}
+
 fn overlay_name(mode: u8) -> &'static str {
     match mode {
         1 => "GRADE",
@@ -138,6 +162,7 @@ impl Game {
         assets.set_placeholder_texture_direct(Texture2D::from_image(&placeholder));
         let _ = assets.load_asset_pack("assets.zip").await;
         let _ = assets.load_texture_configs(&data.texture_manifest).await;
+        let terrain_texture = make_terrain_texture();
         let mut session = GameSession::new(&data.config);
         let campaign = load_campaign(MissionId::L01FirstFlow);
         session.simulation = campaign.world;
@@ -145,7 +170,7 @@ impl Game {
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
-        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, verification_returns_to_menu: false, frontend_mode: FrontendMode::Title, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow ready — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
+        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, verification_returns_to_menu: false, frontend_mode: FrontendMode::Title, assets, terrain_texture, camera, lab: FluidsLab::new(), notice: format!("First Flow ready — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {

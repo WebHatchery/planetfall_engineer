@@ -197,10 +197,6 @@ fn author_l03(world: &mut SimulationWorld) {
             world.inject(CellPos { x, y }, FluidId::Water, 750);
         }
     }
-    // The cistern's first controlled pocket makes the documented water/lava
-    // reaction observable from the authored campaign start.
-    world.inject(CellPos { x: 22, y: 14 }, FluidId::Water, 3_000);
-    world.inject(CellPos { x: 23, y: 14 }, FluidId::Lava, 3_000);
     for y in 12..=18 {
         for x in 35..=40 {
             protect(world, CellPos { x, y });
@@ -340,26 +336,20 @@ mod tests {
     }
 
     #[test]
-    fn l03_authored_start_contains_water_and_lava_reaction_materials() {
+    fn l03_authored_start_contains_cistern_water_and_lava_source() {
         let map = load_campaign(MissionId::L03Firebreak);
         let water = map
             .world
             .cells
             .iter()
             .flat_map(|cell| cell.surface.iter())
-            .any(|entry| entry.fluid == FluidId::Water && entry.volume_vu >= 3_000);
-        let lava = map
-            .world
-            .cells
-            .iter()
-            .flat_map(|cell| cell.surface.iter())
-            .any(|entry| entry.fluid == FluidId::Lava && entry.volume_vu >= 3_000);
-        assert!(water && lava);
+            .any(|entry| entry.fluid == FluidId::Water && entry.volume_vu >= 750);
+        assert!(water);
         assert_eq!(map.world.sources[0].rate_vu, 100);
     }
 
     #[test]
-    fn authored_l02_and_l03_material_loops_reach_terminal_success() {
+    fn authored_l02_and_l03_maps_do_not_autocomplete_without_player_builds() {
         for id in [MissionId::L02HoldingLine, MissionId::L03Firebreak] {
             let mut map = load_campaign(id);
             map.world.set_sources_enabled(true);
@@ -373,7 +363,7 @@ mod tests {
                     break;
                 }
             }
-            assert_eq!(
+            assert_ne!(
                 mission.phase,
                 crate::mission::MissionPhase::Success,
                 "{id:?}: {mission:?}"

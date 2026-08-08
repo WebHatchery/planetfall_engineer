@@ -48,7 +48,9 @@ impl Game {
             return;
         }
         let campaign = self.session.clone();
-        let report = self.lab.automatic_scenario();
+        // The laboratory opens at tick zero.  Its purpose is to make movement
+        // inspectable, not to present a pre-simulated result mosaic.
+        self.lab.reset();
         self.session.simulation = self.lab.world.clone();
         self.session.world = world_state_for(&self.session.simulation);
         self.session.mission = MissionState::new(MissionId::L02HoldingLine);
@@ -66,12 +68,8 @@ impl Game {
             self.session.simulation.height as usize,
         );
         self.frontend_mode = crate::game::FrontendMode::Playing;
-        self.notice = format!(
-            "lab_fluids_all {} — F1 return — tick {} hash {:016X}",
-            if report.passed { "PASS" } else { "FAIL" },
-            report.tick,
-            report.state_hash
-        );
+        self.notice =
+            format!("lab_fluids_all ready at tick 0 — Step / 1X observes transfers; F1 returns");
     }
 
     pub(crate) fn enter_showcase(&mut self, device: DeviceId) {
@@ -159,12 +157,7 @@ fn verification_click_at(x: f32, y: f32) -> Option<VerificationClick> {
 }
 
 fn world_state_for(simulation: &crate::simulation::SimulationWorld) -> WorldState {
-    let mut world = WorldState::new(simulation.width as usize, simulation.height as usize);
-    for (cell, sim_cell) in world.cells.iter_mut().zip(&simulation.cells) {
-        cell.height_hu = sim_cell.height_hu;
-        cell.sealed = sim_cell.sealed;
-    }
-    world
+    WorldState::from_simulation(simulation)
 }
 
 #[cfg(test)]
