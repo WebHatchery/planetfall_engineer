@@ -175,6 +175,12 @@ If a performance target fails, record map, build, platform, duration, median,
 p99, backlog, and suspected owner. Do not reduce deterministic tick count or
 silently drop simulation work to improve rendering.
 
+The current automated soak covers the deterministic-load portion of QG-P3: two
+64×48 worlds with four material entries per cell execute 10,000 ticks and must
+finish with equal serialized state and zero balance error. Interactive FPS,
+frame-time, memory-trend, and draw-submission counters remain capture/runtime
+measurements rather than claims made by this headless test.
+
 ## 9. Failure-path gates
 
 Tests or manual checks MUST cover:

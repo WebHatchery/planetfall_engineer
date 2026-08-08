@@ -126,6 +126,8 @@ and L03 ancient-foundation failure predicates, with failure taking precedence
 over same-tick success.
 The `failure_recovery` capture scene exercises the terminal recovery panel and
 is stored with the campaign and showcase evidence.
+The verification suite also runs a 64×48 four-material, 10,000-tick synthetic
+soak twice and requires identical final hashes with zero material-balance error.
 
 Release evidence is captured under `docs/verification/` at 1280×720,
 1024×768, and 800×600. `catalog_thumbnail.png` is a current title-screen
