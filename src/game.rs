@@ -153,13 +153,17 @@ impl Game {
         if scene.starts_with("lab_fluids_all") {
             self.toggle_lab_mode();
         }
-        if scene.starts_with("campaign_l02") {
+        if scene.contains("campaign_l01") {
+            self.load_mission(MissionId::L01FirstFlow, "capture briefing");
+        }
+        if scene.contains("campaign_l02") {
             self.load_mission(MissionId::L02HoldingLine, "capture briefing");
         }
-        if scene.starts_with("campaign_l03") {
+        if scene.contains("campaign_l03") {
             self.load_mission(MissionId::L03Firebreak, "capture briefing");
         }
         if scene.contains("active") {
+            self.session.mission.start();
             self.session.time_control = TimeControl::OneX;
             self.notice = "Authored campaign source active — observe the live material loop".into();
         }
@@ -193,6 +197,16 @@ impl Game {
     pub fn update(&mut self, dt: f32) {
         if self.frontend_mode != FrontendMode::Playing {
             self.update_frontend();
+            return;
+        }
+        if self.session.mission.phase == MissionPhase::Briefing {
+            if is_key_pressed(KeyCode::Enter) || self.handle_briefing_click() {
+                self.session.mission.start();
+                self.notice = format!(
+                    "{} operation active — follow the field guide and begin when ready",
+                    self.session.mission.id.name()
+                );
+            }
             return;
         }
         if is_key_pressed(KeyCode::Escape) {
@@ -597,7 +611,6 @@ impl Game {
             .simulation
             .set_sources_enabled(id != MissionId::L01FirstFlow);
         self.session.mission = crate::mission::MissionState::new(id);
-        self.session.mission.start();
         self.session.campaign = campaign_progress;
         self.session.selected = CellPos {
             x: (width / 2) as u16,
@@ -619,6 +632,16 @@ impl Game {
         if self.admit(command) {
             self.session.time_control = time;
         }
+    }
+
+    fn handle_briefing_click(&self) -> bool {
+        if !is_mouse_button_pressed(MouseButton::Left) {
+            return false;
+        }
+        let (mouse_x, mouse_y) = mouse_position();
+        let x = mouse_x / (screen_width() / ui::LOGICAL_WIDTH);
+        let y = mouse_y / (screen_height() / ui::LOGICAL_HEIGHT);
+        (490.0..=790.0).contains(&x) && (492.0..=542.0).contains(&y)
     }
 
     pub(crate) fn admit(&mut self, command: CommandKind) -> bool {

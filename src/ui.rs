@@ -332,10 +332,18 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     ) {
         draw_terminal_panel(ctx.session);
     }
+    if ctx.session.mission.phase == MissionPhase::Briefing {
+        draw_mission_briefing(ctx.session);
+    }
     if let Some(tutorial) = ctx.session.mission.tutorial.as_ref() {
-        if !tutorial.is_complete() {
+        if ctx.session.mission.phase == MissionPhase::Active && !tutorial.is_complete() {
             draw_tutorial_prompt(tutorial);
         }
+    }
+    if ctx.session.mission.phase == MissionPhase::Active
+        && ctx.session.mission.id != crate::mission::MissionId::L01FirstFlow
+    {
+        draw_stage_guide(ctx.session.mission.id);
     }
     if ctx.pause_menu {
         draw_pause_menu();
@@ -459,6 +467,127 @@ fn draw_terminal_panel(session: &GameSession) {
         336.0,
         396.0,
         TextStyle::new(15.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
+    );
+}
+
+fn draw_mission_briefing(session: &GameSession) {
+    let (title, lesson, objective) = match session.mission.id {
+        crate::mission::MissionId::L01FirstFlow => (
+            "L01 // FIRST FLOW",
+            "Learn the survey basics: inspect grade, shape terrain, place a channel, then control the basin.",
+            "Guide 6,000 vU of meltwater into the safe basin and hold it stable.",
+        ),
+        crate::mission::MissionId::L02HoldingLine => (
+            "L02 // THE HOLDING LINE",
+            "Plan for a scheduled surge. Use storage, spillways, and optional sensing to keep the camp dry.",
+            "Hold 6,000 vU safely while the meltwater source rises and falls.",
+        ),
+        crate::mission::MissionId::L03Firebreak => (
+            "L03 // FIREBREAK PROTOCOL",
+            "Combine routing with reaction engineering: water and lava form rock and steam.",
+            "Build a 3,000 vU firebreak before lava can reach the ancient foundation.",
+        ),
+    };
+    draw_rectangle(
+        300.0,
+        214.0,
+        680.0,
+        340.0,
+        Color::new(0.03, 0.05, 0.08, 0.98),
+    );
+    draw_rectangle_lines(
+        300.0,
+        214.0,
+        680.0,
+        340.0,
+        2.0,
+        Color::new(0.35, 0.74, 0.78, 0.95),
+    );
+    draw_ui_text_ex(
+        title,
+        338.0,
+        270.0,
+        TextStyle::new(28.0, Color::new(0.94, 0.84, 0.48, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        "FIELD BRIEFING",
+        338.0,
+        300.0,
+        TextStyle::new(14.0, Color::new(0.52, 0.74, 0.78, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        lesson,
+        338.0,
+        346.0,
+        TextStyle::new(16.0, Color::new(0.78, 0.84, 0.88, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        objective,
+        338.0,
+        388.0,
+        TextStyle::new(16.0, Color::new(0.78, 0.84, 0.88, 1.0)).params(),
+    );
+    draw_rectangle(490.0, 492.0, 300.0, 50.0, Color::new(0.1, 0.22, 0.27, 1.0));
+    draw_rectangle_lines(
+        490.0,
+        492.0,
+        300.0,
+        50.0,
+        1.5,
+        Color::new(0.35, 0.82, 0.76, 1.0),
+    );
+    draw_ui_text_ex(
+        "BEGIN OPERATION",
+        550.0,
+        523.0,
+        TextStyle::new(18.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        "Click the order or press Enter",
+        530.0,
+        574.0,
+        TextStyle::new(14.0, Color::new(0.56, 0.66, 0.72, 1.0)).params(),
+    );
+}
+
+fn draw_stage_guide(id: crate::mission::MissionId) {
+    let (heading, guidance) = match id {
+        crate::mission::MissionId::L02HoldingLine => (
+            "FIELD GUIDE // HOLDING LINE",
+            "Watch the alert level. The source surges at tick 900; reservoirs retain water and spillways shed excess.",
+        ),
+        crate::mission::MissionId::L03Firebreak => (
+            "FIELD GUIDE // FIREBREAK",
+            "Bring water to lava deliberately: their reaction creates the rock barrier. Keep lava away from the foundation.",
+        ),
+        crate::mission::MissionId::L01FirstFlow => return,
+    };
+    draw_rectangle(
+        24.0,
+        104.0,
+        620.0,
+        76.0,
+        Color::new(0.035, 0.055, 0.08, 0.96),
+    );
+    draw_rectangle_lines(
+        24.0,
+        104.0,
+        620.0,
+        76.0,
+        1.5,
+        Color::new(0.52, 0.74, 0.78, 0.9),
+    );
+    draw_ui_text_ex(
+        heading,
+        42.0,
+        130.0,
+        TextStyle::new(13.0, Color::new(0.52, 0.78, 0.8, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        guidance,
+        42.0,
+        158.0,
+        TextStyle::new(14.0, Color::new(0.84, 0.88, 0.9, 1.0)).params(),
     );
 }
 

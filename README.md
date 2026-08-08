@@ -196,7 +196,9 @@ toolkit async loaders, and save data uses macroquad-toolkit persistence.
 cargo run
 ```
 
-Start a new campaign to enter L01's guided onboarding. The title-screen
+Start a new campaign to enter L01's guided onboarding and its short field
+briefing. Every stage begins with a readable mission brief and a visible Begin
+Operation control. The title-screen
 campaign board shows which of L01–L03 is unlocked, while Verification Grounds
 opens the laboratory and all ten device showcases without disturbing a campaign
 in progress.

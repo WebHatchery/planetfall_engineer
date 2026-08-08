@@ -12,6 +12,10 @@ fluid surfaces/sides, machine models, shadows, 3D placement/picking, and four
 camera yaw quarters from §11. Reference solutions are executed through world
 hits and admitted commands; a 2D debug grid is not acceptable gameplay evidence.
 
+Each deployment opens on a blocking field briefing that names the new concept,
+the primary objective, and a visible `BEGIN OPERATION` action. Commands and
+simulation remain paused until the player clicks that action or presses Enter.
+
 | Seq. | ID | Name | New concepts | Target first-play time |
 | ---: | --- | --- | --- | ---: |
 | 1 | `campaign_l01_first_flow` | First Flow | camera, cursor, inspect, excavation, channel, gate, run/observe | 8–12 min |
