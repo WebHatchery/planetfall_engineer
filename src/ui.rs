@@ -26,10 +26,21 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     let device_readout = ctx.session.simulation.devices.devices.iter().find(|device| device.anchor == ctx.session.selected).map(|device| format!("Device {} {}% {}", device.device.name(), device.setting_bp / 100, if device.active { "ACTIVE" } else { "IDLE" })).unwrap_or_else(|| "Device none".into());
     let tutorial = ctx.session.mission.tutorial.as_ref().map(|tutorial| tutorial.current_step_id.as_str()).unwrap_or("none");
     draw_ui_text_ex(&format!("Map {}×{}\nObjective {} vU / {}\nTutorial {}\nAssets loaded {}\nFluids enabled {}\nSurface {} vU\nGround {} bp\n{}\nQueue {} / {} credits", ctx.data.config.world_width, ctx.data.config.world_height, ctx.session.mission.objective_progress, objective_target(ctx.session.mission.id), tutorial, ctx.loaded_assets, FluidId::ALL.len(), selected.surface_volume(), selected.ground_contamination_bp, device_readout, ctx.session.simulation.devices.queued.len(), ctx.session.simulation.devices.reserved_budget), 1024.0, 154.0, TextStyle::new(14.0, Color::new(0.7, 0.76, 0.8, 1.0)).params());
+    if matches!(ctx.session.mission.phase, MissionPhase::Success | MissionPhase::Failure | MissionPhase::Debrief) { draw_terminal_panel(ctx.session); }
 }
 
 fn time_name(time: TimeControl) -> &'static str { match time { TimeControl::Paused => "PAUSED", TimeControl::OneX => "1X", TimeControl::TwoX => "2X", TimeControl::FourX => "4X" } }
 fn phase_name(phase: MissionPhase) -> &'static str { match phase { MissionPhase::Briefing => "BRIEFING", MissionPhase::Active => "ACTIVE", MissionPhase::Success => "SUCCESS", MissionPhase::Failure => "FAILURE", MissionPhase::Debrief => "DEBRIEF" } }
 fn objective_target(id: crate::mission::MissionId) -> u32 { match id { crate::mission::MissionId::L01FirstFlow | crate::mission::MissionId::L02HoldingLine => 6_000, crate::mission::MissionId::L03Firebreak => 3_000 } }
+
+fn draw_terminal_panel(session: &GameSession) {
+    let success = session.mission.phase == MissionPhase::Success;
+    draw_rectangle(300.0, 230.0, 680.0, 190.0, Color::new(0.035, 0.05, 0.08, 0.98));
+    draw_rectangle_lines(300.0, 230.0, 680.0, 190.0, 2.0, if success { Color::new(0.35, 0.92, 0.72, 1.0) } else { Color::new(0.95, 0.35, 0.3, 1.0) });
+    let title = if success { "MISSION SUCCESS // STABLE RESULT" } else { "MISSION FAILURE // RECOVERY AVAILABLE" };
+    draw_ui_text_ex(title, 336.0, 274.0, TextStyle::new(24.0, if success { Color::new(0.35, 0.92, 0.72, 1.0) } else { Color::new(0.95, 0.45, 0.38, 1.0) }).params());
+    draw_ui_text_ex(&format!("{}\nObjective progress: {} vU\n{}", session.mission.id.name(), session.mission.objective_progress, session.mission.failure_reason.as_deref().unwrap_or("All mandatory conditions held through the stability window.")), 336.0, 310.0, TextStyle::new(16.0, Color::new(0.76, 0.82, 0.86, 1.0)).params());
+    draw_ui_text_ex(if success { "N  next unlocked level     F12  restart this mission" } else { "F12  restore checkpoint or restart     F9  load saved session" }, 336.0, 396.0, TextStyle::new(15.0, Color::new(0.95, 0.8, 0.35, 1.0)).params());
+}
 
 fn draw_text_right(text: &str, right: f32, y: f32, style: TextStyle) { let dims = measure_text(text, None, style.font_size as u16, 1.0); draw_ui_text_ex(text, right - dims.width, y, style.params()); }

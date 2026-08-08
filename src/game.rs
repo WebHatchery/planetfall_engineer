@@ -98,7 +98,13 @@ impl Game {
         if is_key_pressed(KeyCode::F5) { self.notice = save_session(&self.session, &self.data.config).map(|_| "Checkpoint saved".into()).unwrap_or_else(|e| e); }
         if is_key_pressed(KeyCode::F9) { match load_session(&self.data.config) { Ok(s) => { self.session = s; self.notice = "Checkpoint loaded".into(); }, Err(e) => self.notice = e } }
         let ticks = self.session.update(dt);
-        if ticks > 0 { self.session.mission.on_tick(&self.session.simulation); if self.session.mission.phase == MissionPhase::Success { self.session.campaign.record_success(self.session.mission.id, self.session.mission.tick); } self.notice = format!("Simulation advanced {ticks} tick(s)"); }
+        if ticks > 0 {
+            self.session.mission.on_tick(&self.session.simulation);
+            if self.session.mission.phase == MissionPhase::Success {
+                self.session.campaign.record_success(self.session.mission.id, self.session.mission.tick);
+                self.notice = format!("Mission success — {} complete; press N for the next unlocked level", self.session.mission.id.name());
+            } else { self.notice = format!("Simulation advanced {ticks} tick(s)"); }
+        }
     }
 
     fn apply_terrain(&mut self, action: TerrainAction) {

@@ -112,6 +112,9 @@ The live HUD now identifies the authored campaign level and mission phase and
 shows objective progress plus the current tutorial step alongside the selected
 cell and device readout.
 
+Terminal success and failure now open a readable debrief/recovery panel with
+the objective result, failure reason when present, and the valid next action.
+
 Release evidence is captured under `docs/verification/` at 1280×720,
 1024×768, and 800×600. `catalog_thumbnail.png` is a current title-screen
 capture and is included by `publish.ps1`.
