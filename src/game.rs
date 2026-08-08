@@ -29,6 +29,7 @@ pub struct Game {
     pub(crate) pause_menu: bool,
     pub(crate) placement_device: DeviceId,
     pub(crate) placement_rotation: u8,
+    pub(crate) overlay_mode: u8,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -122,7 +123,7 @@ impl Game {
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
-        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0 }
+        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, assets, camera, lab: FluidsLab::new(), notice: format!("First Flow briefing active — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
@@ -142,6 +143,10 @@ impl Game {
         if scene.contains("yaw2") {
             self.camera.yaw = 2;
             self.notice = "Opposing camera quarter capture".into();
+        }
+        if scene.contains("overlay_flow") {
+            self.overlay_mode = 2;
+            self.notice = "Flow overlay capture".into();
         }
         if let Some(showcase) = SHOWCASE_MAPS
             .iter()
@@ -263,6 +268,10 @@ impl Game {
             self.session
                 .simulation
                 .inject(self.session.selected, FluidId::ToxicSlurry, 500);
+        }
+        if is_key_pressed(KeyCode::Y) {
+            self.overlay_mode = (self.overlay_mode + 1) % 5;
+            self.notice = format!("{} overlay", overlay_name(self.overlay_mode));
         }
         if is_key_pressed(KeyCode::F1) {
             self.toggle_lab_mode();
@@ -638,6 +647,7 @@ impl Game {
             placement_rotation: self.placement_rotation,
             placement_valid,
             placement_reason,
+            overlay_mode: self.overlay_mode,
         });
         end_virtual_ui_frame();
     }
@@ -651,17 +661,22 @@ impl Game {
                 let h = cell.height_hu as f32 * 0.0005;
                 let center = vec3(x as f32 + 0.5, h * 0.5, y as f32 + 0.5);
                 let size = vec3(0.96, h.max(0.12), 0.96);
-                let tint = if pos == selected {
+                let tint = if self.overlay_mode == 0 && pos == selected {
                     Color::new(0.82, 0.66, 0.24, 1.0)
                 } else if cell.sealed {
                     Color::new(0.25, 0.29, 0.35, 1.0)
                 } else {
                     Color::new(0.32 + x as f32 * 0.005, 0.24 + y as f32 * 0.004, 0.20, 1.0)
                 };
-                draw_cube(center, size, None, tint);
-                draw_cube_wires(center, size, Color::new(0.08, 0.09, 0.12, 0.55));
                 let sim_cell =
                     &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()];
+                let tint = if self.overlay_mode == 0 {
+                    tint
+                } else {
+                    overlay_tint(self.overlay_mode, cell.height_hu, sim_cell)
+                };
+                draw_cube(center, size, None, tint);
+                draw_cube_wires(center, size, Color::new(0.08, 0.09, 0.12, 0.55));
                 let surface_depth = sim_cell.surface_volume() as f32 * 0.0005;
                 if surface_depth > 0.0 {
                     let surface_center = vec3(
@@ -733,6 +748,43 @@ fn fluid_color(fluid: FluidId) -> Color {
         FluidId::Lava => Color::new(0.95, 0.22, 0.06, 0.9),
         FluidId::ToxicSlurry => Color::new(0.62, 0.72, 0.16, 0.86),
         FluidId::Steam => Color::new(0.76, 0.86, 0.92, 0.38),
+    }
+}
+
+fn overlay_name(mode: u8) -> &'static str {
+    match mode {
+        1 => "GRADE",
+        2 => "FLOW",
+        3 => "HEAT",
+        4 => "CONTAMINATION",
+        _ => "MATERIAL",
+    }
+}
+
+fn overlay_tint(mode: u8, height_hu: i16, cell: &crate::simulation::SimCell) -> Color {
+    match mode {
+        1 => {
+            let value = (height_hu as f32 / 8_000.0).clamp(0.0, 1.0);
+            Color::new(0.12 + value * 0.72, 0.24 + (1.0 - value) * 0.44, 0.34, 1.0)
+        }
+        2 => {
+            let value = (cell.surface_volume() as f32 / 8_000.0).clamp(0.0, 1.0);
+            Color::new(0.12, 0.3 + value * 0.6, 0.65 + value * 0.25, 1.0)
+        }
+        3 => {
+            let temperature = cell
+                .surface
+                .first()
+                .map(|material| material.temperature_dk)
+                .unwrap_or(2_930);
+            let value = ((temperature - 2_930) as f32 / 10_000.0).clamp(0.0, 1.0);
+            Color::new(0.18 + value * 0.78, 0.28 + (1.0 - value) * 0.32, 0.22, 1.0)
+        }
+        4 => {
+            let value = cell.ground_contamination_bp as f32 / 10_000.0;
+            Color::new(0.22 + value * 0.7, 0.24 + (1.0 - value) * 0.4, 0.12, 1.0)
+        }
+        _ => Color::new(0.32, 0.24, 0.2, 1.0),
     }
 }
 

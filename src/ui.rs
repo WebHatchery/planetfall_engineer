@@ -24,6 +24,7 @@ pub struct UiContext<'a> {
     pub placement_rotation: u8,
     pub placement_valid: bool,
     pub placement_reason: &'a str,
+    pub overlay_mode: u8,
 }
 
 pub fn draw_hud(ctx: UiContext<'_>) {
@@ -56,6 +57,12 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         30.0,
         64.0,
         TextStyle::new(13.0, Color::new(0.48, 0.62, 0.72, 1.0)).params(),
+    );
+    draw_ui_text_ex(
+        &format!("OVERLAY {} // Y cycle", overlay_name(ctx.overlay_mode)),
+        30.0,
+        78.0,
+        TextStyle::new(12.0, Color::new(0.5, 0.7, 0.72, 1.0)).params(),
     );
     draw_text_right(
         &format!(
@@ -100,7 +107,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         660.0,
         TextStyle::new(15.0, Color::new(0.7, 0.76, 0.8, 1.0)).params(),
     );
-    draw_ui_text_ex("Click select   WASD pan   Q/E camera   +/- zoom   Arrows survey   Z rotate ghost   N next level   F1 lab   F2 showcase/return   V next device   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5 save   F6 checkpoint/reset   F8 step/showcase report   F9 load   F12 reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
+    draw_ui_text_ex("Click select   WASD pan   Q/E camera   +/- zoom   Arrows survey   Y overlay   Z rotate ghost   N next level   F1 lab   F2 showcase/return   V next device   Space pause   1/2/4 speed   B/P/O/F queue   Enter commit   Backspace cancel   J/K/H gate   F5 save   F6 checkpoint/reset   F8 step/showcase report   F9 load   F12 reset", 44.0, 682.0, TextStyle::new(13.0, Color::new(0.5, 0.58, 0.64, 1.0)).params());
     draw_rectangle(
         1010.0,
         104.0,
@@ -350,6 +357,16 @@ fn phase_name(phase: MissionPhase) -> &'static str {
         MissionPhase::Success => "SUCCESS",
         MissionPhase::Failure => "FAILURE",
         MissionPhase::Debrief => "DEBRIEF",
+    }
+}
+
+fn overlay_name(mode: u8) -> &'static str {
+    match mode {
+        1 => "GRADE",
+        2 => "FLOW",
+        3 => "HEAT",
+        4 => "CONTAMINATION",
+        _ => "MATERIAL",
     }
 }
 fn objective_target(id: crate::mission::MissionId) -> u32 {

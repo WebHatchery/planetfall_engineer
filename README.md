@@ -132,7 +132,9 @@ cell and device readout. The engineering readout explicitly reports selected
 surface depth, material heat, contamination, and device status.
 It also names the deterministic alert level (`CLEAR`, `ADVISORY`, `WARNING`,
 or `CRITICAL`) so forecast pressure and hazard escalation are readable without
-depending on color alone.
+depending on color alone. `Y` cycles terrain-grade, flow, heat, and
+contamination overlays derived from the authoritative simulation; the active
+overlay is named in the HUD and uses the same orthographic world path as play.
 The authored L02 source rises from 100 to 400 `vU`/tick at simulation tick 900
 and returns at 1,200; L03 rises from 100 to 220 at tick 1,000 and returns at
 1,250. These events run in the same authoritative tick path as the replay
@@ -176,6 +178,10 @@ the active lab or device fixture and F8 advances exactly one verification tick
 while in verification mode,
 making the test maps inspectable without relying on an automatic run.
 
+The verification set also includes opposing-quarter camera captures and a
+flow-overlay capture, proving that the field remains readable under camera and
+presentation changes.
+
 The initial orthographic zoom is derived from the authored map dimensions, so
 the 32×20 L01 world remains fully framed at the required viewport sizes.
 
@@ -195,5 +201,7 @@ cargo run
 cargo test
 ```
 
-Devices, campaign missions, tutorial flow, and release evidence remain in the
-subsequent implementation-plan milestones.
+The current repository is a playable vertical slice with authored campaign
+missions, interactive tutorial flow, deterministic test maps, replay evidence,
+and a Windows/WebGL publisher path. Further content expansion remains outside
+this slice.
