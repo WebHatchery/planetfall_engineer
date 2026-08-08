@@ -105,7 +105,7 @@ fn author_l01(world: &mut SimulationWorld) {
             set_height(world, CellPos { x, y }, 0);
         }
     }
-    set_height(world, CellPos { x: 21, y: 8 }, 7_000);
+    set_height(world, CellPos { x: 21, y: 8 }, 250);
     // The single meltwater source sits immediately upstream of the authored
     // inlet gate, so the tutorial's gate action is the only way water reaches
     // the sealed restoration basin.
@@ -126,6 +126,20 @@ fn author_l01(world: &mut SimulationWorld) {
 fn author_l02(world: &mut SimulationWorld) {
     set_ambient(world, 2_930);
     world.add_source(CellPos { x: 5, y: 16 }, FluidId::Water, 100);
+    for y in 0..world.height {
+        for x in 0..world.width {
+            let height = if y < 4 {
+                1_750
+            } else if x > 29 {
+                1_250
+            } else if x > 10 && y < 14 {
+                1_100
+            } else {
+                850
+            };
+            set_height(world, CellPos { x, y }, height);
+        }
+    }
     // Low aquifer and raised central reserve make pumping legible at a glance.
     for y in 13..=19 {
         for x in 2..=8 {
@@ -166,27 +180,27 @@ fn author_l02(world: &mut SimulationWorld) {
     // Two pipe runs are intentionally broken into twelve obvious gaps. They
     // read as infrastructure rather than a generic empty board and leave the
     // player with meaningful connection work.
-    for pos in [
-        (6, 16),
-        (7, 16),
-        (8, 16),
-        (10, 16),
-        (12, 16),
-        (14, 16),
-        (16, 16),
-        (16, 15),
-        (16, 14),
-        (17, 14),
-        (17, 13),
-        (18, 13),
-        (18, 12),
-        (22, 8),
-        (24, 8),
-        (26, 8),
-        (28, 8),
-        (30, 8),
+    for (x, y, rotation) in [
+        (6, 16, 0),
+        (7, 16, 0),
+        (8, 16, 0),
+        (10, 16, 0),
+        (12, 16, 0),
+        (14, 16, 0),
+        (16, 16, 1),
+        (16, 15, 1),
+        (16, 14, 0),
+        (17, 14, 1),
+        (17, 13, 0),
+        (18, 13, 1),
+        (18, 12, 0),
+        (22, 8, 0),
+        (24, 8, 0),
+        (26, 8, 0),
+        (28, 8, 0),
+        (30, 8, 0),
     ] {
-        install_device(world, DeviceId::Pipe, CellPos { x: pos.0, y: pos.1 }, 0, 0);
+        install_device(world, DeviceId::Pipe, CellPos { x, y }, rotation, 0);
     }
     set_height(world, CellPos { x: 39, y: 18 }, 0);
 }
@@ -198,7 +212,15 @@ fn author_l03(world: &mut SimulationWorld) {
     for y in 0..world.height {
         for x in 0..world.width {
             let rim = x.min(y).min(world.width - 1 - x).min(world.height - 1 - y);
-            set_height(world, CellPos { x, y }, if rim < 3 { 2_000 } else { 900 });
+            let inner_noise = ((u32::from(x) * 17 + u32::from(y) * 31) % 5) as i16 * 70;
+            let height = if rim < 3 {
+                2_600
+            } else if rim < 6 {
+                1_800 + inner_noise
+            } else {
+                900 + inner_noise
+            };
+            set_height(world, CellPos { x, y }, height);
         }
     }
     for x in 5..=35 {
@@ -253,22 +275,22 @@ fn author_l03(world: &mut SimulationWorld) {
         0,
         10_000,
     );
-    for pos in [
-        (12, 5),
-        (13, 5),
-        (14, 5),
-        (16, 5),
-        (18, 5),
-        (20, 5),
-        (20, 7),
-        (20, 9),
-        (20, 11),
-        (20, 13),
-        (20, 15),
-        (21, 15),
-        (22, 15),
+    for (x, y, rotation) in [
+        (12, 5, 0),
+        (13, 5, 0),
+        (14, 5, 0),
+        (16, 5, 0),
+        (18, 5, 0),
+        (20, 5, 1),
+        (20, 7, 1),
+        (20, 9, 1),
+        (20, 11, 1),
+        (20, 13, 1),
+        (20, 15, 0),
+        (21, 15, 0),
+        (22, 15, 0),
     ] {
-        install_device(world, DeviceId::Pipe, CellPos { x: pos.0, y: pos.1 }, 0, 0);
+        install_device(world, DeviceId::Pipe, CellPos { x, y }, rotation, 0);
     }
     install_device(world, DeviceId::Channel, CellPos { x: 30, y: 9 }, 0, 0);
 }

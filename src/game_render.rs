@@ -12,7 +12,7 @@ use macroquad_toolkit::prelude::{begin_virtual_ui_frame, end_virtual_ui_frame};
 
 impl Game {
     pub fn draw(&mut self) {
-        clear_background(Color::new(0.035, 0.045, 0.065, 1.0));
+        clear_background(Color::new(0.055, 0.052, 0.040, 1.0));
         if self.frontend_mode != FrontendMode::Playing {
             begin_virtual_ui_frame(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
             self.draw_frontend();
@@ -44,6 +44,12 @@ impl Game {
     fn draw_world(&self) {
         let selected = self.session.selected;
         let world = &self.session.simulation;
+        draw_cube(
+            vec3(world.width as f32 * 0.5, -0.32, world.height as f32 * 0.5),
+            vec3(world.width as f32 + 18.0, 0.5, world.height as f32 + 18.0),
+            None,
+            Color::new(0.09, 0.085, 0.062, 1.0),
+        );
         // The simulation is deliberately read directly here.  A former
         // presentation copy made mission briefings show a generic board until
         // the first tick, which was especially damaging to the diorama view.
@@ -67,7 +73,7 @@ impl Game {
                 if self.overlay_mode == 0 && cell.surface_volume() == 0 {
                     draw_terrain_scatter(pos, h, self.session.mission.id);
                 }
-                let surface_depth = cell.surface_volume() as f32 * 0.0005;
+                let surface_depth = visual_fluid_depth(cell.surface_volume());
                 if surface_depth > 0.0 {
                     let material = cell.surface.first().unwrap();
                     draw_fluid_surface(x, y, h, surface_depth, material.fluid, world.tick);
@@ -123,18 +129,19 @@ impl Game {
                     base + 0.22,
                     source.position.y as f32 + 0.5,
                 ),
-                vec3(0.42, 0.44, 0.42),
+                vec3(0.56, 0.16, 0.56),
                 None,
-                color,
+                Color::new(0.18, 0.17, 0.14, 1.0),
             );
-            draw_cube_wires(
+            draw_sphere(
                 vec3(
                     source.position.x as f32 + 0.5,
-                    base + 0.22,
+                    base + 0.25,
                     source.position.y as f32 + 0.5,
                 ),
-                vec3(0.5, 0.5, 0.5),
-                WHITE,
+                0.18,
+                None,
+                color,
             );
         }
         for (index, definition) in self.session.simulation.definitions.iter().enumerate() {
@@ -144,17 +151,33 @@ impl Game {
             let x = (index % self.session.simulation.width as usize) as f32 + 0.5;
             let y = (index / self.session.simulation.width as usize) as f32 + 0.5;
             let height = self.session.simulation.cells[index].height_hu as f32 * 0.0005;
-            draw_cube(
-                vec3(x, height + 0.28, y),
-                vec3(0.34, 0.56, 0.34),
-                None,
-                Color::new(0.74, 0.46, 0.86, 1.0),
-            );
-            draw_cube_wires(
-                vec3(x, height + 0.28, y),
-                vec3(0.42, 0.64, 0.42),
-                Color::new(0.96, 0.86, 0.98, 1.0),
-            );
+            let pos = CellPos {
+                x: x.floor() as u16,
+                y: y.floor() as u16,
+            };
+            let is_beacon = self.session.mission.id == crate::mission::MissionId::L01FirstFlow
+                && pos == CellPos { x: 10, y: 6 };
+            if is_beacon {
+                draw_cube(
+                    vec3(x, height + 0.35, y),
+                    vec3(0.22, 0.7, 0.22),
+                    None,
+                    Color::new(0.42, 0.28, 0.54, 1.0),
+                );
+                draw_sphere(
+                    vec3(x, height + 0.76, y),
+                    0.15,
+                    None,
+                    Color::new(0.76, 0.55, 0.88, 1.0),
+                );
+            } else if (u32::from(pos.x) * 3 + u32::from(pos.y) * 5) % 11 == 0 {
+                draw_cube(
+                    vec3(x, height + 0.025, y),
+                    vec3(0.34, 0.045, 0.34),
+                    None,
+                    Color::new(0.52, 0.42, 0.50, 0.72),
+                );
+            }
         }
         for event in &self.session.simulation.events {
             let crate::simulation::SimEvent::MaterialReacted {
@@ -246,16 +269,35 @@ fn draw_fluid_surface(x: u16, y: u16, ground: f32, depth: f32, fluid: FluidId, t
             ground + depth.max(0.035) * 0.5 + 0.018,
             y as f32 + 0.5,
         ),
-        vec3(0.995, depth.max(0.035), 0.995),
+        vec3(0.94, depth.max(0.035), 0.94),
         None,
         color,
     );
     draw_cube(
         vec3(x as f32 + 0.5, ground + depth + 0.038, y as f32 + 0.5),
-        vec3(0.985, 0.012, 0.985),
+        vec3(0.91, 0.012, 0.91),
         None,
         lighten(color, 0.22 + ripple),
     );
+    let stripe = if (x + y) % 2 == 0 { 0.26 } else { -0.26 };
+    draw_cube(
+        vec3(
+            x as f32 + 0.5 + stripe,
+            ground + depth + 0.052 + ripple,
+            y as f32 + 0.5,
+        ),
+        vec3(0.18, 0.014, 0.035),
+        None,
+        lighten(color, 0.38),
+    );
+}
+
+fn visual_fluid_depth(volume_vu: u32) -> f32 {
+    if volume_vu == 0 {
+        0.0
+    } else {
+        0.055 + (volume_vu as f32 / 8_000.0).clamp(0.0, 1.0).sqrt() * 0.42
+    }
 }
 
 fn draw_steam(x: u16, y: u16, ground: f32, depth: f32, tick: u64) {
@@ -381,10 +423,19 @@ fn draw_device_silhouette(
     draw_cube(center - vec3(0.0, 0.24, 0.0), base, None, metal);
     match device {
         DeviceId::Pipe => {
-            draw_cube(center, vec3(0.88, 0.18, 0.24), None, brass);
+            let pipe_size = if rotation % 2 == 0 {
+                vec3(0.88, 0.18, 0.24)
+            } else {
+                vec3(0.24, 0.18, 0.88)
+            };
+            draw_cube(center, pipe_size, None, brass);
             draw_cube(
                 center + vec3(0.0, 0.12, 0.0),
-                vec3(0.95, 0.04, 0.12),
+                if rotation % 2 == 0 {
+                    vec3(0.95, 0.04, 0.12)
+                } else {
+                    vec3(0.12, 0.04, 0.95)
+                },
                 None,
                 glow,
             );
@@ -497,7 +548,7 @@ fn terrain_color(
     mission: crate::mission::MissionId,
 ) -> Color {
     if cell.sealed {
-        return Color::new(0.25, 0.29, 0.27, 1.0);
+        return Color::new(0.38, 0.37, 0.31, 1.0);
     }
     if cell.formed_rock_vu > 0 {
         return Color::new(0.18, 0.20, 0.21, 1.0);
@@ -505,9 +556,9 @@ fn terrain_color(
     let noise = ((x as f32 * 0.41 + y as f32 * 0.73).sin() + 1.0) * 0.035;
     match mission {
         crate::mission::MissionId::L03Firebreak => {
-            Color::new(0.27 + noise, 0.18 + noise * 0.5, 0.13, 1.0)
+            Color::new(0.29 + noise, 0.20 + noise * 0.55, 0.14 + noise * 0.2, 1.0)
         }
-        _ => Color::new(0.34 + noise, 0.31 + noise, 0.23 + noise * 0.4, 1.0),
+        _ => Color::new(0.31 + noise, 0.32 + noise, 0.22 + noise * 0.45, 1.0),
     }
 }
 fn darken(c: Color, value: f32) -> Color {
@@ -550,8 +601,8 @@ fn verification_label(mode: VerificationMode) -> &'static str {
 
 fn fluid_color(fluid: FluidId) -> Color {
     match fluid {
-        FluidId::Water => Color::new(0.12, 0.48, 0.9, 0.78),
-        FluidId::Lava => Color::new(0.95, 0.22, 0.06, 0.9),
+        FluidId::Water => Color::new(0.06, 0.38, 0.58, 0.82),
+        FluidId::Lava => Color::new(0.96, 0.31, 0.045, 0.92),
         FluidId::ToxicSlurry => Color::new(0.62, 0.72, 0.16, 0.86),
         FluidId::Steam => Color::new(0.76, 0.86, 0.92, 0.38),
     }

@@ -63,7 +63,7 @@ impl FoundationCamera {
             yaw: 0,
             // Keep the opening survey close enough that the player sees
             // terraces and machinery as a diorama, not an entire debug board.
-            zoom: (width.max(height) as f32 * 0.72).clamp(22.0, 40.0),
+            zoom: (width.max(height) as f32 * 0.52).clamp(18.0, 28.0),
         }
     }
     fn update(&mut self, dt: f32, width: usize, height: usize) -> bool {
