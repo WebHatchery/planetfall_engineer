@@ -31,6 +31,7 @@ code, tests, map data, commits, and later issue tracking.
 | [07_INTERACTIVE_TUTORIAL.md](07_INTERACTIVE_TUTORIAL.md) | Event-driven onboarding state machine and recovery rules |
 | [08_IMPLEMENTATION_PLAN.md](08_IMPLEMENTATION_PLAN.md) | Ordered engineer-ready work packages and milestone commits |
 | [09_QUALITY_GATES.md](09_QUALITY_GATES.md) | Automated, capture, performance, and publisher release gates |
+| [10_DELIVERY_ROADMAP.md](10_DELIVERY_ROADMAP.md) | Whole-project release boundaries and post-slice entry criteria |
 
 ## Slice decisions already locked
 

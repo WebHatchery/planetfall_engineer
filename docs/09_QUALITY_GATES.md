@@ -1,0 +1,163 @@
+# Quality Gates
+
+## 1. Completion rule
+
+A milestone is acceptable only when its relevant focused tests pass and
+`publish.ps1` with no parameters succeeds from the project root. The publisher
+is the required integrated validation path; a local dev run does not replace it.
+
+## 2. Static and unit gates
+
+The test/publisher path MUST enforce:
+
+- formatting check;
+- compilation for all project targets exercised by the publisher;
+- Clippy with warnings denied for project code;
+- `cargo test` including the shared source-size gate;
+- every non-test `.rs` file below 800 lines;
+- content load and cross-reference validation;
+- no enabled fluid/device without required verification coverage.
+
+The implementation SHOULD add one test owner per behavior module rather than a
+single integration-test crate, following `AGENTS.md` inline/child test rules.
+
+## 3. Deterministic scenario suite
+
+The following maps run headlessly through their full automatic command stream:
+
+- `lab_fluids_all`;
+- all ten `device_<id>` showcase maps;
+- L01 guided reference solution and one alternate route;
+- L02 reference, sensor-free completion, and unmitigated failure;
+- L03 reference, insufficient-water recovery, and foundation failure.
+
+For every scenario the suite MUST:
+
+1. construct twice from definitions and compare initial hashes;
+2. replay the same commands twice and compare per-checkpoint and final hashes;
+3. assert every map-defined condition plus terminal tick range;
+4. assert no invariant event was emitted;
+5. save/load at its midpoint and prove the loaded continuation has the same
+   final hash as uninterrupted play;
+6. report source, drain, reaction, stored, and remaining material ledgers.
+
+Reference hashes are expected data. A changed hash fails until the behavioral
+change and new expected state are reviewed together.
+
+## 4. Conservation tolerance
+
+Integer volume rules permit exact accounting. For each material family and
+scenario:
+
+```text
+initial + authored_source + reaction_products
+- authored_drains - reaction_consumption
+= world_surface + world_airborne + device_storage + pending_terrain_product
+```
+
+The allowed unexplained difference is exactly zero `vU`. Presentation values
+may round for display; tests use authoritative units. Heat is not conserved by
+the abstract ambient exchange and is excluded from mass balance.
+
+## 5. UI and capture matrix
+
+Automated deterministic captures MUST exist for title/mission selection, every
+verification map, each campaign briefing, active campaign gameplay, each
+level's main hazard, success debrief, and one failure/recovery state.
+
+Run required screens at:
+
+| Size | Required result |
+| --- | --- |
+| 1280x720 | Reference layout; all captures |
+| 1024x768 | No clipping/overlap; gameplay and tutorial captures |
+| 800x600 | No inaccessible controls; gameplay, build palette, pause, debrief |
+
+At every size:
+
+- required buttons are wholly on-screen or reachable in a visible scroll area;
+- tutorial prompt does not cover its focus target;
+- objective, current time mode, budget, and critical alert remain visible;
+- overlay legend and inspector can close without losing selection;
+- text does not overlap or truncate IDs/values needed for engineering decisions;
+- mouse hit regions match rendered controls after scaling;
+- reduced-motion mode has no required information only in animation;
+- water/lava/slurry/steam and alert levels have non-color distinctions.
+
+Captures live under `docs/verification/` with stable names
+`<map_or_screen>_<width>x<height>.png`. `catalog_thumbnail.png` at repository
+root MUST be a current title-screen capture before release publishing.
+
+## 6. Manual interaction checks
+
+At each content milestone, perform and record:
+
+- pan, zoom, survey selection, and inspect with mouse and keyboard equivalents;
+- queue/rotate/cancel/commit valid placement and each common invalid placement;
+- pause, 1x, 2x, 4x, rapid toggling, and window focus loss;
+- reset checkpoint, restart mission, save, load, and content mismatch notice;
+- tutorial normal path, delayed hints, skip, replay, and checkpoint recovery;
+- resize while palette, inspector, tutorial prompt, and pause menu are open;
+- WebGL persistence across page reload through toolkit save slots.
+
+No manual check substitutes for deterministic behavior tests.
+
+## 7. Performance gates
+
+Use a release build with capture/diagnostic overlays disabled except the
+performance counter.
+
+### QG-P1 Reference desktop
+
+At 1280x720 on the development machine, `lab_fluids_all` with all slice bays
+and interactions active for 10 simulated minutes MUST maintain:
+
+- median render rate >=60 FPS at 1x;
+- 99th-percentile frame time <=33.3 ms;
+- no simulation backlog lasting more than 1 real second;
+- no growing memory trend after the first minute.
+
+### QG-P2 WebGL floor
+
+At 1280x720 in a supported desktop browser, the same scenario MUST maintain
+median >=30 FPS at 1x and keep input responsive while the laboratory runs.
+
+### QG-P3 Deterministic load
+
+A 64x48 synthetic worst-case map with four surface entries per cell, maximum
+enabled device count, and active objectives runs 10,000 ticks headlessly with
+no panic, overflow, NaN/Inf presentation conversion, invalid invariant, or hash
+difference between runs. Wall-clock time is reported but not fixed across CI
+hardware. Per-tick code SHOULD reuse buffers and avoid allocations proportional
+to active transfers after warm-up.
+
+If a performance target fails, record map, build, platform, duration, median,
+p99, backlog, and suspected owner. Do not reduce deterministic tick count or
+silently drop simulation work to improve rendering.
+
+## 8. Failure-path gates
+
+Tests or manual checks MUST cover:
+
+- malformed/missing embedded data produces one actionable blocking error;
+- corrupted, older supported, and unsupported-future saves preserve the current
+  session until the user chooses a recovery action;
+- full destination, depleted source, unavailable power, and disconnected
+  device produce legible inactive/rejection states;
+- hard failure and success on one tick resolves to failure;
+- reset/restart cannot duplicate budget, material, unlock, or tutorial progress;
+- terminal state cannot continue simulating behind debrief;
+- source injection at capacity emits backpressure and does not lose ledger mass.
+
+## 9. Release checklist
+
+- [ ] Scope completion criteria in `01_PROJECT_SCOPE.md` are all true.
+- [ ] All three campaign and eleven verification maps validate and replay.
+- [ ] Tutorial reference, alternate inputs, skip, save/load, and reset pass.
+- [ ] Static, unit, deterministic, failure, UI, and performance gates pass.
+- [ ] `publish.ps1` succeeds with Windows and WebGL outputs.
+- [ ] Evidence captures and `catalog_thumbnail.png` reflect the current build.
+- [ ] README describes the implemented slice rather than the starter template.
+- [ ] Working tree contains no accidental build/save artifacts.
+- [ ] Final milestone commit follows the catalog commit standard and reports
+      exact verification plus any non-blocking deferred polish.
