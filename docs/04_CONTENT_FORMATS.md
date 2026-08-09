@@ -86,7 +86,9 @@ Only `water`, `lava`, `steam`, and `toxic_slurry` may be enabled in the slice.
   "id": "pump",
   "display_name": "Pump",
   "category": "transport",
-  "cost_credits": 12,
+  "fabrication_cost_fu": 12,
+  "power_demand_eu_per_tick": 3,
+  "power_class": "transport",
   "footprint": [[0, 0]],
   "allowed_rotations": [0, 90, 180, 270],
   "placement_rule": "surface_foundation",
@@ -129,6 +131,15 @@ its AABB and ports are validated against footprint and allowed rotations.
   "flags": [],
   "zones": [],
   "sources": [],
+  "resource_deposits": [
+    {
+      "id": "wreckage_cache",
+      "cell": [5, 6],
+      "yield_fu": 28,
+      "asset_id": "deposit_wreckage"
+    }
+  ],
+  "power_sources": [],
   "authored_devices": [],
   "scheduled_events": [],
   "camera_start": {
@@ -143,9 +154,12 @@ its AABB and ports are validated against footprint and allowed rotations.
 row MUST equal map width and row count MUST equal height. A plain JSON array
 encoding MAY be accepted for tests but published maps SHOULD use RLE.
 
-Map `kind` is `campaign`, `fluid_lab`, or `device_showcase`. The map owns only
-physical starting state. Briefings, budgets, objectives, allowed build kit, and
-tutorial assignment belong to the mission definition.
+Map `kind` is `campaign`, `fluid_lab`, `field_economy_lab`, or
+`device_showcase`. The map owns physical starting state, finite deposit
+locations/yields, and authored planetary power fixtures. Deposit cells cannot
+overlap devices, protected cells, sources, or one another. Briefings, starting
+fabrication stock, objectives, allowed build kit, and tutorial assignment
+belong to the mission definition.
 
 ### 4.4 Mission
 
@@ -154,7 +168,7 @@ tutorial assignment belong to the mission definition.
   "id": "campaign_l01_first_flow",
   "map_id": "campaign_l01_first_flow",
   "sequence": 1,
-  "budget_credits": 40,
+  "starting_fabrication_fu": 0,
   "allowed_device_ids": ["channel", "floodgate"],
   "allowed_terrain_edits": ["excavate"],
   "tutorial_id": "tutorial_l01",
@@ -166,7 +180,9 @@ tutorial assignment belong to the mission definition.
 ```
 
 Verification missions use `sequence: null`, have no campaign unlock, and may
-grant unlimited budget only through `budget_credits: null`.
+grant unlimited fabrication only through `starting_fabrication_fu: null`.
+Campaign missions MUST use a finite integer and MUST author enough recoverable
+yield for their reviewed reference and recovery routes.
 
 ### 4.5 Objective
 
@@ -202,13 +218,36 @@ Events use either a fixed tick or a predicate trigger, never both.
 ```
 
 Slice effect kinds are `set_source_rate`, `inject_material`, `set_drain_rate`,
-`set_device_enabled`, and `show_message`. An effect that changes simulation
-state cannot be encoded as `show_message`.
+`set_device_enabled`, `set_power_source_output`, and `show_message`. An effect
+that changes simulation state cannot be encoded as `show_message`.
 
 ### 4.7 Tutorial
 
 Tutorials are ordered steps with event predicates and UI directives. Exact
 behavior and required step kinds are in `07_INTERACTIVE_TUTORIAL.md`.
+
+### 4.8 Resource deposit and planetary power source
+
+A resource deposit is a one-shot map fixture with `id`, `cell`, positive
+`yield_fu`, `asset_id`, and optional `label_text_id`. Runtime adds only a saved
+`depleted` flag. It has no inventory, owner, extraction rate, recipe, or worker.
+
+An authored power source is a non-placeable planetary fixture:
+
+```json
+{
+  "id": "geothermal_tap",
+  "cell": [6, 16],
+  "output_eu_per_tick": 3,
+  "enabled": true,
+  "asset_id": "power_geothermal_tap"
+}
+```
+
+It contributes current-tick field-grid supply while enabled. A turbine is a
+placeable producer governed by its device behavior and MUST NOT be duplicated
+as an authored power source. Both definitions expose a stable world marker and
+power-overlay label.
 
 ## 5. Validation rules
 
@@ -221,8 +260,9 @@ file/ID/field order. At minimum it validates:
    asset, connection, entity, and unlock.
 4. RLE dimensions, coordinates, footprints, rotations, and height bounds.
    Camera targets/yaw/zoom, model AABBs, and port transforms must also be valid.
-5. Nonnegative rates/costs/volumes, contamination <=10,000, valid colors, and
-   temperatures within the definition type range.
+5. Nonnegative rates/costs/volumes/deposit yields/power values, contamination
+   <=10,000, valid power classes, valid colors, and temperatures within the
+   definition type range.
 6. No overlapping authored devices or placement on protected/invalid cells.
 7. Every campaign mission has a reachable unlock chain from `L01` with no
    cycle; exactly one slice campaign mission has sequence 1, 2, and 3.
@@ -238,6 +278,13 @@ file/ID/field order. At minimum it validates:
     3D placeholder, and every terrain/fluid material resolves its shader/atlas
     assets. A missing asset fails validation tests even though runtime retains a
     diagnostic placeholder.
+13. Every campaign map has at least one positive-yield deposit, no duplicate or
+    overlapping deposit, and total authored plus starting fabrication equal to
+    the amount asserted by its reference ledger.
+14. Every powered campaign device can resolve the mission-wide field grid;
+    power-source IDs are unique, turbine output is not authored as current-tick
+    supply, and each reference stream declares expected generated/allocated/
+    curtailed/deficit totals.
 
 ## 6. Content versioning
 
@@ -254,9 +301,13 @@ that alter a hash MUST update the reference replay in the same commit.
 ## 7. Current slice registry
 
 The current implementation embeds `assets/data/content_registry.json` and
-validates its cross-references before constructing the runtime. It covers the
-four enabled slice fluids plus five reserved IDs, all ten device showcase
-references, three campaign missions, the twelve `tutorial_l01` steps, and the
-three campaign plus eleven verification map IDs. Runtime behavior remains in
+validates its cross-references before constructing the runtime. The resource-
+and-power retrofit MUST advance its schema/content version and cover the
+deposit/power fields before campaign saves may resume. The current registry
+covers the four enabled slice fluids plus five reserved IDs, all ten device
+showcase references, three campaign missions, twelve legacy `tutorial_l01`
+steps, and three campaign plus eleven verification map IDs. The retrofit target
+is fourteen L01 steps, five L02 power steps, and twelve verification map IDs.
+Runtime behavior remains in
 the bounded simulation/device modules; the registry owns the stable content
 contract and fails with collected diagnostics when it is malformed.

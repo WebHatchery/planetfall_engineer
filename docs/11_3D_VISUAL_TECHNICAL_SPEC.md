@@ -220,6 +220,9 @@ Loading failure produces the placeholder cube without blocking simulation.
   markers. Rotation preview shows both before placement.
 - Operating, off, blocked, unpowered, warning, and failed states are visible on
   the model and repeated in inspect text.
+- Planetary deposits have distinct recoverable and depleted meshes/markers and
+  remain pickable after recovery. Authored geothermal fixtures are visibly part
+  of the terrain, not player buildings; their current `eU` output is inspectable.
 - Pipes join adjacent port transforms without visible gaps. Elbows, straights,
   ends, and junctions select meshes from network topology after each commit.
 - A placement ghost is translucent, depth-tested, and tinted valid/invalid;
@@ -237,7 +240,12 @@ visible in that level.
 - Grade overlay tints terrain top faces and draws height labels on selected
   cells; it does not replace terrain geometry.
 - Flow/heat/contamination overlays tint fluid/terrain and supply a screen-space
-  legend. Critical values also use symbols/patterns.
+  legend. A power overlay draws labeled source output, consumer demand,
+  allocation class, turbine next-tick output, and brownout crosshatching without
+  implying physical cables. Critical values also use symbols/patterns.
+- Recoverable fabrication deposits use a material icon and `fabU` label visible
+  at default zoom; depleted deposits retain a hollow non-color marker so the
+  player can distinguish exhausted terrain from an undiscovered resource.
 - Selection outlines the picked 3D cell/device and draws its footprint.
 - Protected cells use world-space corner markers visible above fluids.
 - Objective zones use low vertical beacons and top-face boundaries.
@@ -274,6 +282,9 @@ The R0 renderer is not complete until:
 - fluid surfaces match authoritative depth and never z-fight at zero/maximum;
 - pipe topology selects correct straight/elbow/junction geometry;
 - placeholder models preserve footprint, port, state, and picking behavior;
+- deposit recovery swaps to the depleted visual without changing its pick AABB;
+  geothermal/turbine output and powered/unpowered consumers remain legible at
+  all yaw quarters through geometry/icon changes rather than color alone;
 - every campaign and verification reference capture is a 3D gameplay frame;
 - camera movement/rotation, mesh rebuilds, particles, and animation never change
   simulation state or replay hash;

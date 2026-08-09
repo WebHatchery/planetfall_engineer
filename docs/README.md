@@ -22,13 +22,13 @@ code, tests, map data, commits, and later issue tracking.
 
 | Document | Purpose |
 | --- | --- |
-| [01_PROJECT_SCOPE.md](01_PROJECT_SCOPE.md) | In/out boundaries, slice deliverables, budgets, and definition of done |
+| [01_PROJECT_SCOPE.md](01_PROJECT_SCOPE.md) | In/out boundaries, slice deliverables, constraints, and definition of done |
 | [02_TECHNICAL_ARCHITECTURE.md](02_TECHNICAL_ARCHITECTURE.md) | Runtime ownership, module boundaries, update order, determinism, and saves |
-| [03_SIMULATION_SPEC.md](03_SIMULATION_SPEC.md) | Terrain, fluids, interactions, devices, and exact tick rules |
+| [03_SIMULATION_SPEC.md](03_SIMULATION_SPEC.md) | Terrain, fabrication, power, fluids, devices, and exact tick rules |
 | [04_CONTENT_FORMATS.md](04_CONTENT_FORMATS.md) | Data contracts, stable IDs, validation, and mission authoring |
-| [05_VERIFICATION_MAPS.md](05_VERIFICATION_MAPS.md) | One all-fluid laboratory and one isolated map per device |
-| [06_FIRST_THREE_LEVELS.md](06_FIRST_THREE_LEVELS.md) | Authored content and acceptance for the initial three-level slice |
-| [07_INTERACTIVE_TUTORIAL.md](07_INTERACTIVE_TUTORIAL.md) | Event-driven onboarding state machine and recovery rules |
+| [05_VERIFICATION_MAPS.md](05_VERIFICATION_MAPS.md) | Fluid/economy laboratories and one isolated map per device |
+| [06_FIRST_THREE_LEVELS.md](06_FIRST_THREE_LEVELS.md) | Resource/power-constrained content and acceptance for L01–L03 |
+| [07_INTERACTIVE_TUTORIAL.md](07_INTERACTIVE_TUTORIAL.md) | Event-driven L01 fabrication and L02 power onboarding |
 | [08_IMPLEMENTATION_PLAN.md](08_IMPLEMENTATION_PLAN.md) | Ordered engineer-ready work packages and milestone commits |
 | [09_QUALITY_GATES.md](09_QUALITY_GATES.md) | Automated, capture, performance, and publisher release gates |
 | [10_DELIVERY_ROADMAP.md](10_DELIVERY_ROADMAP.md) | Whole-project release boundaries and post-slice entry criteria |
@@ -49,6 +49,13 @@ code, tests, map data, commits, and later issue tracking.
 - Slice placeables are channel, pipe, pump, floodgate, reservoir, spillway,
   flow turbine, sensor, filter, and rune relay. Terrain excavation, raising,
   and sealing are tools, not placeable devices.
+- R0 construction is constrained by finite `fabU` fabrication stock recovered
+  directly from authored planetary deposits. Recovery is a map-wide field-tool
+  action, not a worker, hauling, crafting, factory, or production-chain system.
+- R0 powered devices draw deterministic `eU` from one mission-wide field grid.
+  Authored geothermal fixtures and flow turbines are the only slice producers;
+  cables, batteries, fuel logistics, population needs, and base building remain
+  outside the slice.
 - Simulation advances only in fixed ticks. Frame rate and fast-forward change
   how many ticks execute, never the result of an individual tick.
 - No avatar is introduced. “Move around” in onboarding means pan, zoom, and
@@ -62,6 +69,9 @@ fluids require a fluid definition, pairwise interaction tests, and an update to
 `lab_fluids_all`. New devices require a device definition, an isolated showcase
 map, and map acceptance. New campaign mechanics require a first-use tutorial or
 an explicit statement that they are intentionally discoverable.
+Changes to fabrication or power require exact ledger rules, updates to
+`lab_field_economy`, affected device showcases, every campaign reference stream,
+save/content versions, and a first-use onboarding event.
 
 ## Branch and commit discipline
 

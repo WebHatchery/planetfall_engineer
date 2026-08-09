@@ -18,16 +18,17 @@ simulation remain paused until the player clicks that action or presses Enter.
 
 | Seq. | ID | Name | New concepts | Target first-play time |
 | ---: | --- | --- | --- | ---: |
-| 1 | `campaign_l01_first_flow` | First Flow | camera, cursor, inspect, excavation, channel, gate, run/observe | 8–12 min |
-| 2 | `campaign_l02_holding_line` | The Holding Line | pipe, pump, reservoir, spillway, sensor, surge recovery | 15–20 min |
-| 3 | `campaign_l03_firebreak` | Firebreak Protocol | lava, water/lava reaction, steam, turbine, rune relay | 20–25 min |
+| 1 | `campaign_l01_first_flow` | First Flow | survey, deposit recovery, finite fabrication, terrain/channel/gate, loss boundary | 10–14 min |
+| 2 | `campaign_l02_holding_line` | The Holding Line | pump network, geothermal/turbine power, brownout, surge recovery | 18–24 min |
+| 3 | `campaign_l03_firebreak` | Firebreak Protocol | finite water/fabrication, lava reaction, steam power, rune relay | 22–28 min |
 
 ## 2. L01 — First Flow
 
 ### Purpose
 
-Prove the core interaction in one screen: move around, inspect a slope, build
-three small terrain barriers, run time, and see water cross the map into a dam.
+Prove the constrained core interaction in one screen: survey and recover local
+wreckage, spend finite fabrication on three barriers and a channel, run time,
+operate the inlet gate, and protect the beacon while filling the dam.
 `07_INTERACTIVE_TUTORIAL.md` is mandatory on first play and skippable on replay.
 
 ### Authored state
@@ -39,9 +40,13 @@ three small terrain barriers, run time, and see water cross the map into a dam.
   Each open cut captures the entire steady flow before it can cross the next
   eastbound saddle. Raising each cut once forms the required three barriers.
 - `restoration_dam`: 5x5 zone x=26..30, y=7..11, sealed and contained. Its
-  authored inlet floodgate at (25,9) starts fully open.
+  authored inlet floodgate at (25,9) starts at 25%.
 - Protected survey beacon: (24,8); protected cells cannot be edited.
-- Budget: 40 credits. Full build kit remains available after the tutorial.
+- `wreckage_cache`: (5,6), one-shot 28 `fabU`; starting stock is zero.
+- Required channel placement pad: (23,9), immediately before the dam gate.
+- Fabrication: reference spends 15 `fabU` on three raises and 2 `fabU` on the
+  channel, leaving 11. Full build kit remains available after the tutorial but
+  nothing bypasses finite stock.
 - Time controls: pause, 1x, and 2x; 4x remains locked.
 
 ### Objectives and boundaries
@@ -49,24 +54,35 @@ three small terrain barriers, run time, and see water cross the map into a dam.
 - `primary_route_water`: at least 6,000 `vU` water in the far-side dam.
 - `primary_hold_dam`: all mandatory predicates true for 100 ticks.
 - `failure_beacon_flood`: beacon cell depth >=1,500 `vU` for 10 ticks.
+- The 25% inlet backs water toward the beacon once the routed stream arrives;
+  opening it fully before the grace timer expires is mandatory.
 - Water entering any fissure is permanently drained and cannot contribute to
   the objective.
 
 ### Reference solution
 
-Raise (8,10), (14,10), and (20,10) once each, then run the simulation. The
-barriers close all three runoff cuts and send meltwater across the eastbound
-saddles into the dam. Expected completion is ticks 900–1,400 after first run.
+Recover `wreckage_cache`; raise (8,10), (14,10), and (20,10) once each; place
+one channel at (23,9); then run. When the inlet warning reaches advisory, set
+the gate to 100%. The barriers close all runoff cuts, the channel carries the
+last saddle, and the open gate protects the beacon while filling the dam.
+Expected completion is ticks 900–1,400 after first run.
 
 ### Acceptance
 
 - First-time flow follows every required tutorial step without external text.
 - The source remains stopped until the tutorial requests observation.
+- The tutorial cannot grant free stock: recovery changes the ledger from 0 to
+  28 `fabU`, the committed reference plan leaves exactly 11, and attempting to
+  recover the depleted cache returns `deposit_depleted` without changing hash.
 - Running the untouched map for 1,200 ticks delivers zero water to the dam.
-- Raising all three authored barrier cells delivers at least 6,000 `vU` by tick
-  1,200; omitting any barrier leaves that branch available to its fissure.
+- Raising all three authored barrier cells and committing the inlet channel
+  delivers at least 6,000 `vU` by tick 1,200; omitting any barrier leaves that
+  branch available to its fissure, and omitting the channel stalls the inlet.
 - Each raised barrier rebuilds the visible 3D terrain face and remains pickable
   from every yaw quarter.
+- Leaving the inlet at 25% after routing the water triggers
+  `failure_beacon_flood`; opening it fully within the visible ten-tick grace
+  period prevents failure and permits completion.
 - Failure checkpoint restarts before the source is enabled, preserving completed
   camera/cursor tutorial steps but requiring the build/observe steps again.
 
@@ -74,9 +90,10 @@ saddles into the dam. Expected completion is ticks 900–1,400 after first run.
 
 ### Purpose
 
-Teach contained transport and safety capacity. The player lifts water from a
-low aquifer into a reservoir, supplies a restoration trench, and survives one
-forecast meltwater surge using a spillway or sensor-assisted control.
+Teach contained transport, finite construction, and planetary power. The player
+recovers two local deposits, bootstraps a pump from a geothermal tap, adds a
+flow turbine, fills a reservoir, and survives one forecast meltwater surge by
+managing generation and powered demand.
 
 ### Authored state
 
@@ -86,34 +103,43 @@ forecast meltwater surge using a spillway or sensor-assisted control.
 - `restoration_trench`: x=31..36, y=7..9, sealed, target capacity 10,000 `vU`.
 - `camp_zone`: x=24..28, y=14..18, protected; safe depth below 500 `vU`.
 - `emergency_drain`: east boundary at (39,18).
+- `salvage_scaffold`: (9,19), 60 `fabU`; `ore_cache`: (33,20), 40 `fabU`;
+  starting stock is zero and total recoverable fabrication is 100.
+- `geothermal_tap`: (6,16), authored 3 `eU/tick` current supply.
+- `turbine_run`: marked aquifer-overflow channel accepting one flow turbine;
+  at reference flow it adds 4 `eU` beginning on the following tick.
 - Preinstalled disconnected pipe trunks leave twelve marked player-build gaps
   across the aquifer-to-reservoir and reservoir-to-trench routes.
 - The trench contains no source fixture: all objective water must arrive from
   the aquifer through the player's pump, completed pipe runs, and reservoir.
 - Forecast surge at tick 900: aquifer becomes 400 `vU`/tick for 300 ticks, with
   alerts at ticks 600 and 800, then returns to 100.
-- Budget: 105 credits. Build kit: prior tools plus pipe, pump, reservoir,
-  spillway, and sensor. Terrain tools: excavate, raise, seal.
+- Fabrication: 100 recoverable `fabU`. Build kit: prior tools plus pipe, pump,
+  reservoir, spillway, flow turbine, and sensor. Terrain tools: excavate, raise,
+  seal. The sensor route is optional but must fit the same stock.
 - All time controls unlocked after the first successful pump transfer.
 
 ### Objectives and boundaries
 
 - `primary_supply_trench`: 6,000–9,000 `vU` water in restoration trench.
 - `primary_reserve`: reservoir contains at least 2,000 `vU`.
+- `primary_field_power`: turbine has generated at least 40 cumulative `eU` and
+  no mandatory consumer is brownout-starved during the final stability window.
 - `primary_survive_surge`: camp depth stays below 500 `vU` through tick 1,250.
-- Stability: all three true for 150 ticks after the surge ends.
+- Stability: all four mandatory predicates true for 150 ticks after the surge ends.
 - Hard failure: camp depth >=1,500 `vU` for 20 ticks.
 - Optional `optional_automatic_safety`: a sensor changes a linked flow setting
   at least once during the surge. It does not gate completion.
 
 ### Reference solution
 
-Place reservoir on the plateau, route pipe from aquifer fixture to one pump and
-the reservoir, then from its release fixture to the trench. Add a spillway from
-the aquifer overflow route to the emergency drain. A sensor adjacent to the
-aquifer may close the pump or open the spillway fixture at 3,000 `vU` depth.
-Hold 2,500 `vU` reserve before tick 900 and release after the surge. Expected
-completion is ticks 1,400–1,800.
+Recover both deposits. Place the turbine in `turbine_run`, the reservoir on the
+plateau, twelve pipe gaps, one pump, and the spillway to the emergency drain.
+The geothermal tap starts the 3 `eU` pump; turbine generation then covers the
+1 `eU` reservoir demand and optional 1 `eU` sensor. Hold 2,500 `vU` reserve
+before tick 900 and release after the surge. The sensor may shed the pump or
+open the spillway fixture at 3,000 `vU` depth. Expected completion is ticks
+1,400–1,800; the sensor route spends 89 `fabU`, leaving 11.
 
 ### Acceptance
 
@@ -121,7 +147,11 @@ completion is ticks 1,400–1,800.
 - Reservoir storage, release, and spillway threshold are readable in inspect.
 - Surge alerts identify source, time remaining, predicted exposed zone, and a
   suggested inspect action without prescribing a single solution.
-- The documented solution fits budget with at least 15 credits spare.
+- The documented solution recovers exactly 100 `fabU`, spends at most 89, and
+  retains at least 11; no command receives untracked or regenerating stock.
+- At 3 `eU` the pump can bootstrap flow but simultaneous pump/reservoir/sensor
+  demand browns out by priority; turbine output on the next tick restores the
+  intended consumers. Toggling demand is a valid alternate solution.
 - At least one completion is possible without the optional sensor.
 - The reservoir, raised pipes, pump ports, spillway crest, and sensor link are
   readable 3D silhouettes at default zoom from opposing yaw quarters.
@@ -142,6 +172,11 @@ through a flow turbine fixture, and powers a dormant rune relay.
 - `lava_route`: authored trough toward protected `ancient_foundation` zone at
   x=35..40, y=12..18.
 - `water_cistern`: x=8..11, y=3..6, starts with 12,000 `vU`, no replenishment.
+- `caldera_wreckage_a`: (10,24), `caldera_wreckage_b`: (31,24), and
+  `ruin_cache`: (41,8) contain 40 `fabU` each; starting stock is zero and total
+  recoverable fabrication is 120.
+- `thermal_tap`: (6,17), authored 3 `eU/tick`, enough to bootstrap the pump but
+  not the pump and 2 `eU` rune relay simultaneously.
 - The reaction shelf has no material source. Lava enters from `lava_vent`
   through the trough headworks; water must be pumped from `water_cistern`.
 - `reaction_shelf`: x=20..25, y=12..16, sealed and 500 `hU` below approach.
@@ -150,7 +185,8 @@ through a flow turbine fixture, and powers a dormant rune relay.
 - `climate_relay_socket`: 2x2 pad x=38..39, y=5..6.
 - A cold condensate channel runs from (30,9) toward the relay pad, providing the
   relay's required adjacent flow when steam condenses successfully.
-- Budget: 160 credits. Build kit: channel, pipe, pump, floodgate, reservoir,
+- Fabrication: 120 recoverable `fabU`. Build kit: channel, pipe, pump,
+  floodgate, reservoir,
   spillway, flow turbine, sensor, and rune relay. Filter remains lab-only.
 - Terrain tools: excavate, raise, seal.
 
@@ -158,22 +194,32 @@ through a flow turbine fixture, and powers a dormant rune relay.
 
 - `primary_firebreak`: at least 3,000 `pending/formed rock vU` produced in the
   reaction shelf and no lava in ancient foundation.
-- `primary_power`: turbine generated at least 40 cumulative power units.
+- `primary_power`: turbine generated at least 40 cumulative `eU`.
 - `primary_relay`: rune relay active continuously for 100 ticks.
 - Stability: all mandatory objectives true and foundation lava-free for 150
   ticks after the lava surge ends.
 - Hard failure: foundation receives any lava for 20 ticks.
 - Soft failure: exhaust water before forming 3,000 rock; player can reset to the
   pre-release checkpoint rather than restart briefing.
+- Soft failure: if the relay is not built and available stock plus unrecovered
+  deposits plus device refunds falls below its 20 `fabU` cost, return to the
+  pre-build checkpoint with an explicit fabrication-exhausted explanation.
 
 ### Reference solution
 
 Excavate a controlled reaction pocket on the shelf, pipe/pump cistern water to
 a 25% floodgate outlet above it, and channel lava into the opposite side. Place
-the turbine in its socket and the rune relay on its pad. Meter water until at
-least 3,000 combined rock is formed; steam passes through the turbine, then
+the turbine in its socket and the rune relay on its pad. The 3 `eU` thermal tap
+runs the pump; at least 2 `eU` of next-tick turbine output is needed before pump
+and relay can operate together. Meter water until at least 3,000 combined rock
+is formed; steam passes through the turbine, then
 condenses into the relay's adjacent flow channel. Preserve at least 2,000 `vU`
 water for the surge. Expected completion is ticks 1,500–2,100.
+
+The reference construction is exactly ten pipes (30 `fabU`), one pump (12),
+one floodgate (8), one turbine (14), one rune relay (20), four channels (8), and
+three excavations (12): 104 `fabU` total. Alternate routes may spend differently
+but cannot exceed the same 120 `fabU` authored supply.
 
 ### Acceptance
 
@@ -182,8 +228,11 @@ water for the surge. Expected completion is ticks 1,500–2,100.
 - Heat and flow overlays make the reaction location and steam route legible.
 - The reaction cannot delete volume outside `SI-01` conversion rules.
 - Relay inspect states independently show power and adjacent-flow requirements.
-- The documented solution fits budget with at least 10 credits spare and water
-  supply with at least 1,000 `vU` spare under deterministic playback.
+- The documented route spends at most 104 of 120 recovered `fabU`, retains at
+  least 16, and preserves at least 1,000 `vU` water under deterministic playback.
+- Removing an operated turbine refunds 10 `fabU`, not 14, and cannot duplicate
+  stock; doing so during the surge can create a power deficit and foundation
+  failure unless the player recovers or resets.
 - Lava depth, newly formed basalt height, airborne steam, turbine operation,
   condensate flow, and relay activation are simultaneously readable in the 3D
   firebreak capture without relying on the inspector alone.

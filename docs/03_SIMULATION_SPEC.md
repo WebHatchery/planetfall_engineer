@@ -18,7 +18,8 @@ mesh interpolation, particles, and camera state never feed back into these rules
 | Pressure | `u32 pressure_pu` | Abstract pressure units, valid only in networks/storage |
 | Contamination | `u16 contamination_bp` | Basis points, 0 to 10,000 |
 | Time | `u64 tick` | 10 ticks per simulated second |
-| Cost | `u32 credits` | Whole mission credits |
+| Fabrication stock | `u32 fabrication_fu` | Whole fabrication units (`fabU`) |
+| Power | `u32 power_eu` | Energy units available or demanded per tick (`eU`) |
 
 All multiplication MUST widen before division. Integer division rounds toward
 zero. Residual quantity remains at the source; it is never discarded.
@@ -34,6 +35,7 @@ CellDefinition
   protected: bool
   source_id: optional string
   objective_zone_ids: [string]
+  resource_deposit_id: optional string
 
 CellState
   height_hu: i16
@@ -69,11 +71,11 @@ Because `hU` and `vU` share the 1,000-per-step scale, head comparison is exact.
 Terrain commands target one cell and are rejected on protected or occupied
 cells unless the device explicitly supports the edit.
 
-| Action | Cost | Result on commit |
+| Action | Fabrication cost | Result on commit |
 | --- | ---: | --- |
-| Excavate | 4 | `height_hu -= 250`, minimum authored map floor |
-| Raise | 5 | `height_hu += 250`, maximum authored map ceiling |
-| Seal | 3 | sets `sealed = true` |
+| Excavate | 4 `fabU` | `height_hu -= 250`, minimum authored map floor |
+| Raise | 5 `fabU` | `height_hu += 250`, maximum authored map ceiling |
+| Seal | 3 `fabU` | sets `sealed = true` |
 
 The slice does not simulate erosion or infiltration. Sealing matters to device
 placement, objectives, and contamination containment: toxic slurry occupying
@@ -86,7 +88,34 @@ rejected if the resulting surface volume would exceed capacity; the player must
 drain the cell first. Chemical rock production may raise occupied terrain and
 routes displaced excess through normal overflow on the next tick.
 
-## 4. Surface flow
+## 4. Planetary fabrication stock
+
+Construction uses one mission-local integer stock, `fabrication_fu`. It is not
+currency and does not regenerate. A campaign mission begins with its authored
+starting stock, normally zero, and exposes one or more visible planetary
+deposits. Each deposit has a stable ID, cell, yield, visual asset, and depleted
+flag. `RecoverDeposit` is a map-wide field-tool command: while the mission is
+active, the player selects a deposit and taps visible `RECOVER`; the whole yield
+is added immediately and exactly once. Recovery requires no worker, travel,
+building, elapsed tick, or power and emits `deposit_recovered(id, yield_fu)`.
+
+Queued terrain/device plans reserve their full `fabU` cost. The same stock
+cannot be reserved twice. Canceling a queue returns its full reservation;
+atomic commit spends all reservations or none. Removing a player-built device
+refunds 100% of its authored cost until that entity has completed an active
+simulation tick, then refunds `floor(cost_fu * 3 / 4)`. Terrain edits, depleted
+deposits, and authored devices are not refundable. Refunds never exceed the
+entity's original spend. `fabrication_available + fabrication_reserved`, every
+deposit flag, original spend, and whether a device has operated are saved and
+hashed.
+
+The HUD MUST show available/reserved `fabU`, remaining visible deposit yield,
+selected-plan cost, and exact dismantle refund. Zero stock blocks only commands
+whose cost exceeds availability; it does not stop time. An authored mission may
+declare a provable exhaustion recovery boundary for a mandatory missing device,
+but the runtime MUST NOT attempt a general puzzle-solvability test.
+
+## 5. Surface flow
 
 Surface fluid flows only through cardinal neighbors. For each adjacent pair,
 compute one proposal from the tick phase's immutable start snapshot:
@@ -127,7 +156,7 @@ injection would exceed capacity, inject to capacity and emit
 The mass ledger counts only material actually injected into the world.
 Authored drains remove up to their rate at the post-transfer phase.
 
-## 5. Airborne steam
+## 6. Airborne steam
 
 Airborne material ignores terrain height but not cells flagged `gas_blocked`.
 Steam proposes transfer to cardinal neighbors whose steam volume is at least
@@ -142,7 +171,7 @@ into surface water, limited by surface capacity. Blocked condensate remains
 steam. Steam above 6,000 `vU` emits a high-pressure alert; the slice has no
 steam explosion failure unless a mission declares that boundary.
 
-## 6. Surface heat exchange
+## 7. Surface heat exchange
 
 After interactions, every surface material temperature moves toward the cell's
 volume-weighted surface average by `abs(delta_temp) / 16`, then toward ambient
@@ -155,7 +184,7 @@ Lava below 9,000 dK converts to `basalt` terrain at up to `80 vU` per tick. Each
 1,000 `vU` accumulated rock product raises the cell by 1,000 `hU`; sub-step
 rock product is stored in the cell snapshot as `pending_rock_vu`.
 
-## 7. Material interactions
+## 8. Material interactions
 
 Interactions operate in row-major cell order after transfers and before heat
 exchange. Each interaction consumes at most its per-tick limit. Reactants and
@@ -193,30 +222,43 @@ No other slice fluid pair reacts. Water dilutes slurry without changing either
 fluid identity: `new_slurry_bp = old_slurry_bp * slurry_vu /
 (slurry_vu + water_vu)`. Water contamination remains unchanged.
 
-## 8. Device contract
+## 9. Planetary power and device contract
 
 Every device has an immutable definition and an entity state containing stable
 ID, anchor, rotation, health, power state, settings, internal material, and
 network connections. Devices run by ascending entity ID.
 
-| ID | Footprint | Cost | Required slice behavior |
-| --- | --- | ---: | --- |
-| `channel` | 1 cell | 2 | Passable surface cell; placement excavates 100 `hU`; transfer cap +150 |
-| `pipe` | 1 cell | 3 | Connects N/E/S/W pipe network; sealed from surface; 600 `vU` capacity |
-| `pump` | 1 cell | 12 | Moves up to 250 `vU`/tick inlet -> outlet; +100 `pU`; toggle and target rate |
-| `floodgate` | 1 edge | 8 | Open fraction 0/25/50/75/100%; closed blocks surface flow |
-| `reservoir` | 2x2 | 16 | Stores 8,000 `vU`; accepts/releases through configured connection |
-| `spillway` | 1 edge | 6 | One-way surface transfer up to 500 `vU` above 2,000 `vU` upstream depth |
-| `flow_turbine` | 1 cell | 14 | Water/steam flow generates one power per 100 `vU` passing, max 4/tick |
-| `sensor` | 1 cell | 5 | Samples adjacent target; threshold toggles one linked device next tick |
-| `filter` | 1 cell | 14 | Moves 160 `vU`/tick; removes 2,500 bp contamination per pass |
-| `rune_relay` | 2x2 | 20 | Activates while receiving 2 power/tick and adjacent flow >=100 `vU`/tick |
+| ID | Footprint | Cost `fabU` | Demand `eU/tick` | Power class | Required slice behavior |
+| --- | --- | ---: | ---: | --- | --- |
+| `channel` | 1 cell | 2 | 0 | passive | Passable surface cell; placement excavates 100 `hU`; transfer cap +150 |
+| `pipe` | 1 cell | 3 | 0 | passive | Connects N/E/S/W pipe network; sealed from surface; 600 `vU` capacity |
+| `pump` | 1 cell | 12 | 3 | transport | Moves up to 250 `vU`/tick inlet -> outlet; +100 `pU`; toggle and target rate |
+| `floodgate` | 1 edge | 8 | 0 | passive | Open fraction 0/25/50/75/100%; closed blocks surface flow |
+| `reservoir` | 2x2 | 16 | 1 | safety | Demand applies while accepting/releasing; stores 8,000 `vU` |
+| `spillway` | 1 edge | 6 | 0 | passive | One-way transfer up to 500 `vU` above 2,000 `vU` upstream depth |
+| `flow_turbine` | 1 cell | 14 | 0 | producer | Flow produces `floor(vU/100)`, maximum 4 `eU`, for the next tick |
+| `sensor` | 1 cell | 5 | 1 | safety | Samples adjacent target; threshold toggles one linked device next tick |
+| `filter` | 1 cell | 14 | 3 | process | Moves 160 `vU`/tick; removes 2,500 bp contamination per pass |
+| `rune_relay` | 2x2 | 20 | 2 | interface | Activates while powered and adjacent flow >=100 `vU`/tick |
 
-Devices that transfer material propose in phase 4 and are limited with all
-other proposals. They cannot create volume. A transfer requiring power reserves
-its authored power before proposing; unavailable power produces no transfer.
-The slice uses abstract map-wide power supply/demand, recalculated each tick;
-power cables and batteries are out of scope.
+Power is one mission-wide field grid. Current supply equals the sum of enabled
+authored planetary sources plus every turbine's previous-tick output. There is
+no storage: unused supply is curtailed, never carried forward. Enabled demand
+is allocated whole-device, first by class `safety`, `transport`, `process`, then
+`interface`, and within a class by ascending stable entity ID. A device either
+receives its complete demand or is unpowered for that tick; partial operation
+is forbidden. Players manage shortage by toggling/configuring consumers. The
+HUD and power overlay show this priority before time advances.
+
+Devices that transfer material are limited with all other proposals and cannot
+create volume. An unpowered consumer proposes no transfer/effect, preserves its
+stored material and setting, reports `UNPOWERED`, and emits one
+`power_brownout` event on transition into that state. Turbines measure actual
+post-limit flow during the current tick and make `floor(flow_vu / 100)`, capped
+at 4 `eU`, available on the next tick. Authored sources provide their declared
+output every current tick. The ledger records authored generation, turbine
+generation, allocated demand, curtailed supply, and deficit exactly. Cables,
+batteries, fuel logistics, workers, and production chains are out of scope.
 
 Pipe networks hold one compatible surface fluid mixture. Connecting a different
 fluid is allowed; interaction occurs at receiving cells, not invisibly inside a
@@ -224,7 +266,7 @@ pipe. Pressure is `min(1000, filled_capacity_ratio_bp / 10 + pump_added_pu)`.
 At pressure over the pipe rating, the device warns but does not rupture in the
 slice unless a mission explicitly enables rupture.
 
-## 9. Objectives and terminal state
+## 10. Objectives and terminal state
 
 Objective predicates inspect post-tick state only. Types required in the slice:
 
@@ -232,6 +274,8 @@ Objective predicates inspect post-tick state only. Types required in the slice:
 - `zone_flow`: material transfer across marked boundary in rolling 10 ticks.
 - `zone_contamination`: maximum/average basis points below threshold.
 - `device_active`: named authored device/entity operating.
+- `power_generated`: cumulative `eU` generated by named sources/devices.
+- `fabrication_remaining`: current plus recoverable `fabU` compared to a threshold.
 - `protected_integrity`: no protected cell exceeded material/heat limits.
 - `tutorial_complete`: all mandatory tutorial steps complete.
 
@@ -240,12 +284,16 @@ are true, resets to zero on any false tick, and completes at its authored tick
 target. Failure predicates are evaluated before success in the same tick.
 After terminal state, no simulation ticks or gameplay commands are admitted.
 
-## 10. Required invariants
+## 11. Required invariants
 
 Tests MUST assert after every simulated tick:
 
 - positions and entity references are valid;
-- volumes, costs, pressure, and contamination remain in range;
+- volumes, fabrication, power, pressure, and contamination remain in range;
+- recovered deposits cannot yield twice; stock plus reservations plus spending
+  and refunds equals authored start plus recovered yield exactly;
+- allocated power never exceeds current supply; every powered consumer received
+  its full demand and turbine output is delayed exactly one tick;
 - material consumed plus stored plus drained plus products matches authored
   sources within the explicit reaction conversion table;
 - no cell exceeds capacity after overflow has had one tick to resolve;

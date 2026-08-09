@@ -11,7 +11,7 @@ license to invent missing level content or mechanics in code.
 
 | Release | Required product result | Engineering entry gate |
 | --- | --- | --- |
-| R0 — First playable slice | L01–L03, orthographic 3D world, four-fluid simulation, ten 3D devices, tutorial, verification suite | Current `docs/` contract approved |
+| R0 — First playable slice | L01–L03, orthographic 3D world, four-fluid simulation, finite planet-sourced fabrication, planetary power, ten 3D devices, tutorial, verification suite | Current `docs/` contract approved |
 | R1 — Volcanic MVP | 6–8 total Act I missions, grading, polished volcanic presentation/audio, complete accessibility/save/restart | R0 quality gates pass; each added mission has an authored spec and replay |
 | R2 — Frozen Archive | Act II content, brine and cryofluid, freeze/thaw/storage rules, cold-rated equipment | R1 stable; exact fluid matrices and device deltas accepted |
 | R3 — Poisoned Inheritance | Act III content, acid and expanded contamination/neutralization/corrosion | R2 stable; corrosion and purification specs accepted |
@@ -31,6 +31,8 @@ The following contracts are permanent unless a versioned architecture decision
 replaces them:
 
 - deterministic heightfield simulation and fixed-tick command replay;
+- finite mission-local construction stock and deterministic planet-sourced
+  power without colony, worker, hauling, or production-chain simulation;
 - genuine orthographic 3D terrain, fluids, devices, picking, placement, and map
   captures from R0 onward, separated from authoritative simulation state;
 - data-authored maps, definitions, events, tutorials, and objectives;
@@ -78,8 +80,9 @@ mission problem and be understandable in its isolated showcase.
 Every post-slice campaign mission requires, before code or map production:
 
 - ID, sequence, learning purpose, prior knowledge, and new concepts;
-- exact size, sources, zones, protected boundaries, authored devices, budget,
-  build kit, terrain actions, events/warnings, and time controls;
+- exact size, sources, zones, protected boundaries, authored devices,
+  fabrication deposits/starting stock, power sources/demand, build kit, terrain
+  actions, events/warnings, and time controls;
 - numeric primary/optional/failure objectives and stability windows;
 - reference solution with expected resources and terminal tick range;
 - soft/hard recovery and checkpoint behavior;

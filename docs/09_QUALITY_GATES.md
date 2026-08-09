@@ -17,6 +17,8 @@ The test/publisher path MUST enforce:
 - every non-test `.rs` file below 800 lines;
 - content load and cross-reference validation;
 - no enabled fluid/device without required verification coverage;
+- fabrication/deposit and power definitions, ledgers, refunds, allocation, and
+  save/hash tests plus `lab_field_economy` coverage;
 - shared-toolkit 3D camera, screen-ray, AABB, and GLB-loader tests;
 - 3D terrain/fluid mesh, model/port, picking, and render-snapshot tests.
 
@@ -28,10 +30,14 @@ single integration-test crate, following `AGENTS.md` inline/child test rules.
 The following maps run headlessly through their full automatic command stream:
 
 - `lab_fluids_all`;
+- `lab_field_economy` fabrication and power automatic streams;
 - all ten `device_<id>` showcase maps;
-- L01 guided reference solution and one alternate route;
-- L02 reference, sensor-free completion, and unmitigated failure;
-- L03 reference, insufficient-water recovery, and foundation failure.
+- L01 guided reference, one alternate route, insufficient-fabrication recovery,
+  and beacon-flood failure;
+- L02 reference, sensor-free completion, brownout recovery, and unmitigated
+  surge failure;
+- L03 reference, power-shedding alternate, insufficient-water recovery,
+  fabrication-exhaustion recovery, and foundation failure.
 
 For every scenario the suite MUST:
 
@@ -41,7 +47,9 @@ For every scenario the suite MUST:
 4. assert no invariant event was emitted;
 5. save/load at its midpoint and prove the loaded continuation has the same
    final hash as uninterrupted play;
-6. report source, drain, reaction, stored, and remaining material ledgers.
+6. report source, drain, reaction, stored, and remaining material ledgers;
+7. report starting/recovered/spent/refunded/available/reserved fabrication and
+   authored/turbine/allocated/curtailed/deficit power ledgers.
 
 Reference hashes are expected data. A changed hash fails until the behavioral
 change and new expected state are reviewed together.
@@ -64,6 +72,24 @@ the abstract ambient exchange and is excluded from mass balance.
 The runtime exposes `SimulationWorld::mass_balance_error()` for scenario and
 showcase assertions; it includes surface, airborne, and pending rock/vitrified
 products and is required to equal zero by the campaign and device replay tests.
+
+Fabrication uses a second exact account:
+
+```text
+starting + recovered + refunds - committed_spend
+= available + reserved
+```
+
+Power is balanced per tick, not conserved between ticks:
+
+```text
+current_authored + prior_tick_turbine = allocated + curtailed
+deficit = max(0, enabled_demand - current_supply)
+```
+
+Both unexplained differences are zero. Deposit replay, queue cancellation,
+failed atomic commit, pre-operation refund, 75% operated refund, brownout,
+consumer toggle, and midpoint save/load MUST preserve these accounts exactly.
 
 ## 5. UI and capture matrix
 
@@ -89,7 +115,7 @@ At every size:
 
 - required buttons are wholly on-screen or reachable in a visible scroll area;
 - tutorial prompt does not cover its focus target;
-- objective, current time mode, budget, and critical alert remain visible;
+- objective, current time mode, fabrication, power deficit, and critical alert remain visible;
 - overlay legend and inspector can close without losing selection;
 - text does not overlap or truncate IDs/values needed for engineering decisions;
 - mouse hit regions match rendered controls after scaling;
@@ -98,7 +124,8 @@ At every size:
 - water/lava/slurry/steam and alert levels have non-color distinctions.
 
 The deterministic UI-unit suite maps logical click coordinates to every title
-entry, the fluid laboratory, all ten device bays, all ten build-palette entries,
+entry, both laboratories, all ten device bays, all ten build-palette entries,
+Recover/Dismantle/device-toggle/Power-overlay,
 Rotate/Commit/Cancel, Pause/1X/2X/4X, and verification Reset/Step/Return. A
 control with no matching action or an overlapping/off-panel coordinate fails
 that suite.
@@ -106,7 +133,8 @@ that suite.
 Mission alert state is authoritative and text-labeled at four levels: clear,
 advisory, warning, and critical. Hazard failure timers remain separate from
 the display level, so a warning can be inspected before a terminal failure.
-The engineering readout labels selected surface depth, heat, contamination, and
+The engineering readout labels selected surface depth, heat, contamination,
+deposit yield/state, fabrication cost/refund, device demand/allocation, and
 device status as authoritative values.
 The L02 and L03 authored source-rate surges are applied at their documented
 ticks and are covered by schedule tests plus deterministic scenario replay.
@@ -119,8 +147,10 @@ Captures live under `docs/verification/` with stable names
 `<map_or_screen>_<width>x<height>.png`. `catalog_thumbnail.png` at repository
 root MUST be a current title-screen capture before release publishing.
 
-Current evidence includes the title screen, the verification-grounds menu, the three campaign briefings, `lab_fluids_all`, all
-ten `device_*` showcases, gameplay at the three required viewport sizes, and a
+Current evidence predates the constraint retrofit and MUST be refreshed. The
+release set includes the title screen, verification grounds, three campaign
+briefings, `lab_fluids_all`, `lab_field_economy`, all ten `device_*` showcases,
+gameplay at the three required viewport sizes, and a
 `failure_recovery` terminal panel capture.
 The `pause_menu` capture proves the frozen-state recovery overlay and its
 resume/save/load/reset actions.
@@ -131,7 +161,8 @@ exact balance error, and the injected/drained/reacted/product ledger.
 
 The active build selection also renders a translucent 3D footprint ghost;
 `Z` rotates it through all four quarter turns before queue/commit.
-The HUD provides the selected device cost and a text validity reason, while a
+The HUD provides the selected device `fabU` cost, available/reserved stock,
+power supply/demand/deficit, and a text validity reason, while a
 blocked preview changes to a red ghost and remains non-committable.
 The palette's visible Rotate, Commit, and Cancel buttons share the scaled mouse
 regions used by the keyboard-equivalent commands.
@@ -142,12 +173,16 @@ mouse interaction path; the gameplay evidence includes both 1280×720 and
 L01 renders each incomplete tutorial step as a field prompt with an instruction
 and required action; the prompt disappears only after the authoritative event
 advances the tutorial state.
+The L01 evidence includes deposit selection/recovery and the beacon warning/
+gate response. L02 evidence includes geothermal supply, delayed turbine output,
+one visible brownout, and recovered operation through the power overlay.
 
-The replay owner covers the ten campaign scenarios listed above, including
-alternate success paths, authored hazard failures, and the L03 insufficient-
-water recovery path. Each report includes midpoint continuation and the four
-material ledger counters; midpoint continuation is performed after a serialized
-serde round trip rather than an in-memory clone.
+The replay owner covers the thirteen campaign scenarios listed above, including
+alternate success paths, authored hazard failures, both fabrication recovery
+paths, L02 brownout recovery, and L03 insufficient water. Each report includes
+midpoint continuation plus material, fabrication, and power ledgers; midpoint
+continuation is performed after a serialized serde round trip rather than an
+in-memory clone.
 
 ## 6. 3D functional gates
 
@@ -162,6 +197,8 @@ serde round trip rather than an in-memory clone.
   z-fight terrain at 0, 1, 250, 1,000, and 8,000 `vU`.
 - Device model AABBs/ports rotate with footprint; pipe topology has no open gap
   where connected; placeholder and authored models share picking/state behavior.
+- Resource deposits show recoverable/depleted 3D states; power sources,
+  powered/unpowered consumers, and turbine output have non-color world cues.
 - Opaque/translucent render order, selection outline, placement ghost, occlusion
   fade, and HUD restoration are visually correct at every yaw.
 - Model, shader, atlas, or GLB failure names the asset and shows a 3D diagnostic
@@ -174,6 +211,10 @@ At each content milestone, perform and record:
 - pan, zoom, all four 3D yaw quarters, survey selection, edge/device picking,
   occlusion fade, focus, and inspect with mouse and keyboard equivalents;
 - queue/rotate/cancel/commit valid placement and each common invalid placement;
+- recover/deplete a deposit, exhaust fabrication, inspect refund, dismantle an
+  unused and operated device, and reset without duplicating stock;
+- bootstrap from authored planetary supply, create/clear a brownout, verify
+  allocation priority, and observe one-tick-delayed turbine generation;
 - pause, 1x, 2x, 4x, rapid toggling, and window focus loss;
 - reset checkpoint, restart mission, save, load, and content mismatch notice;
 - tutorial normal path, delayed hints, skip, replay, and checkpoint recovery;
@@ -235,17 +276,23 @@ Tests or manual checks MUST cover:
 - full destination, depleted source, unavailable power, and disconnected
   device produce legible inactive/rejection states;
 - hard failure and success on one tick resolves to failure;
-- reset/restart cannot duplicate budget, material, unlock, or tutorial progress;
+- reset/restart cannot duplicate fabrication, material, unlock, or tutorial progress;
+- deposit recovery, queue cancel, dismantle, checkpoint reset, and save/load
+  cannot duplicate fabrication or change an operated device's refund class;
+- power deficit cannot partially operate a consumer, skip allocation priority,
+  reuse current-tick turbine output, or continue behind a terminal state;
 - terminal state cannot continue simulating behind debrief;
 - source injection at capacity emits backpressure and does not lose ledger mass.
 
 ## 10. Release checklist
 
 - [ ] Scope completion criteria in `01_PROJECT_SCOPE.md` are all true.
-- [ ] All three campaign and eleven verification maps validate and replay.
+- [ ] All three campaign and twelve verification maps validate and replay.
 - [ ] All maps render/pick through §11's orthographic 3D path; required yaw
       captures, mesh/model validation, and Windows/WebGL 3D gates pass.
 - [ ] Tutorial reference, alternate inputs, skip, save/load, and reset pass.
+- [ ] Fabrication/deposit and planetary-power ledgers, labs, onboarding,
+      brownout, exhaustion, refund, and recovery paths pass.
 - [ ] Static, unit, deterministic, failure, UI, and performance gates pass.
 - [ ] `publish.ps1` succeeds with Windows and WebGL outputs.
 - [ ] Evidence captures and `catalog_thumbnail.png` reflect the current build.

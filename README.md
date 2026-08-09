@@ -16,6 +16,13 @@ campaign levels, interactive tutorial, work packages, and release gates are
 indexed in [`docs/README.md`](docs/README.md). Those documents are the
 engineering contract; the GDD remains the source of product intent.
 
+The technical contract now includes the approved R0 planetary-constraint
+retrofit: finite `fabU` recovered from map deposits, deterministic `eU` supplied
+by geothermal fixtures and actual turbine flow, brownouts, refunds, and stronger
+loss/recovery routes. That retrofit is specified but not yet implemented; the
+current executable still uses its earlier credit allowance and partial power
+state. Milestone F in the implementation plan is the active engineering queue.
+
 ## Phase 1 Foundation
 
 - Deterministic integer heightfield with stable row-major coordinates and state hashes.

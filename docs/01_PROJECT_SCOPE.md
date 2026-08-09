@@ -5,7 +5,9 @@
 Deliver a publishable three-level playable slice proving this loop:
 
 > inspect terrain, move around the map, place an engineering intervention,
-> run time, understand its visible effect, adapt, and hold a stable result.
+> recover finite planetary material, establish enough local power, place an
+> engineering intervention, run time, understand its visible effect, adapt,
+> and hold a stable result before a protected boundary fails.
 
 The slice is an engineering proof, not the full MVP from GDD §25. It MUST be
 complete enough that a new player can finish all three levels without external
@@ -30,6 +32,10 @@ bounded implementation module.
 - Terrain-grade, flow/depth, heat, contamination, and device-status overlays.
 - Build palette, ghost placement, validity reasons, cost preview, rotate/cancel,
   and queued placement while paused.
+- Selectable planetary deposits, a visible `RECOVER` action, fabrication-stock
+  reservation/refund previews, and explicit exhausted-stock recovery guidance.
+- A power overlay and ledger showing planetary generation, device demand,
+  allocation priority, curtailed supply, deficit, and unpowered device states.
 - Objective strip with live progress and a visible stability timer.
 - Four alert levels with color-independent icon and text treatment.
 - Briefing, tutorial prompts, pause menu, success debrief, and failure/recovery.
@@ -40,6 +46,10 @@ bounded implementation module.
 - Ten slice placeables: channel, pipe, pump, floodgate, reservoir, spillway,
   flow turbine, sensor, filter, and rune relay.
 - Three terrain actions: excavate, raise, and seal.
+- One finite construction material, fabrication stock (`fabU`), recovered from
+  authored planetary deposits and spent by terrain actions and placeables.
+- One deterministic mission-wide power grid measured in energy units per tick
+  (`eU/tick`), supplied by authored geothermal fixtures and actual turbine flow.
 - Required interactions: downhill flow; retention; pressure transport; water +
   lava -> rock + steam; steam cooling -> water; slurry transport and filtering;
   lava/slurry -> vitrified inert ground.
@@ -50,6 +60,8 @@ bounded implementation module.
 - Event-driven interactive tutorial defined in `07_INTERACTIVE_TUTORIAL.md`.
 - `lab_fluids_all`, containing one central interaction field and a pool/source
   bay for every implemented liquid or mobile material.
+- `lab_field_economy`, proving deposit recovery, reservation, construction
+  spending, dismantle refunds, power allocation, brownout, and turbine supply.
 - One isolated showcase map for every placeable device. Every later device MUST
   add its showcase map in the same change.
 
@@ -78,6 +90,10 @@ revised first:
   multiplayer, online services, telemetry, achievements, or leaderboards.
 - Audio production, cinematics, final art, localization content, or voice-over.
 - Efficiency grading beyond pass/fail plus optional-objective flags.
+- Workers, population simulation, hauling, inventories per building, factories,
+  recipes, production chains, conveyor belts, power cables, batteries, fuel
+  logistics, or a persistent colony economy. Resource and power constraints
+  belong to each authored restoration contract and reset with that mission.
 
 ## 4. Product constraints
 
@@ -98,8 +114,9 @@ revised first:
 ## 5. Compatibility contract with the template
 
 The current 2D survey/action economy is scaffolding, not retained game design.
-Engineers MAY replace `PlayerState.points`, regenerating energy, fog reveal, and
-the generic `ActionDef` with the systems in these documents. They MUST preserve
+Engineers MUST replace `PlayerState.points`, regenerating template energy, fog
+reveal, and the generic `ActionDef` with the finite fabrication stock and
+planetary field grid in these documents. They MUST preserve
 useful shared-toolkit seams: virtual UI, notifications, asset loading, capture
 mode, persistence, source-size validation, and existing `render3d` foundations.
 The existing 2D camera/grid renderer is replaced, not wrapped as the world view.
@@ -121,8 +138,8 @@ The slice is complete only when all statements are true:
    exactly one primary showcase map without unrelated device dependencies.
 4. Restarting any map produces the same initial state; replaying the same
    command stream produces the same end-state hash.
-5. Invalid placement, budget exhaustion, overflow, heat, and contamination are
-   explained before or when they block the player.
+5. Invalid placement, fabrication exhaustion, power deficit, overflow, heat,
+   and contamination are explained before or when they block the player.
 6. Save/load during pause and active simulation preserves state to documented
    quantization tolerances and resumes deterministically.
 7. All gates in `09_QUALITY_GATES.md` pass through `publish.ps1`.
@@ -130,6 +147,9 @@ The slice is complete only when all statements are true:
    `02_TECHNICAL_ARCHITECTURE.md`.
 9. Every playable and verification map is rendered, picked, built, inspected,
    and captured through the orthographic 3D path defined by §11.
+10. Every campaign reference solution recovers its construction stock from the
+    map, stays within exact fabrication and power ledgers, and proves its hard
+    environmental failure plus documented checkpoint recovery.
 
 ## 7. Scope-change rule
 

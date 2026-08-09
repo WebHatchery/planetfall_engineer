@@ -84,7 +84,7 @@ commit is clean.
 
 Implement terrain actions, placement validation, mixture storage, proposal/
 limit/apply phases, source/drain fixtures, overlays' derived facts, and mass
-ledger per §§03.2–03.4. Connect terrain mutation to dirty 3D chunk rebuilds and
+ledger per §§03.2–03.5. Connect terrain mutation to dirty 3D chunk rebuilds and
 world-space grade/flow overlays without putting simulation state in meshes.
 
 Acceptance: downhill, equal-head, competing-neighbor, ridge/notch, capacity,
@@ -119,13 +119,13 @@ run the publisher and record its test/build/capture output.
 ### WP-C1 Build plan UX and device runtime
 
 Implement build registry/palette, ghost/rotation, validity reasons, queued plan,
-budget reservation, commit, selection/inspect, common device entity state,
+fabrication reservation, commit, selection/inspect, common device entity state,
 network connections, and powered-device phase.
 
 All hover, selection, edge choice, footprint, rotation, ports, and ghosts use
 the production 3D ray-hit path and depth-tested world presentation.
 
-Acceptance: all command rejection codes, footprint rotations, overlap, budget,
+Acceptance: all command rejection codes, footprint rotations, overlap, fabrication,
 queue removal, atomic commit, and renderer-independent state tests pass.
 
 ### WP-C2 Simple flow devices
@@ -164,7 +164,7 @@ events fire once; checkpoints restore hash; terminal missions admit no commands.
 ### WP-D2 Engineering UI
 
 Finish the §11 slice-quality 3D art/material pass, camera/cursor, occlusion fade,
-build palette, inspector, objective/time/budget strip, alerts, 3D overlays plus
+build palette, inspector, objective/time/fabrication/power strip, alerts, 3D overlays plus
 legends, pause menu, debrief, UI scale, reduced motion, and clickable paths.
 
 Acceptance: layouts, 3D captures, picking, and controls pass §09 resolutions and
@@ -174,7 +174,7 @@ animation, and mesh rebuilds never change simulation hash.
 ### WP-D3 Tutorial engine
 
 Implement data-driven tutorial predicates, command gating, focus, hints, skip,
-checkpoints, binding-aware copy, and L01 sequence T01–T12.
+checkpoints, binding-aware copy, L01 sequence T01–T14, and L02 power onboarding.
 
 Acceptance: all §07 automated tutorial tests pass before authoring final L01.
 
@@ -196,7 +196,7 @@ Acceptance: all §06.2 and §07 criteria pass from clean save and tutorial repla
 Build L02, surge warnings/effect, optional sensor objective, reference solution,
 recovery checkpoint, and captures.
 
-Acceptance: all §06.3 criteria; solution succeeds with stated spare budget;
+Acceptance: all §06.3 criteria; solution succeeds with stated spare fabrication;
 sensor-free solution also completes.
 
 ### WP-E3 Author and prove L03
@@ -204,7 +204,7 @@ sensor-free solution also completes.
 Build L03, reaction explanation, lava surge, turbine/relay objectives, reference
 solution, water exhaustion recovery, restoration state, and captures.
 
-Acceptance: all §06.4 criteria; solution respects budget/water reserves and
+Acceptance: all §06.4 criteria; solution respects fabrication/water reserves and
 exact interaction accounting.
 
 ### Milestone E commits
@@ -213,30 +213,72 @@ Each campaign level is a major content milestone and MUST receive its own commit
 after its reference replay and focused tests pass. Run the full publisher after
 L01 and L02 commits if shared code changed; always run it after L03.
 
-## 7. Milestone F — Slice hardening
+## 7. Milestone F — Planetary constraint retrofit
 
-### WP-F1 Determinism and persistence audit
+### WP-F1 Finite fabrication and deposits
+
+Replace mission credits with §03 `fabU`, deposit state, `RecoverDeposit`, queue
+reservation, exact spending/refunds, save/hash fields, HUD actions, world
+markers, overlay/readout, collected content validation, and rejection copy.
+Author `lab_field_economy` before altering campaign reference streams.
+
+Acceptance: the field-economy fabrication lane passes; no deposit yields twice;
+queue cancel/failed atomic commit preserve stock; pre-operation and operated
+refunds are exact; save/load and replay ledgers match; no campaign starts with
+untracked construction stock.
+
+### WP-F2 Planetary field power
+
+Implement authored sources, prior-tick turbine generation, current-tick demand,
+priority allocation, consumer toggles, brownout transitions, five-field ledger,
+power overlay/readout, objectives, save/hash state, and powered showcase cases.
+
+Acceptance: the field-economy power lane and every powered showcase pass;
+allocation follows power class/stable entity ID across render-frame partition;
+no underpowered consumer partially acts; one-tick turbine delay is visible and
+replay-exact.
+
+### WP-F3 Campaign retune and onboarding
+
+Advance schema/content/save versions; author L01–L03 deposits and power sources;
+replace legacy reference budgets with exact fabrication/power ledgers; implement L01
+T01–T14, L02 first-use power onboarding, documented hard/soft failures, recovery
+checkpoints, UI/captures, and alternate reference streams.
+
+Acceptance: all revised §§06–07 criteria pass. Untouched/underpowered/depleted
+routes demonstrate their documented failure or recovery state, while reference
+and alternate solutions finish without hidden stock or free power.
+
+### Milestone F commits
+
+Commit fabrication, power, and campaign retuning as independently useful major
+changes. Run the full publisher after each; do not combine the economy runtime
+with level retuning before its laboratory and showcase gates are green.
+
+## 8. Milestone G — Slice hardening
+
+### WP-G1 Determinism and persistence audit
 
 Replay every map twice, compare hashes, save/load at representative ticks and
 tutorial steps, test content-version mismatch, and audit all iteration order.
 
-### WP-F2 Performance and extreme-state audit
+### WP-G2 Performance and extreme-state audit
 
 Run §09 worst-case maps, capacity/pressure/heat/contamination bounds, resize and
 WebGL sessions, all-yaw picking, 3D draw/mesh budgets, rapid camera/pause/speed/
 placement input, and one-hour simulated soak.
 
-### WP-F3 Release evidence and handoff
+### WP-G3 Release evidence and handoff
 
 Refresh all captures, verify catalog thumbnail is a title-screen capture, update
 README status, run `publish.ps1`, and record shipped/deferred scope against §01.
 
-### Milestone F commit
+### Milestone G commit
 
 Commit the completion audit only when all §09 gates pass and no required work
 package remains. The body must state exact publisher results and honest deferrals.
 
-## 8. Prohibited shortcuts
+## 9. Prohibited shortcuts
 
 - Do not special-case campaign coordinates in Rust.
 - Do not implement a 2D map as a temporary gameplay path; start with the shared
@@ -246,6 +288,8 @@ package remains. The body must state exact publisher results and honest deferral
 - Do not make reference tests assert only “mission completed”; assert resources,
   terminal tick range, objective state, mass ledger, and final hash.
 - Do not create a generic script engine for ten fixed slice device behaviors.
+- Do not add workers, hauling, factories, recipes, cables, batteries, or passive
+  regeneration to make fabrication or power feel sourced.
 - Do not satisfy a showcase with screenshots alone; it is an executable fixture.
 - Do not mark a work package complete on `cargo check` when its milestone requires
   publisher validation.

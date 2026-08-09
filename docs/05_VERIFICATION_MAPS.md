@@ -25,7 +25,7 @@ Verification assertions are data records interpreted by tested assertion kinds,
 not arbitrary scripts. Required kinds are `zone_volume_range`,
 `zone_material_present`, `zone_material_absent`, `transfer_total_range`,
 `device_state`, `terrain_height_range`, `contamination_range`, `mass_balance`,
-and `state_hash`.
+`deposit_state`, `fabrication_balance`, `power_balance`, and `state_hash`.
 
 ## 2. All-fluid laboratory: `lab_fluids_all`
 
@@ -97,12 +97,43 @@ the shared top/cliff mesh, fluid sides, occlusion fade, and picking are exercise
   water/slurry remains material-conserving and has weighted contamination.
 - Disabled bays contain no runtime fluid and clearly report reserved status.
 
-## 3. Device showcase contract
+## 3. Field-economy laboratory: `lab_field_economy`
+
+The 32x20 fixture proves the R0 constraint loop without campaign narrative. Its
+west lane contains a 20 `fabU` wreckage deposit, terrain edit pad, and channel
+pad. Automation recovers the deposit, reserves/cancels a mixed plan, commits a
+raise plus channel, verifies exact spending, removes the unoperated channel for
+a full refund, operates and removes its replacement for a 75% refund, then
+proves the depleted deposit cannot pay twice.
+
+The east lane contains a 3 `eU/tick` geothermal fixture, a controlled water
+flow through a turbine, and labeled safety/transport/process/interface test
+loads. Automation proves current authored supply, one-tick-delayed turbine
+output, whole-device priority allocation, transition-only brownout events,
+curtailment, deficit, toggle recovery, and save/load of the exact ledger.
+
+The automatic scenario MUST finish with these independently asserted accounts:
+
+```text
+starting_fab + recovered + refunds - committed_spend
+= available_fab + reserved_fab
+
+authored_generation + prior_tick_turbine_generation
+= allocated + curtailed
+deficit = max(0, enabled_demand - current_supply)
+```
+
+Free mode exposes visible `RECOVER`, queue/commit/cancel, dismantle, device
+toggle, reset, and single-step paths. The 1280x720 capture shows the deposit,
+depleted marker, fabrication ledger, geothermal source, turbine flow, power
+priority, and one unpowered test load without depending on color.
+
+## 4. Device showcase contract
 
 Each enabled device owns `device_<device_id>.json`. The primary device may
 appear more than once when its own behavior requires comparison. No other
 placeable device definition may appear in that map. Authored fluid sources,
-drains, terrain walls, power supplies, objective zones, and labeled measurement
+drains, terrain walls, planetary power fixtures, objective zones, and labeled measurement
 fixtures are allowed and MUST be styled as test fixtures, not machines.
 
 Every device scenario places/configures the primary machine once through 3D
@@ -117,12 +148,18 @@ Every showcase follows a common 32x18 shell:
 - center third: empty valid placement pad plus one pre-placed primary device;
 - right third: output/measurement zone;
 - bottom strip: expected behavior, current measurements, assertion results;
-- build kit: only the primary device, with unlimited credits;
+- build kit: only the primary device, with unlimited fabrication;
 - automatic scenario: demonstrates inactive/default, active, and one edge case;
 - free mode: player may place/remove/configure only that device through the
   production 3D placement ghost and hit-testing path.
 
-## 4. Required slice device maps
+Every powered-device showcase uses an authored planetary power fixture rather
+than implicit free power. Its automatic scenario includes one tick below full
+demand and asserts `UNPOWERED`, then restores sufficient supply. Passive-device
+showcases still assert zero demand. Every scenario reports fabrication spending
+and the five-field power ledger even when those values are zero.
+
+## 5. Required slice device maps
 
 ### VM-CHANNEL — `device_channel`
 
@@ -143,8 +180,9 @@ fixture pressure provides flow.
 
 A low pool and high output basin touch opposite sides of a placement pad.
 Assert off/100% settings, 250 `vU` maximum transfer, uphill transport, +100
-`pU`, conservation, and backpressure at a full destination. Fixture inlet and
-outlet adapters are map edges, not pipe devices.
+`pU`, 3 `eU/tick` demand, no transfer at 2 `eU`, conservation, and backpressure
+at a full destination. Fixture inlet and outlet adapters are map edges, not
+pipe devices.
 
 ### VM-FLOODGATE — `device_floodgate`
 
@@ -155,7 +193,8 @@ open fractions and assert zero transfer when closed plus monotonic transfer at
 ### VM-RESERVOIR — `device_reservoir`
 
 A pulsed fixture source feeds a 2x2 placement pad and measured drain. Assert
-8,000 `vU` capacity, configured accept/hold/release states, no overflow below
+8,000 `vU` capacity, configured accept/hold/release states, 1 `eU/tick` demand
+while accepting/releasing, no powered effect at zero supply, no overflow below
 capacity, and backpressure when full. The scenario ends with stored + drained
 volume equal to injected volume.
 
@@ -170,29 +209,31 @@ flow. Compare a protected downstream zone that remains dry before threshold.
 A fixture channel crosses the turbine pad. Run rates of 99, 100, 399, 400, and
 600 `vU`/tick; assert generated power 0, 1, 3, 4, and 4 per tick respectively,
 and unchanged material volume. Edge case: zero flow generates zero power.
+Generation from tick N is unavailable to consumers until tick N+1.
 
 ### VM-SENSOR — `device_sensor`
 
 A rising fixture pool is adjacent to a sensor; its link target is a labeled
 binary test lamp/flow shutter fixture, not a placeable device. Assert sampling
 of the prior completed state, threshold comparison, one-tick delayed output,
-clear link visualization, and deterministic response when crossing both ways.
+clear link visualization, 1 `eU/tick` demand, safety-priority allocation, and
+deterministic response when crossing both ways.
 
 ### VM-FILTER — `device_filter`
 
 Ten-thousand-bp slurry enters and exits through fixture adapters. Assert maximum
-160 `vU`/tick, 2,500 bp removal per pass, no volume loss, no effect when off,
-and saturation at zero after repeated passes. A water pulse demonstrates that
-clean water remains clean.
+160 `vU`/tick, 2,500 bp removal per pass, 3 `eU/tick` demand, no volume loss,
+no effect when off or underpowered, and saturation at zero after repeated
+passes. A water pulse demonstrates that clean water remains clean.
 
 ### VM-RUNE-RELAY — `device_rune_relay`
 
 Fixture power and adjacent water flow can be toggled independently. Assert the
-relay is active only with at least 2 power/tick and 100 `vU`/tick adjacent flow,
+relay is active only with at least 2 `eU/tick` and 100 `vU`/tick adjacent flow,
 its 2x2 footprint/rotation placement, activation event emission, and immediate
 deactivation after either condition is absent on a completed tick.
 
-## 5. Growth rule
+## 6. Growth rule
 
 A new device change is incomplete unless it adds its definition, behavior
 tests, `device_<id>` map, automatic command stream, assertions, evidence capture
@@ -204,13 +245,9 @@ laboratory replay hash.
 The current slice exposes `lab_fluids_all` through F1 and the capture scene
 `lab_fluids_all`: its automatic 300-tick result is loaded into the production
 orthographic 3D world, remains selectable and inspectable, and F1 returns to
-the preserved campaign session. F2 opens the validated `device_*` showcase
-worlds, V cycles them during free play, and each device scene can be seeded by
-the capture harness. The reports require deterministic hashes and zero
-material-balance error.
-
-The current slice exposes `lab_fluids_all` through F1 and the capture scene
-`lab_fluids_all`: its automatic 300-tick result is loaded into the production
-orthographic 3D world, remains selectable and inspectable, and F1 returns to
 the preserved campaign session. The lab report requires reserved-bay emptiness,
 reaction events, deterministic hash output, and zero material-balance error.
+The constraint retrofit adds `lab_field_economy` to the same verification menu
+and capture harness before any campaign consumes `fabU` or `eU`. F2 continues
+to open validated device showcases, V cycles them in free play, and every
+report includes exact material, fabrication, and power ledgers.
