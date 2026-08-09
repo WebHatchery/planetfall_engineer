@@ -144,6 +144,22 @@ impl Game {
             );
         }
         for (index, definition) in self.session.simulation.definitions.iter().enumerate() {
+            if definition.surface_drain_rate_vu > 0 {
+                let x = (index % self.session.simulation.width as usize) as f32 + 0.5;
+                let y = (index / self.session.simulation.width as usize) as f32 + 0.5;
+                let height = self.session.simulation.cells[index].height_hu as f32 * 0.0005;
+                draw_cube(
+                    vec3(x, height + 0.015, y),
+                    vec3(0.72, 0.03, 0.72),
+                    None,
+                    Color::new(0.025, 0.035, 0.045, 1.0),
+                );
+                draw_cube_wires(
+                    vec3(x, height + 0.035, y),
+                    vec3(0.76, 0.05, 0.76),
+                    Color::new(0.32, 0.62, 0.68, 0.9),
+                );
+            }
             if !definition.protected {
                 continue;
             }
@@ -155,7 +171,7 @@ impl Game {
                 y: y.floor() as u16,
             };
             let is_beacon = self.session.mission.id == crate::mission::MissionId::L01FirstFlow
-                && pos == CellPos { x: 10, y: 6 };
+                && pos == CellPos { x: 24, y: 8 };
             if is_beacon {
                 draw_cube(
                     vec3(x, height + 0.35, y),

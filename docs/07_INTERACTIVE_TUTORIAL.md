@@ -81,12 +81,12 @@ explains the currently available action.
 
 ### T03 — `tutorial_l01_move_cursor`
 
-- Prompt: select the marked ridge cell (14,8).
+- Prompt: select the marked first runoff cut at (8,10).
 - Complete from accepted `MoveSurveyCursor` or `SelectCell` with target in the
-  ridge focus zone. Pointer selection MUST use §11's 3D screen ray; keyboard
+  runoff focus zone. Pointer selection MUST use §11's 3D screen ray; keyboard
   selection moves the same world-space reticle. Both are equivalent.
 - Hint 1 animates the survey reticle without moving it. Hint 2 expands the valid
-  focus zone to any route cell (14..18,8).
+  focus zone to any of the three marked cuts.
 
 ### T04 — `tutorial_l01_inspect_grade`
 
@@ -98,67 +98,46 @@ explains the currently available action.
 
 ### T05 — `tutorial_l01_pause_plan`
 
-- Prompt: pause simulation and open Terrain > Excavate.
+- Prompt: pause simulation before shaping the first barrier.
 - Source remains disabled, so the player cannot miss a live consequence.
-- Complete from `SetTimeControl(Paused)` followed by selecting Excavate.
-- If already paused, only selection is required.
+- Complete from `SetTimeControl(Paused)`.
 
-### T06 — `tutorial_l01_excavate`
+### T06 — `tutorial_l01_raise_first`
 
-- Prompt: lower one highlighted route cell.
-- Allowed mutation: queue excavate on any valid route cell.
-- Placement preview MUST show old/new height, 4-credit cost, flow-arrow change,
-  protected-cell rejection, confirm, and cancel controls on the picked 3D cell.
-- Complete on an accepted queued edit, not hover or click attempt.
+- Prompt: raise runoff cut (8,10) once to form the first barrier.
+- Complete on an accepted terrain raise.
 
-### T07 — `tutorial_l01_place_channel`
+### T07 — `tutorial_l01_select_second`
 
-- Enter: unlock channel palette entry; remain paused.
-- Prompt: place a channel on the edited cell.
-- Complete on accepted `QueueDevice(channel, same cell)`.
-- The translucent channel ghost conforms to the post-excavation top height and
-  remains valid after a camera quarter-rotation before confirmation.
-- Hint 2 may move focus to the queued excavation but MUST NOT place for player.
+- Prompt: select runoff cut (14,10).
+- Complete from the visible map tap target or equivalent survey selection.
 
-### T08 — `tutorial_l01_commit_plan`
+### T08 — `tutorial_l01_raise_second`
 
-- Prompt shows queued cost total and asks player to Commit Plan.
-- Complete on accepted `CommitPlan` where both the excavation and channel exist.
-- Rejection keeps the step active and explains the stable rejection code.
-- Checkpoint after completion: `checkpoint_l01_plan_committed`.
+- Prompt: raise the selected cut once to form the second barrier.
+- Complete on an accepted terrain raise.
 
-### T09 — `tutorial_l01_run_and_observe`
+### T09 — `tutorial_l01_select_third`
 
-- Enter: enable meltwater source at 180 `vU`/tick; prompt player to choose 1x.
-- Complete only after all predicates: time is running, water enters the placed
-  channel cell, and water advances at least one cell beyond it.
-- On first `fluid_entered_cell` for the channel, show a non-blocking callout
-  connected to the flow arrow and live depth value.
-- If water fails to reach the channel after 200 running ticks, pause and offer
-  Reset Checkpoint plus a route hint; never wait indefinitely.
+- Prompt: select the final runoff cut at (20,10), near the dam.
+- Complete from the visible map tap target or equivalent survey selection.
 
-### T10 — `tutorial_l01_control_gate`
+### T10 — `tutorial_l01_raise_third`
 
-- Enter: pause, focus the authored basin gate, unlock its control.
-- Prompt: set gate to 50% and resume.
-- Complete when an accepted setting changes the gate to 50% and water crosses
-  its edge on a later completed tick.
-- Inspector MUST show upstream depth, open fraction, and last-tick transfer.
+- Prompt: raise the selected cut once to complete the barrier route.
+- Complete on an accepted terrain raise.
 
-### T11 — `tutorial_l01_see_impact`
+### T11 — `tutorial_l01_run_and_observe`
 
-- Prompt: observe basin volume until it reaches 6,000 `vU`, then close the gate.
-- Complete when basin reaches threshold and the player sets gate to 0%.
-- Objective strip and basin fill visuals update every tick. At threshold, one
-  notification says why stability has begun; it does not auto-close the gate.
-- If basin threatens overflow, show warning and allow pause/reset.
+- Enter: enable the 20 `vU`/tick meltwater source and prompt the player to tap 1x.
+- Complete when time is running; the visible route and dam objective update live.
 
 ### T12 — `tutorial_l01_stabilize`
 
-- Prompt: keep the basin safe through the 100-tick verification window.
+- Prompt: keep time running while the dam fills and holds for 100 ticks.
 - All normal L01 commands unlocked. Complete on mission success.
-- Debrief states the exact causal chain: channel changed route, gate controlled
-  rate, stable volume restored the basin.
+- Debrief states the causal chain: three barriers closed the runoff cuts and
+  redirected the meltwater into the dam.
 
 ## 5. Skip, replay, and reset
 

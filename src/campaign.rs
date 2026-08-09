@@ -22,7 +22,7 @@ pub fn load_campaign(id: MissionId) -> CampaignMap {
         MissionId::L03Firebreak => 160,
     };
     let reference_tick_range = match id {
-        MissionId::L01FirstFlow => (480, 750),
+        MissionId::L01FirstFlow => (900, 1_400),
         MissionId::L02HoldingLine => (1_400, 1_800),
         MissionId::L03Firebreak => (1_500, 2_100),
     };
@@ -41,86 +41,44 @@ pub fn load_campaign(id: MissionId) -> CampaignMap {
 
 fn author_l01(world: &mut SimulationWorld) {
     set_ambient(world, 3_030);
-    // Ashfall Basin is intentionally sculpted as a small, legible opening
-    // puzzle: high meltwater terrace -> winding cut -> basin, with a ridge
-    // that asks the player to excavate instead of simply running time.
+    // A west-to-east meltwater course crosses three southward runoff cuts.
+    // Each cut is lower than the onward course and ends in a fissure, so an
+    // untouched simulation loses every drop. Raising one cell at each cut
+    // forms three small barriers and sends the stream onward to the dam.
     for y in 0..world.height {
         for x in 0..world.width {
-            let height = if y < 3 {
-                1_750
-            } else if x < 10 {
-                1_500
-            } else if x < 20 {
-                1_100
-            } else {
-                850
-            };
-            set_height(world, CellPos { x, y }, height);
+            set_height(world, CellPos { x, y }, 2_400);
         }
     }
-    for y in 2..=6 {
-        for x in 2..=8 {
-            set_height(world, CellPos { x, y }, 2_000);
+    for x in 2..=25 {
+        set_height(world, CellPos { x, y: 9 }, 1_900 - (x as i16 * 25));
+    }
+    for (x, drain_y) in [(8, 14), (14, 15), (20, 14)] {
+        let course_height = 1_900 - (x as i16 * 25);
+        set_height(world, CellPos { x: x + 1, y: 9 }, course_height + 100);
+        for y in 10..=drain_y {
+            set_height(
+                world,
+                CellPos { x, y },
+                course_height - 100 - (y as i16 - 10) * 100,
+            );
         }
+        let drain = CellPos { x, y: drain_y };
+        set_surface_drain(world, drain, 800);
+        protect(world, drain);
     }
-    for y in 4..=11 {
-        for x in 12..=18 {
-            set_height(world, CellPos { x, y }, 1_850);
-        }
-    }
-    for (pos, height) in [
-        (CellPos { x: 4, y: 4 }, 1_750),
-        (CellPos { x: 5, y: 4 }, 1_600),
-        (CellPos { x: 6, y: 4 }, 1_500),
-        (CellPos { x: 7, y: 5 }, 1_400),
-        (CellPos { x: 8, y: 5 }, 1_300),
-        (CellPos { x: 9, y: 6 }, 1_200),
-        (CellPos { x: 10, y: 6 }, 1_100),
-        (CellPos { x: 11, y: 7 }, 1_050),
-        (CellPos { x: 12, y: 8 }, 1_000),
-        (CellPos { x: 13, y: 8 }, 900),
-        (CellPos { x: 14, y: 8 }, 800),
-        (CellPos { x: 15, y: 8 }, 700),
-        (CellPos { x: 16, y: 8 }, 600),
-        (CellPos { x: 17, y: 8 }, 500),
-        (CellPos { x: 18, y: 8 }, 400),
-        (CellPos { x: 19, y: 8 }, 300),
-        (CellPos { x: 20, y: 8 }, 250),
-        (CellPos { x: 21, y: 8 }, 250),
-    ] {
-        set_height(world, pos, height);
-    }
-    for y in 5..=12 {
-        for x in 20..=27 {
-            set_height(world, CellPos { x, y }, 900);
-        }
-    }
-    for y in 7..=10 {
-        for x in 22..=25 {
-            set_height(world, CellPos { x, y }, 0);
-        }
-    }
-    for y in 14..=17 {
-        for x in 26..=29 {
-            set_height(world, CellPos { x, y }, 0);
-        }
-    }
-    set_height(world, CellPos { x: 21, y: 8 }, 250);
-    // The single meltwater source sits immediately upstream of the authored
-    // inlet gate, so the tutorial's gate action is the only way water reaches
-    // the sealed restoration basin.
-    world.add_source(CellPos { x: 21, y: 8 }, FluidId::Water, 180);
-    set_contained(world, CellPos { x: 21, y: 8 });
-    protect(world, CellPos { x: 10, y: 6 });
-    for y in 7..=10 {
-        for x in 22..=25 {
+    for y in 7..=11 {
+        for x in 26..=30 {
+            set_height(world, CellPos { x, y }, 600);
             set_sealed(world, CellPos { x, y });
             set_contained(world, CellPos { x, y });
         }
     }
-    // A real, initially closed inlet gate establishes the tutorial's first
-    // machine relationship instead of asking the player to imagine one.
-    install_device(world, DeviceId::Floodgate, CellPos { x: 21, y: 8 }, 0, 0);
+    world.add_source(CellPos { x: 2, y: 9 }, FluidId::Water, 20);
+    protect(world, CellPos { x: 24, y: 8 });
+    // The dam inlet is already open; solving the mission is about shaping the
+    // watershed, not operating a switch after pressing play.
+    install_device(world, DeviceId::Floodgate, CellPos { x: 25, y: 9 }, 0, 10_000);
 }
 
 fn author_l02(world: &mut SimulationWorld) {
@@ -332,6 +290,12 @@ fn protect(world: &mut SimulationWorld, pos: CellPos) {
         .expect("authored protected anchor is in bounds");
     world.definitions[index].protected = true;
 }
+fn set_surface_drain(world: &mut SimulationWorld, pos: CellPos, rate_vu: u32) {
+    let index = world
+        .index(pos)
+        .expect("authored drain anchor is in bounds");
+    world.definitions[index].surface_drain_rate_vu = rate_vu;
+}
 fn install_device(
     world: &mut SimulationWorld,
     device: DeviceId,
@@ -385,44 +349,55 @@ mod tests {
     #[test]
     fn l01_has_normative_protected_beacon_and_basin() {
         let map = load_campaign(MissionId::L01FirstFlow);
-        assert!(map.world.definitions[map.world.index(CellPos { x: 10, y: 6 }).unwrap()].protected);
-        assert!(map.world.cells[map.world.index(CellPos { x: 22, y: 7 }).unwrap()].sealed);
-        assert!(map.world.cells[map.world.index(CellPos { x: 22, y: 7 }).unwrap()].contained);
-        assert_eq!(map.reference_tick_range, (480, 750));
+        assert!(map.world.definitions[map.world.index(CellPos { x: 24, y: 8 }).unwrap()].protected);
+        assert!(map.world.cells[map.world.index(CellPos { x: 26, y: 7 }).unwrap()].sealed);
+        assert!(map.world.cells[map.world.index(CellPos { x: 26, y: 7 }).unwrap()].contained);
+        assert_eq!(map.reference_tick_range, (900, 1_400));
         assert_eq!(map.world.sources.len(), 1);
-        assert_eq!(map.world.sources[0].position, CellPos { x: 21, y: 8 });
-        assert_eq!(map.world.sources[0].rate_vu, 180);
-        assert!(map.world.cells[map.world.index(CellPos { x: 21, y: 8 }).unwrap()].contained);
+        assert_eq!(map.world.sources[0].position, CellPos { x: 2, y: 9 });
+        assert_eq!(map.world.sources[0].rate_vu, 20);
+        assert_eq!(map.world.definitions[map.world.index(CellPos { x: 8, y: 14 }).unwrap()].surface_drain_rate_vu, 800);
     }
 
     #[test]
-    fn l01_authors_a_visible_terrace_ridge_cut_and_basin() {
+    fn l01_authors_three_runoff_cuts_and_a_far_side_dam() {
         let map = load_campaign(MissionId::L01FirstFlow);
         let height = |pos| map.world.cells[map.world.index(pos).unwrap()].height_hu;
-        assert!(height(CellPos { x: 4, y: 4 }) > height(CellPos { x: 14, y: 8 }));
-        assert!(height(CellPos { x: 12, y: 7 }) > height(CellPos { x: 14, y: 8 }));
-        assert!(height(CellPos { x: 14, y: 8 }) > height(CellPos { x: 22, y: 8 }));
-        assert_eq!(height(CellPos { x: 22, y: 8 }), 0);
-        assert_eq!(height(CellPos { x: 27, y: 16 }), 0);
+        assert!(height(CellPos { x: 2, y: 9 }) > height(CellPos { x: 25, y: 9 }));
+        for x in [8, 14, 20] {
+            assert!(height(CellPos { x, y: 10 }) < height(CellPos { x, y: 9 }));
+        }
+        assert_eq!(height(CellPos { x: 28, y: 9 }), 600);
     }
 
     #[test]
-    fn l01_inlet_gate_feeds_the_sealed_basin() {
+    fn l01_barriers_are_required_to_feed_the_far_side_dam() {
         let mut map = load_campaign(MissionId::L01FirstFlow);
         map.world.set_sources_enabled(true);
-        map.world
-            .devices
-            .set_selected_gate(CellPos { x: 21, y: 8 }, 10_000);
-        for _ in 0..200 {
+        for _ in 0..1_200 {
             map.world.tick();
         }
-        let basin_water: u32 = (22..=25)
-            .flat_map(|x| (7..=10).map(move |y| CellPos { x, y }))
+        let untouched_water: u32 = (26..=30)
+            .flat_map(|x| (7..=11).map(move |y| CellPos { x, y }))
             .map(|pos| map.world.cells[map.world.index(pos).unwrap()].surface_volume())
             .sum();
+        assert_eq!(untouched_water, 0, "untouched runoff must never reach the dam");
+
+        let mut solved = load_campaign(MissionId::L01FirstFlow);
+        for pos in [CellPos { x: 8, y: 10 }, CellPos { x: 14, y: 10 }, CellPos { x: 20, y: 10 }] {
+            solved.world.terrain_edit(pos, crate::simulation::TerrainAction::Raise).unwrap();
+        }
+        solved.world.set_sources_enabled(true);
+        for _ in 0..1_200 {
+            solved.world.tick();
+        }
+        let dam_water: u32 = (26..=30)
+            .flat_map(|x| (7..=11).map(move |y| CellPos { x, y }))
+            .map(|pos| solved.world.cells[solved.world.index(pos).unwrap()].surface_volume())
+            .sum();
         assert!(
-            basin_water >= 6_000,
-            "open inlet gate must fill the basin: {basin_water} vU"
+            dam_water >= 6_000,
+            "three barriers must fill the far-side dam: {dam_water} vU"
         );
     }
 

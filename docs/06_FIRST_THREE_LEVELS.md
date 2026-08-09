@@ -26,54 +26,47 @@ simulation remain paused until the player clicks that action or presses Enter.
 
 ### Purpose
 
-Prove the core interaction in one screen: move around, inspect a slope, place a
-route, run time, see water respond, then operate a gate to stabilize a basin.
+Prove the core interaction in one screen: move around, inspect a slope, build
+three small terrain barriers, run time, and see water cross the map into a dam.
 `07_INTERACTIVE_TUTORIAL.md` is mandatory on first play and skippable on replay.
 
 ### Authored state
 
-- Map: 32x20 stepped ash terrain, ambient 3,030 dK; camera target (16,10), yaw
-  quarter 0, zoom level 3. The opening view shows a high north-west meltwater
-  terrace, a winding descending cut through a central ridge, the sealed basin,
-  a protected beacon marker, and the south-east waste sink.
-- `meltwater_source`: (21,8), immediately upstream of the inlet gate; starts
-  stopped and supplies 180 `vU`/tick after the tutorial run. The inlet
-  headworks sit at 7,000 `hU` and are contained, so its only liquid outlet is
-  the floodgate.
-- Natural route slopes south-east toward `waste_sink` at (27,16).
-- `restoration_basin`: 4x4 zone x=22..25, y=7..10, sealed and contained,
-  capacity 12,000 `vU`; its only liquid crossing is the inlet floodgate.
-- Ridge x=12..18, y=4..11 at 1,850 `hU`; the authored cut descends from the
-  source terrace through (12,8)..(21,8), reaching 250 `hU` before the basin.
-- Protected survey beacon: (10,6); protected cells cannot be edited.
-- Authored closed floodgate on basin inlet edge (21,8)->(22,8).
-- Budget: 40 credits. Build kit: channel, floodgate, excavate.
+- Map: 32x20 stepped ash terrain with a west-to-east stream and a far-side dam.
+- `meltwater_source`: (2,9); starts stopped and supplies 20 `vU`/tick after the
+  tutorial has prepared the route.
+- Runoff cuts at (8,10), (14,10), and (20,10) descend to visible fissure drains.
+  Each open cut captures the entire steady flow before it can cross the next
+  eastbound saddle. Raising each cut once forms the required three barriers.
+- `restoration_dam`: 5x5 zone x=26..30, y=7..11, sealed and contained. Its
+  authored inlet floodgate at (25,9) starts fully open.
+- Protected survey beacon: (24,8); protected cells cannot be edited.
+- Budget: 40 credits. Full build kit remains available after the tutorial.
 - Time controls: pause, 1x, and 2x; 4x remains locked.
 
 ### Objectives and boundaries
 
-- `primary_route_water`: at least 6,000 `vU` water in restoration basin.
-- `primary_hold_basin`: all mandatory predicates true for 100 ticks.
+- `primary_route_water`: at least 6,000 `vU` water in the far-side dam.
+- `primary_hold_dam`: all mandatory predicates true for 100 ticks.
 - `failure_beacon_flood`: beacon cell depth >=1,500 `vU` for 10 ticks.
-- Soft warning: water entering waste sink; it reduces no budget and cannot
-  hard-fail, but resets the stability timer while basin volume is insufficient.
+- Water entering any fissure is permanently drained and cannot contribute to
+  the objective.
 
 ### Reference solution
 
-Excavate the five route cells once each (20 credits), place channels on four of
-them (8), commit, run until inlet is wet, open the authored gate to 50%, then
-close it when basin reaches approximately 6,500 `vU`. Expected completion is
-ticks 480–750 after first run. Other routes remain valid within budget.
+Raise (8,10), (14,10), and (20,10) once each, then run the simulation. The
+barriers close all three runoff cuts and send meltwater across the eastbound
+saddles into the dam. Expected completion is ticks 900–1,400 after first run.
 
 ### Acceptance
 
 - First-time flow follows every required tutorial step without external text.
 - The source remains stopped until the tutorial requests observation.
-- At least two distinct valid channel alignments can reach the basin.
-- Closing the gate visibly stops inflow on the following tick and the overlay
-  changes direction/magnitude accordingly.
-- Excavation rebuilds the visible 3D ridge face; channel placement is aligned to
-  the modified top surface and remains pickable from every yaw quarter.
+- Running the untouched map for 1,200 ticks delivers zero water to the dam.
+- Raising all three authored barrier cells delivers at least 6,000 `vU` by tick
+  1,200; omitting any barrier leaves that branch available to its fissure.
+- Each raised barrier rebuilds the visible 3D terrain face and remains pickable
+  from every yaw quarter.
 - Failure checkpoint restarts before the source is enabled, preserving completed
   camera/cursor tutorial steps but requiring the build/observe steps again.
 

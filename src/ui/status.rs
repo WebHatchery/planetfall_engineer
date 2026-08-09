@@ -5,7 +5,7 @@ use crate::{devices::DeviceId, state::GameSession};
 pub(super) fn mission_primary_status(session: &GameSession) -> String {
     match session.mission.id {
         crate::mission::MissionId::L01FirstFlow => {
-            format!("Basin {} / 6000 vU", session.mission.objective_progress)
+            format!("Dam {} / 6000 vU", session.mission.objective_progress)
         }
         crate::mission::MissionId::L02HoldingLine => {
             format!("Trench {} / 6000-9000", session.mission.objective_progress)

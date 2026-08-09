@@ -561,8 +561,8 @@ fn draw_mission_briefing(session: &GameSession) {
     let (title, lesson, objective) = match session.mission.id {
         crate::mission::MissionId::L01FirstFlow => (
             "L01 // FIRST FLOW",
-            "Learn the survey basics: inspect grade, shape terrain, place a channel, then control the basin.",
-            "Guide 6,000 vU of meltwater into the safe basin and hold it stable.",
+            "Three runoff cuts feed deep fissures. Raise a barrier across each cut to redirect the stream.",
+            "Guide 6,000 vU of meltwater across the map into the far-side dam.",
         ),
         crate::mission::MissionId::L02HoldingLine => (
             "L02 // THE HOLDING LINE",

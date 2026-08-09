@@ -140,12 +140,12 @@ fn tutorial_steps() -> [&'static str; 12] {
         "tutorial_l01_move_cursor",
         "tutorial_l01_inspect_grade",
         "tutorial_l01_pause_plan",
-        "tutorial_l01_excavate",
-        "tutorial_l01_place_channel",
-        "tutorial_l01_commit_plan",
+        "tutorial_l01_raise_first",
+        "tutorial_l01_select_second",
+        "tutorial_l01_raise_second",
+        "tutorial_l01_select_third",
+        "tutorial_l01_raise_third",
         "tutorial_l01_run_and_observe",
-        "tutorial_l01_control_gate",
-        "tutorial_l01_see_impact",
         "tutorial_l01_stabilize",
     ]
 }
@@ -240,7 +240,7 @@ impl MissionState {
         if let Some(tutorial) = &mut self.tutorial {
             tutorial.ticks_in_step = tutorial.ticks_in_step.saturating_add(1);
         }
-        let basin_water = zone_water(world, 22..=25, 7..=10);
+        let basin_water = zone_water(world, 26..=30, 7..=11);
         let trench_water = zone_water(world, 31..=36, 7..=9);
         let shelf_rock = zone_rock(world, 20..=25, 12..=16);
         self.objective_progress = match self.id {
@@ -250,7 +250,7 @@ impl MissionState {
         };
         let hazard_active = match self.id {
             MissionId::L01FirstFlow => {
-                cell_water(world, crate::state::CellPos { x: 10, y: 6 }) >= 1_500
+                cell_water(world, crate::state::CellPos { x: 24, y: 8 }) >= 1_500
             }
             MissionId::L02HoldingLine => zone_water(world, 24..=28, 14..=18) >= 1_500,
             MissionId::L03Firebreak => {
@@ -405,21 +405,16 @@ fn tutorial_allows(step: &str, command: CommandKind) -> bool {
             matches!(command, CommandKind::Inspect | CommandKind::DismissPrompt)
         }
         "tutorial_l01_pause_plan" => matches!(command, CommandKind::SetPaused),
-        "tutorial_l01_excavate" => matches!(command, CommandKind::QueueExcavate),
-        "tutorial_l01_place_channel" => {
-            matches!(command, CommandKind::QueueDevice(DeviceId::Channel))
+        "tutorial_l01_raise_first"
+        | "tutorial_l01_raise_second"
+        | "tutorial_l01_raise_third" => matches!(command, CommandKind::SelectTerrain),
+        "tutorial_l01_select_second" | "tutorial_l01_select_third" => {
+            matches!(command, CommandKind::Select | CommandKind::Camera)
         }
-        "tutorial_l01_commit_plan" => matches!(command, CommandKind::CommitPlan),
         "tutorial_l01_run_and_observe" => {
             matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
         }
-        "tutorial_l01_control_gate" => {
-            matches!(command, CommandKind::Select | CommandKind::SetGate(_))
-        }
-        "tutorial_l01_see_impact" => {
-            matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
-        }
-        "tutorial_l01_stabilize" => matches!(command, CommandKind::SetGate(0)),
+        "tutorial_l01_stabilize" => matches!(command, CommandKind::SetTimeRunning | CommandKind::Select),
         _ => true,
     }
 }
@@ -436,16 +431,13 @@ fn advance_tutorial(tutorial: &mut TutorialState, command: CommandKind) {
             | ("tutorial_l01_move_camera", CommandKind::Camera)
             | ("tutorial_l01_move_cursor", CommandKind::Select)
             | ("tutorial_l01_pause_plan", CommandKind::SetPaused)
-            | ("tutorial_l01_excavate", CommandKind::QueueExcavate)
-            | (
-                "tutorial_l01_place_channel",
-                CommandKind::QueueDevice(DeviceId::Channel)
-            )
-            | ("tutorial_l01_commit_plan", CommandKind::CommitPlan)
+            | ("tutorial_l01_raise_first", CommandKind::SelectTerrain)
+            | ("tutorial_l01_select_second", CommandKind::Select)
+            | ("tutorial_l01_raise_second", CommandKind::SelectTerrain)
+            | ("tutorial_l01_select_third", CommandKind::Select)
+            | ("tutorial_l01_raise_third", CommandKind::SelectTerrain)
             | ("tutorial_l01_run_and_observe", CommandKind::SetTimeRunning)
-            | ("tutorial_l01_control_gate", CommandKind::SetGate(5_000))
-            | ("tutorial_l01_see_impact", CommandKind::SetTimeRunning)
-            | ("tutorial_l01_stabilize", CommandKind::SetGate(0))
+            | ("tutorial_l01_stabilize", CommandKind::SetTimeRunning)
     ) || (tutorial.current_step_id == "tutorial_l01_inspect_grade"
         && tutorial.dismissed_prompt
         && matches!(command, CommandKind::DismissPrompt));
@@ -537,14 +529,13 @@ mod tests {
             CommandKind::Inspect,
             CommandKind::DismissPrompt,
             CommandKind::SetPaused,
-            CommandKind::QueueExcavate,
-            CommandKind::QueueDevice(DeviceId::Channel),
-            CommandKind::CommitPlan,
-            CommandKind::SetTimeRunning,
+            CommandKind::SelectTerrain,
             CommandKind::Select,
-            CommandKind::SetGate(5_000),
+            CommandKind::SelectTerrain,
+            CommandKind::Select,
+            CommandKind::SelectTerrain,
             CommandKind::SetTimeRunning,
-            CommandKind::SetGate(0),
+            CommandKind::SetTimeRunning,
         ]
         .into_iter()
         .enumerate()
@@ -593,7 +584,7 @@ mod tests {
         let mut mission = MissionState::new(MissionId::L01FirstFlow);
         mission.start();
         let mut world = SimulationWorld::new(32, 20);
-        world.inject(crate::state::CellPos { x: 23, y: 8 }, FluidId::Water, 8_000);
+        world.inject(crate::state::CellPos { x: 28, y: 9 }, FluidId::Water, 8_000);
         for _ in 0..100 {
             world.tick += 1;
             mission.on_tick(&world);
@@ -639,7 +630,7 @@ mod tests {
         let mut mission = MissionState::new(MissionId::L01FirstFlow);
         mission.start();
         let mut world = SimulationWorld::new(32, 20);
-        let beacon = crate::state::CellPos { x: 10, y: 6 };
+        let beacon = crate::state::CellPos { x: 24, y: 8 };
         let index = world.index(beacon).unwrap();
         world.cells[index].sealed = true;
         world.inject(beacon, FluidId::Water, 1_500);

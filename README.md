@@ -47,7 +47,8 @@ engineering contract; the GDD remains the source of product intent.
   `J/K/H` set the selected gate, and the inspector readout shows setting and
   active state alongside queued-plan budget.
 - Authored campaign sources are fixed-rate and deterministic: L01 starts with
-  its 180 `vU`/tick meltwater source stopped, and tutorial skip enables it.
+  its 20 `vU`/tick west-side meltwater source stopped, and tutorial completion
+  or skip enables it after the player has shaped the route.
 - Deterministic placement validation for bounds, overlap, protected terrain,
   budget, and rotation, plus renderer-independent device showcase fixtures.
 - Build-plan queue with budget reservation, atomic commit, cancellation, and
@@ -66,11 +67,10 @@ engineering contract; the GDD remains the source of product intent.
 - The active L01 step is rendered as a readable field prompt with the required
   action, so a new player can follow the authored path without external notes.
 - Camera changes, selection, inspection, time controls, terrain edits, device
-  queues, plan commits, and floodgate settings now pass through tutorial
+  queues, plan commits, and floodgate settings pass through tutorial
   admission, so the playable path cannot bypass locked L01 steps.
-- The final stabilize command completes the normal twelve-step tutorial and
-  enables L01's authored meltwater source; skip and normal tutorial paths now
-  converge on the same deterministic flow.
+- The guided path has the player raise three runoff barriers before enabling
+  L01's authored source; skip leaves the puzzle untouched but unlocks all tools.
 - Runtime controls: `F3` shows the campaign sequence, `F4` skips the tutorial,
   `F6` records a checkpoint, `F7` exercises failure recovery, and `F8` reports
   the ten-scenario deterministic campaign suite. `F12` restores the last checkpoint or restarts

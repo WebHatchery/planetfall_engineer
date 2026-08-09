@@ -142,7 +142,7 @@ fn seed_scenario(
         ScenarioKind::Reference | ScenarioKind::Alternate => {}
         ScenarioKind::Failure => match id {
             MissionId::L01FirstFlow => {
-                world.inject(CellPos { x: 10, y: 6 }, FluidId::Water, 4_000);
+                world.inject(CellPos { x: 24, y: 8 }, FluidId::Water, 4_000);
             }
             MissionId::L02HoldingLine => {
                 world.inject(CellPos { x: 26, y: 16 }, FluidId::Water, 12_000);
@@ -320,18 +320,14 @@ fn install_reference_build(
             );
         }
         MissionId::L01FirstFlow => {
-            if mission.admit(CommandKind::SetGate(10_000)) == Admission::Accepted {
-                let mut devices = std::mem::take(&mut world.devices);
-                devices.set_selected_gate(CellPos { x: 21, y: 8 }, 10_000);
-                world.devices = devices;
+            for pos in [
+                CellPos { x: 8, y: 10 },
+                CellPos { x: 14, y: 10 },
+                CellPos { x: 20, y: 10 },
+            ] {
+                let _ = mission.admit(CommandKind::SelectTerrain);
+                let _ = world.terrain_edit(pos, crate::simulation::TerrainAction::Raise);
             }
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::Channel,
-                CellPos { x: 12, y: 8 },
-                0,
-            );
         }
     }
 }
@@ -391,7 +387,7 @@ fn tick_scenario(
     if kind == ScenarioKind::Failure {
         match id {
             MissionId::L01FirstFlow => {
-                world.inject(CellPos { x: 10, y: 6 }, FluidId::Water, 2_000);
+                world.inject(CellPos { x: 24, y: 8 }, FluidId::Water, 2_000);
             }
             MissionId::L02HoldingLine => {
                 world.inject(CellPos { x: 26, y: 16 }, FluidId::Water, 2_000);

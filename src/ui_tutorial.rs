@@ -103,40 +103,40 @@ fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
             "Pause the simulation before changing the terrain.",
             "Tap PAUSE in the time controls at right",
         ),
-        "tutorial_l01_excavate" => (
-            "EXCAVATE",
-            "Lower the selected route cell to open the flow path.",
-            "Tap EXCAVATE in FIELD TOOLS at right",
+        "tutorial_l01_raise_first" => (
+            "FIRST BARRIER",
+            "Raise the first runoff cut at (8, 10) to block the fissure.",
+            "Tap cell (8, 10), then tap RAISE",
         ),
-        "tutorial_l01_place_channel" => (
-            "PLACE CHANNEL",
-            "Choose a channel and queue it on the route.",
-            "Tap CHANNEL in the build palette at right",
+        "tutorial_l01_select_second" => (
+            "SECOND CUT",
+            "Move east along the stream and select runoff cut (14, 10).",
+            "Tap cell (14, 10) on the map",
         ),
-        "tutorial_l01_commit_plan" => (
-            "COMMIT",
-            "Commit the queued engineering plan.",
-            "Tap COMMIT in the build controls at right",
+        "tutorial_l01_raise_second" => (
+            "SECOND BARRIER",
+            "Raise the selected cut so water stays in the eastbound course.",
+            "Tap RAISE in FIELD TOOLS at right",
+        ),
+        "tutorial_l01_select_third" => (
+            "THIRD CUT",
+            "Select the final runoff cut at (20, 10), near the dam.",
+            "Tap cell (20, 10) on the map",
+        ),
+        "tutorial_l01_raise_third" => (
+            "THIRD BARRIER",
+            "Raise the final cut to complete the route to the dam.",
+            "Tap RAISE in FIELD TOOLS at right",
         ),
         "tutorial_l01_run_and_observe" => (
             "OBSERVE",
-            "Run time and watch water enter the route.",
+            "Run time and watch water cross the map toward the dam.",
             "Tap 1X in the time controls at right",
-        ),
-        "tutorial_l01_control_gate" => (
-            "OPEN GATE",
-            "Select the visible inlet floodgate beside the basin.",
-            "Tap the gate, then tap 50% at right",
-        ),
-        "tutorial_l01_see_impact" => (
-            "FILL BASIN",
-            "Let water cross the open gate into the restoration basin.",
-            "Tap 1X and watch the objective readout",
         ),
         "tutorial_l01_stabilize" => (
             "STABILIZE",
-            "When the objective passes 6,500 vU, stop the inlet for verification.",
-            "Tap CLOSED in the flow controls at right",
+            "Keep time running while the far-side dam fills and verifies.",
+            "Tap 1X and watch the DAM objective readout",
         ),
         _ => (
             "TUTORIAL",

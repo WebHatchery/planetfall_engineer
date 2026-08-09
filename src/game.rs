@@ -753,12 +753,7 @@ impl Game {
                         .as_ref()
                         .is_some_and(|tutorial| {
                             tutorial.is_complete()
-                                || matches!(
-                                    tutorial.current_step_id.as_str(),
-                                    "tutorial_l01_control_gate"
-                                        | "tutorial_l01_see_impact"
-                                        | "tutorial_l01_stabilize"
-                                )
+                                || tutorial.current_step_id == "tutorial_l01_stabilize"
                         });
                 if source_should_run {
                     self.session.simulation.set_sources_enabled(true);

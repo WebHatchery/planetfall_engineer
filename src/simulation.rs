@@ -71,6 +71,8 @@ pub struct CellDefinition {
     pub maximum_height_hu: i16,
     pub protected: bool,
     pub gas_blocked: bool,
+    #[serde(default)]
+    pub surface_drain_rate_vu: u32,
     pub ambient_temperature_dk: i32,
 }
 
@@ -82,6 +84,7 @@ impl Default for CellDefinition {
             maximum_height_hu: 8_000,
             protected: false,
             gas_blocked: false,
+            surface_drain_rate_vu: 0,
             ambient_temperature_dk: 2_930,
         }
     }
@@ -343,6 +346,7 @@ impl SimulationWorld {
             self.inject(source.position, source.fluid, source.rate_vu);
         }
         self.flow_surface();
+        self.drain_surface_outlets();
         self.flow_steam();
         self.react_materials();
         self.heat_and_phase_change();
@@ -351,6 +355,29 @@ impl SimulationWorld {
         devices.tick(self);
         self.devices = devices;
         self.sort_entries();
+    }
+
+    fn drain_surface_outlets(&mut self) {
+        for index in 0..self.cells.len() {
+            let mut remaining = self.definitions[index].surface_drain_rate_vu;
+            if remaining == 0 {
+                continue;
+            }
+            let fluids: Vec<_> = self.cells[index]
+                .surface
+                .iter()
+                .map(|entry| (entry.fluid, entry.volume_vu))
+                .collect();
+            for (fluid, available) in fluids {
+                let amount = available.min(remaining);
+                remove_fluid(&mut self.cells[index].surface, fluid, amount);
+                self.ledger.drained += u64::from(amount);
+                remaining -= amount;
+                if remaining == 0 {
+                    break;
+                }
+            }
+        }
     }
 
     fn flow_surface(&mut self) {
@@ -899,6 +926,16 @@ mod tests {
                 .sum::<u32>(),
             180
         );
+    }
+    #[test]
+    fn surface_outlet_drains_material_and_balances_the_ledger() {
+        let mut world = SimulationWorld::new(1, 1);
+        world.definitions[0].surface_drain_rate_vu = 75;
+        world.inject(pos(0, 0), FluidId::Water, 100);
+        world.tick();
+        assert_eq!(world.cells[0].surface_volume(), 25);
+        assert_eq!(world.ledger.drained, 75);
+        assert_eq!(world.mass_balance_error(), 0);
     }
     #[test]
     fn material_balance_includes_reaction_products() {
