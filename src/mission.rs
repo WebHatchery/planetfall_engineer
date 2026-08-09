@@ -405,16 +405,18 @@ fn tutorial_allows(step: &str, command: CommandKind) -> bool {
             matches!(command, CommandKind::Inspect | CommandKind::DismissPrompt)
         }
         "tutorial_l01_pause_plan" => matches!(command, CommandKind::SetPaused),
-        "tutorial_l01_raise_first"
-        | "tutorial_l01_raise_second"
-        | "tutorial_l01_raise_third" => matches!(command, CommandKind::SelectTerrain),
+        "tutorial_l01_raise_first" | "tutorial_l01_raise_second" | "tutorial_l01_raise_third" => {
+            matches!(command, CommandKind::SelectTerrain)
+        }
         "tutorial_l01_select_second" | "tutorial_l01_select_third" => {
             matches!(command, CommandKind::Select | CommandKind::Camera)
         }
         "tutorial_l01_run_and_observe" => {
             matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
         }
-        "tutorial_l01_stabilize" => matches!(command, CommandKind::SetTimeRunning | CommandKind::Select),
+        "tutorial_l01_stabilize" => {
+            matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
+        }
         _ => true,
     }
 }

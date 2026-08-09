@@ -708,21 +708,17 @@ mod tests {
                 .len(),
             10
         );
-        assert!(
-            SHOWCASE_MAPS
-                .iter()
-                .all(|showcase| showcase.map_id == format!("device_{}", showcase.device.name()))
-        );
+        assert!(SHOWCASE_MAPS
+            .iter()
+            .all(|showcase| showcase.map_id == format!("device_{}", showcase.device.name())));
     }
     #[test]
     fn footprint_rotation_and_overlap_are_rejected() {
         let world = SimulationWorld::new(4, 4);
         let mut devices = DeviceSystem::default();
-        assert!(
-            devices
-                .place(&world, DeviceId::Reservoir, CellPos { x: 1, y: 1 }, 3, 100)
-                .is_ok()
-        );
+        assert!(devices
+            .place(&world, DeviceId::Reservoir, CellPos { x: 1, y: 1 }, 3, 100)
+            .is_ok());
         assert_eq!(
             devices.place(&world, DeviceId::Channel, CellPos { x: 1, y: 1 }, 0, 100),
             Err(DeviceError::Occupied)

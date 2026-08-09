@@ -1,6 +1,6 @@
 //! Deterministic conduit traversal and material delivery helpers.
 
-use super::{DeviceId, DeviceState, remove_fluid};
+use super::{remove_fluid, DeviceId, DeviceState};
 use crate::{simulation::SimulationWorld, state::CellPos};
 
 pub(super) fn direction(rotation: u8) -> (i16, i16) {

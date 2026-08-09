@@ -17,7 +17,6 @@ pub enum FluidId {
 }
 
 impl FluidId {
-
     pub const fn max_transfer(self) -> u32 {
         match self {
             Self::Water => 400,
@@ -789,11 +788,9 @@ mod tests {
             world.terrain_edit(pos(1, 0), TerrainAction::Raise),
             Err(TerrainError::Capacity)
         );
-        assert!(
-            world
-                .terrain_edit(pos(1, 0), TerrainAction::Excavate)
-                .is_ok()
-        );
+        assert!(world
+            .terrain_edit(pos(1, 0), TerrainAction::Excavate)
+            .is_ok());
     }
     #[test]
     fn water_flows_downhill_and_respects_limit() {

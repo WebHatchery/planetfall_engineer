@@ -41,13 +41,15 @@ async fn main() {
     // deterministic frames, write a PNG, and exit. This is a minimal starter
     // prototype with a single boot state, so the capture photographs
     // whatever the boot flow lands on.
-    if let Some(config) = capture::CaptureConfig::from_env("PLANETFALL_ENGINEER") {
-        game.begin_capture_scene(&config.scene);
-        capture::run_capture(&config, |dt| {
-            game.update(dt);
-            game.draw();
-        })
-        .await;
+    if let Some(configs) = capture::CaptureConfig::all_from_env("PLANETFALL_ENGINEER") {
+        for config in configs {
+            game.begin_capture_scene(&config.scene);
+            capture::run_capture_once(&config, |dt| {
+                game.update(dt);
+                game.draw();
+            })
+            .await;
+        }
         return;
     }
 

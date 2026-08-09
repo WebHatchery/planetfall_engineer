@@ -78,7 +78,13 @@ fn author_l01(world: &mut SimulationWorld) {
     protect(world, CellPos { x: 24, y: 8 });
     // The dam inlet is already open; solving the mission is about shaping the
     // watershed, not operating a switch after pressing play.
-    install_device(world, DeviceId::Floodgate, CellPos { x: 25, y: 9 }, 0, 10_000);
+    install_device(
+        world,
+        DeviceId::Floodgate,
+        CellPos { x: 25, y: 9 },
+        0,
+        10_000,
+    );
 }
 
 fn author_l02(world: &mut SimulationWorld) {
@@ -356,7 +362,11 @@ mod tests {
         assert_eq!(map.world.sources.len(), 1);
         assert_eq!(map.world.sources[0].position, CellPos { x: 2, y: 9 });
         assert_eq!(map.world.sources[0].rate_vu, 20);
-        assert_eq!(map.world.definitions[map.world.index(CellPos { x: 8, y: 14 }).unwrap()].surface_drain_rate_vu, 800);
+        assert_eq!(
+            map.world.definitions[map.world.index(CellPos { x: 8, y: 14 }).unwrap()]
+                .surface_drain_rate_vu,
+            800
+        );
     }
 
     #[test]
@@ -381,11 +391,21 @@ mod tests {
             .flat_map(|x| (7..=11).map(move |y| CellPos { x, y }))
             .map(|pos| map.world.cells[map.world.index(pos).unwrap()].surface_volume())
             .sum();
-        assert_eq!(untouched_water, 0, "untouched runoff must never reach the dam");
+        assert_eq!(
+            untouched_water, 0,
+            "untouched runoff must never reach the dam"
+        );
 
         let mut solved = load_campaign(MissionId::L01FirstFlow);
-        for pos in [CellPos { x: 8, y: 10 }, CellPos { x: 14, y: 10 }, CellPos { x: 20, y: 10 }] {
-            solved.world.terrain_edit(pos, crate::simulation::TerrainAction::Raise).unwrap();
+        for pos in [
+            CellPos { x: 8, y: 10 },
+            CellPos { x: 14, y: 10 },
+            CellPos { x: 20, y: 10 },
+        ] {
+            solved
+                .world
+                .terrain_edit(pos, crate::simulation::TerrainAction::Raise)
+                .unwrap();
         }
         solved.world.set_sources_enabled(true);
         for _ in 0..1_200 {

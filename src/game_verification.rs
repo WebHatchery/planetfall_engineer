@@ -68,8 +68,9 @@ impl Game {
             self.session.simulation.height as usize,
         );
         self.frontend_mode = crate::game::FrontendMode::Playing;
-        self.notice =
-            format!("lab_fluids_all ready at tick 0 — use the visible time controls to observe transfers");
+        self.notice = format!(
+            "lab_fluids_all ready at tick 0 — use the visible time controls to observe transfers"
+        );
     }
 
     pub(crate) fn enter_showcase(&mut self, device: DeviceId) {
