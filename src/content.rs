@@ -3,7 +3,8 @@
 use serde::Deserialize;
 use std::collections::HashSet;
 
-const REGISTRY_JSON: &str = include_str!("../assets/data/content_registry.json");
+const REGISTRY_JSON: &str =
+    macroquad_toolkit::include_json_str!("../assets/data/content_registry.json");
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -57,8 +58,10 @@ pub struct MapRecord {
 
 impl ContentRegistry {
     pub fn load() -> Result<Self, String> {
-        serde_json::from_str(REGISTRY_JSON)
-            .map_err(|error| format!("content_registry.json: {error}"))
+        macroquad_toolkit::data_loader::load_embedded_json_labeled(
+            "assets/data/content_registry.json",
+            REGISTRY_JSON,
+        )
     }
 
     pub fn validate(&self) -> Result<(), Vec<String>> {
@@ -177,23 +180,4 @@ fn validate_unique<'a>(kind: &str, ids: impl Iterator<Item = &'a str>, errors: &
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn embedded_registry_validates_all_slice_references() {
-        let registry = ContentRegistry::load().unwrap();
-        registry.validate().unwrap();
-        assert_eq!(registry.maps.len(), 14);
-    }
-
-    #[test]
-    fn validator_reports_missing_showcase_and_duplicate_ids() {
-        let mut registry = ContentRegistry::load().unwrap();
-        registry.devices[0].showcase_map_id = "missing_map".into();
-        registry.devices.push(registry.devices[0].clone());
-        let errors = registry.validate().unwrap_err().join(" | ");
-        assert!(errors.contains("missing showcase map"));
-        assert!(errors.contains("duplicate id"));
-    }
-}
+mod tests;

@@ -5,8 +5,9 @@ use macroquad_toolkit::assets::TextureConfig;
 use macroquad_toolkit::data_loader::load_embedded_json;
 use serde::{Deserialize, Serialize};
 
-const CONFIG_JSON: &str = include_str!("../assets/data/game_config.json");
-const TEXTURES_JSON: &str = include_str!("../assets/data/texture_manifest.json");
+const CONFIG_JSON: &str = macroquad_toolkit::include_json_str!("../assets/data/game_config.json");
+const TEXTURES_JSON: &str =
+    macroquad_toolkit::include_json_str!("../assets/data/texture_manifest.json");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameConfig {
@@ -42,14 +43,4 @@ impl GameData {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn embedded_foundation_data_loads() {
-        let data = GameData::load().unwrap();
-        assert_eq!(data.config.world_width, 32);
-        assert_eq!(data.config.world_height, 20);
-        assert_eq!(data.content.devices.len(), 10);
-    }
-}
+mod tests;

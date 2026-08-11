@@ -6,8 +6,9 @@ These instructions apply to all Rust game projects in this workspace.
 
 - Build games with Rust, `macroquad`, and the shared `macroquad-toolkit` by default.
 - Treat missing runtime, rendering, input, asset, or platform behavior as potential `macroquad-toolkit` upgrades before creating project-local alternatives.
+- Route JSON game-data parsing and file loading through `macroquad_toolkit::data_loader`; projects own their typed schemas and game-specific validation, while the toolkit owns embedded/runtime loading, platform differences, source-labeled errors, and fallback behavior. Do not add project-local generic JSON loader wrappers.
 - Only diverge from the shared toolkit when an existing project has a clear, established alternative or the need is genuinely game-specific.
-- Keep source files under 800 lines, counting non-test lines only. Split large files by responsibility before they become difficult to scan or test.
+- Keep every `.rs` file at or below 800 total lines, with no exceptions or excluded sections. Split large files by responsibility before they become difficult to scan or test.
 - Prefer small modules with explicit ownership of input, update logic, rendering, assets, and game state.
 - Use Rust's named module source filenames (`foo.rs`, `foo/bar.rs`) instead of `foo/mod.rs`. Do not create new `mod.rs` files.
 - Keep gameplay logic deterministic where practical. Isolate randomness behind small helper functions or state-owned RNG.
@@ -29,12 +30,13 @@ These instructions apply to all Rust game projects in this workspace.
 
 ## Testing And Validation
 
-- Keep unit tests in the crate, as an inline `#[cfg(test)] mod tests` block at the bottom of the file they cover. Do not move them to a `tests/` directory — those are separate integration crates limited to the public API, and most games here are binary crates that `tests/` cannot import at all.
-- When a test module exceeds ~300 lines or more than half its file, extract it to a child module (`#[cfg(test)] mod tests;` in `foo.rs` -> `foo/tests.rs`), which keeps `use super::*` access. See `CODE_STANDARDS.md` §11.3.
+- Store unit tests in separate child files, never inline in implementation files. Use `#[cfg(test)] mod tests;` in `foo.rs` with the tests in `foo/tests.rs` so `use super::*` and private-item access continue to work. See `CODE_STANDARDS.md` §11.3.
+- Keep every test `.rs` file at or below 800 total lines. Split larger test suites into focused child modules before they reach the limit.
 - Use each project's `publish.ps1` script as the validation path.
 - Do not treat running a local instance or local dev server as the required test path unless the user explicitly asks for it.
 - After meaningful changes, run `.\publish.ps1` with no parameters from the affected project directory and report whether it passes.
 - If `publish.ps1` is missing, blocked, or fails for an unrelated environment reason, report that clearly instead of substituting an unrequested local run.
+- Store verification screenshots directly in `docs/verification/`, with no subfolders. When a capture represents the same screen or state as an existing image, replace that image instead of adding a duplicate.
 
 ## Commit Messages
 
@@ -46,12 +48,13 @@ These instructions apply to all Rust game projects in this workspace.
 - `mytherra` and `stellar_legacy` are the worked exemplars; read either project's `git log` before your first commit in a new game.
 - After completing a requested implementation and its required validation, check the working tree and commit the finished changes unless the user explicitly asks to leave them uncommitted. Report the commit hash and validation result in the handoff.
 - When a request contains multiple independently useful changes, finish, validate, and commit each major change before beginning the next one. Keep exploratory edits uncommitted until their outcome is known, but do not combine unrelated fixes, UI polish, or refactors into one commit merely because they occurred in the same task.
+- Before each requested commit, stage every modified and untracked project file, including pre-existing changes not created during the current task. Do not leave local project changes uncommitted.
 
 ## File Size Rule
 
-- Keep every `.rs` file below 800 lines.
-- Count non-test lines only. A `#[cfg(test)] mod tests` block does not count toward the limit — it is one cohesive block at the bottom of the file and is compiled out of release and WASM builds entirely.
+- Keep every `.rs` file at or below 800 total lines. The limit applies without exception to implementation files, test files, generated Rust source, examples, build scripts, and benches.
+- Count every physical line, including tests, comments, attributes, and whitespace.
 - Treat a file reaching or approaching 800 lines as a restructure signal, not as a formatting target.
 - Do not preserve the limit by stripping useful spacing, compressing formatting, moving a single small function, or making other cosmetic line-count changes.
 - If a meaningful change would push a file over the limit, extract a cohesive responsibility into one or more nearby modules before or alongside the change.
-- If a touched file is already over 800 lines, make the restructure part of the current task, or queue it as the next work item before considering the task complete.
+- If any file is already over 800 lines, make the restructure part of the current task before considering the task complete.
