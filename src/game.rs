@@ -160,7 +160,6 @@ impl Game {
         let mut assets = AssetManager::new();
         let placeholder = Image::gen_image_color(8, 8, Color::new(0.7, 0.25, 0.35, 1.0));
         assets.set_placeholder_texture_direct(Texture2D::from_image(&placeholder));
-        let _ = assets.load_asset_pack("assets.zip").await;
         let _ = assets.load_texture_configs(&data.texture_manifest).await;
         let terrain_texture = make_terrain_texture();
         let mut session = GameSession::new(&data.config);
