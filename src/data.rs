@@ -2,7 +2,7 @@
 
 use crate::content::ContentRegistry;
 use macroquad_toolkit::assets::TextureConfig;
-use macroquad_toolkit::data_loader::load_embedded_json;
+use macroquad_toolkit::data_loader::load_embedded_json_labeled;
 use serde::{Deserialize, Serialize};
 
 const CONFIG_JSON: &str = macroquad_toolkit::include_json_str!("../assets/data/game_config.json");
@@ -28,8 +28,8 @@ pub struct GameData {
 
 impl GameData {
     pub fn load() -> Result<Self, String> {
-        let config = load_embedded_json(CONFIG_JSON)?;
-        let texture_manifest = load_embedded_json(TEXTURES_JSON)?;
+        let config = load_embedded_json_labeled("game_config", CONFIG_JSON)?;
+        let texture_manifest = load_embedded_json_labeled("texture_manifest", TEXTURES_JSON)?;
         let content = ContentRegistry::load()?;
         content
             .validate()

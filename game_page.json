@@ -5,7 +5,7 @@
   "status": { "text": "Playable", "class": "playable" },
   "canvas_rendering": "pixelated",
   "about": [
-    "A real-time planetary engineering puzzle prototype about surveying terrain, routing dangerous fluids, and restoring the Ashfall Basin."
+    "Survey hazardous terrain, route dangerous fluids, and solve engineering puzzles to restore a failing planetary basin."
   ],
   "controls": [
     { "key": "Arrow Keys", "desc": "Move survey selection" },

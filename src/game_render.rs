@@ -294,7 +294,11 @@ fn draw_fluid_surface(x: u16, y: u16, ground: f32, depth: f32, fluid: FluidId, t
         None,
         lighten(color, 0.22 + ripple),
     );
-    let stripe = if (x + y) % 2 == 0 { 0.26 } else { -0.26 };
+    let stripe = if (x + y).is_multiple_of(2) {
+        0.26
+    } else {
+        -0.26
+    };
     draw_cube(
         vec3(
             x as f32 + 0.5 + stripe,
@@ -438,7 +442,7 @@ fn draw_device_silhouette(
     draw_cube(center - vec3(0.0, 0.24, 0.0), base, None, metal);
     match device {
         DeviceId::Pipe => {
-            let pipe_size = if rotation % 2 == 0 {
+            let pipe_size = if rotation.is_multiple_of(2) {
                 vec3(0.88, 0.18, 0.24)
             } else {
                 vec3(0.24, 0.18, 0.88)
@@ -446,7 +450,7 @@ fn draw_device_silhouette(
             draw_cube(center, pipe_size, None, brass);
             draw_cube(
                 center + vec3(0.0, 0.12, 0.0),
-                if rotation % 2 == 0 {
+                if rotation.is_multiple_of(2) {
                     vec3(0.95, 0.04, 0.12)
                 } else {
                     vec3(0.12, 0.04, 0.95)
