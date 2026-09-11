@@ -1,7 +1,6 @@
 {
   "title": "Planetfall Engineer",
   "wasm": "planetfall_engineer",
-  "roost_slug": "rust_planetfall_engineer",
   "status": { "text": "Playable", "class": "playable" },
   "canvas_rendering": "pixelated",
   "about": [
