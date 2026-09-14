@@ -9,7 +9,7 @@ use serde_json::Value;
 
 pub const SIM_TICKS_PER_SECOND: u64 = 10;
 pub const MAX_TICKS_PER_FRAME: u32 = 8;
-pub const SAVE_SCHEMA_VERSION: u32 = 3;
+pub const SAVE_SCHEMA_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CellPos {
@@ -198,10 +198,12 @@ impl GameSession {
         }
     }
     pub fn from_save(save: SaveData) -> Self {
+        let mut mission = save.mission;
+        mission.ensure_current_rules();
         Self {
             world: save.world,
             simulation: save.simulation,
-            mission: save.mission,
+            mission,
             campaign: save.campaign,
             tick: save.tick,
             selected: save.selected,

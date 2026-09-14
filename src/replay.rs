@@ -223,172 +223,165 @@ fn install_reference_build(
         let _ = mission.skip_tutorial();
     }
     match id {
-        MissionId::L02HoldingLine => {
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::Pump,
-                CellPos { x: 5, y: 16 },
-                0,
-            );
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::FlowTurbine,
-                CellPos { x: 27, y: 9 },
-                0,
-            );
-            for pos in [
-                (9, 16),
-                (11, 16),
-                (13, 16),
-                (15, 16),
-                (19, 12),
-                (20, 12),
-                (20, 11),
-                (20, 10),
-            ] {
-                let _ = admit_build(
-                    world,
-                    mission,
-                    crate::devices::DeviceId::Pipe,
-                    CellPos { x: pos.0, y: pos.1 },
-                    0,
-                );
-            }
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::Reservoir,
-                CellPos { x: 20, y: 8 },
-                0,
-            );
-            for x in [23, 25, 27, 29] {
-                let _ = admit_build(
-                    world,
-                    mission,
-                    crate::devices::DeviceId::Pipe,
-                    CellPos { x, y: 8 },
-                    0,
-                );
-            }
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::Spillway,
-                CellPos { x: 39, y: 18 },
-                0,
-            );
-            let _ = world.devices.set_enabled(
-                world
-                    .devices
-                    .devices
-                    .iter()
-                    .find(|device| device.device == crate::devices::DeviceId::Reservoir)
-                    .map(|device| device.entity_id)
-                    .unwrap_or(u32::MAX),
-                false,
-            );
-        }
-        MissionId::L03Firebreak => {
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::Pump,
-                CellPos { x: 11, y: 5 },
-                0,
-            );
-            for pos in [
-                (15, 5),
-                (17, 5),
-                (19, 5),
-                (20, 6),
-                (20, 8),
-                (20, 10),
-                (20, 12),
-                (20, 14),
-            ] {
-                let _ = admit_build(
-                    world,
-                    mission,
-                    crate::devices::DeviceId::Pipe,
-                    CellPos { x: pos.0, y: pos.1 },
-                    0,
-                );
-            }
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::Floodgate,
-                CellPos { x: 21, y: 14 },
-                0,
-            );
-            if mission.admit(CommandKind::SetGate(2_500)) == Admission::Accepted {
-                world
-                    .devices
-                    .set_selected_gate(CellPos { x: 21, y: 14 }, 2_500);
-            }
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::FlowTurbine,
-                CellPos { x: 27, y: 9 },
-                0,
-            );
-            for x in 22..=27 {
-                let _ = admit_build(
-                    world,
-                    mission,
-                    crate::devices::DeviceId::Pipe,
-                    CellPos { x, y: 14 },
-                    0,
-                );
-            }
-            for y in 10..=13 {
-                let _ = admit_build(
-                    world,
-                    mission,
-                    crate::devices::DeviceId::Pipe,
-                    CellPos { x: 27, y },
-                    0,
-                );
-            }
-            for x in 28..=37 {
-                let _ = admit_build(
-                    world,
-                    mission,
-                    crate::devices::DeviceId::Pipe,
-                    CellPos { x, y: 9 },
-                    0,
-                );
-            }
-            for y in 5..=8 {
-                let _ = admit_build(
-                    world,
-                    mission,
-                    crate::devices::DeviceId::Pipe,
-                    CellPos { x: 37, y },
-                    0,
-                );
-            }
-            let _ = admit_build(
-                world,
-                mission,
-                crate::devices::DeviceId::RuneRelay,
-                CellPos { x: 38, y: 5 },
-                0,
-            );
-        }
-        MissionId::L01FirstFlow => {
-            for pos in [
-                CellPos { x: 8, y: 10 },
-                CellPos { x: 14, y: 10 },
-                CellPos { x: 20, y: 10 },
-            ] {
-                let _ = mission.admit(CommandKind::SelectTerrain);
-                let _ = world.terrain_edit(pos, crate::simulation::TerrainAction::Raise);
-            }
-        }
+        MissionId::L01FirstFlow => install_l01_build(world, mission),
+        MissionId::L02HoldingLine => install_l02_build(world, mission),
+        MissionId::L03Firebreak => install_l03_build(world, mission),
+    }
+}
+
+fn install_l01_build(world: &mut SimulationWorld, mission: &mut MissionState) {
+    for position in [
+        CellPos { x: 8, y: 10 },
+        CellPos { x: 14, y: 10 },
+        CellPos { x: 20, y: 10 },
+    ] {
+        let _ = mission.admit(CommandKind::SelectTerrain);
+        let _ = world.terrain_edit(position, crate::simulation::TerrainAction::Raise);
+    }
+}
+
+fn install_l02_build(world: &mut SimulationWorld, mission: &mut MissionState) {
+    let _ = admit_build(
+        world,
+        mission,
+        crate::devices::DeviceId::Pump,
+        CellPos { x: 5, y: 16 },
+        0,
+    );
+    let _ = admit_build(
+        world,
+        mission,
+        crate::devices::DeviceId::FlowTurbine,
+        CellPos { x: 27, y: 9 },
+        0,
+    );
+    admit_many(
+        world,
+        mission,
+        crate::devices::DeviceId::Pipe,
+        [
+            (9, 16),
+            (11, 16),
+            (13, 16),
+            (15, 16),
+            (19, 12),
+            (20, 12),
+            (20, 11),
+            (20, 10),
+            (23, 8),
+            (25, 8),
+            (27, 8),
+            (29, 8),
+        ],
+    );
+    let _ = admit_build(
+        world,
+        mission,
+        crate::devices::DeviceId::Reservoir,
+        CellPos { x: 20, y: 8 },
+        0,
+    );
+    let _ = admit_build(
+        world,
+        mission,
+        crate::devices::DeviceId::Spillway,
+        CellPos { x: 39, y: 18 },
+        0,
+    );
+    if let Some(entity_id) = world
+        .devices
+        .devices
+        .iter()
+        .find(|device| device.device == crate::devices::DeviceId::Reservoir)
+        .map(|device| device.entity_id)
+    {
+        let _ = world.devices.set_enabled(entity_id, false);
+    }
+}
+
+fn install_l03_build(world: &mut SimulationWorld, mission: &mut MissionState) {
+    let _ = admit_build(
+        world,
+        mission,
+        crate::devices::DeviceId::Pump,
+        CellPos { x: 11, y: 5 },
+        0,
+    );
+    admit_many(
+        world,
+        mission,
+        crate::devices::DeviceId::Pipe,
+        [
+            (15, 5),
+            (17, 5),
+            (19, 5),
+            (20, 6),
+            (20, 8),
+            (20, 10),
+            (20, 12),
+            (20, 14),
+            (22, 14),
+            (23, 14),
+            (24, 14),
+            (25, 14),
+            (26, 14),
+            (27, 14),
+            (27, 10),
+            (27, 11),
+            (27, 12),
+            (27, 13),
+            (28, 9),
+            (29, 9),
+            (30, 9),
+            (31, 9),
+            (32, 9),
+            (33, 9),
+            (34, 9),
+            (35, 9),
+            (36, 9),
+            (37, 9),
+            (37, 5),
+            (37, 6),
+            (37, 7),
+            (37, 8),
+        ],
+    );
+    let _ = admit_build(
+        world,
+        mission,
+        crate::devices::DeviceId::Floodgate,
+        CellPos { x: 21, y: 14 },
+        0,
+    );
+    if mission.admit(CommandKind::SetGate(2_500)) == Admission::Accepted {
+        world
+            .devices
+            .set_selected_gate(CellPos { x: 21, y: 14 }, 2_500);
+    }
+    let _ = admit_build(
+        world,
+        mission,
+        crate::devices::DeviceId::FlowTurbine,
+        CellPos { x: 27, y: 9 },
+        0,
+    );
+    let _ = admit_build(
+        world,
+        mission,
+        crate::devices::DeviceId::RuneRelay,
+        CellPos { x: 38, y: 5 },
+        0,
+    );
+}
+
+fn admit_many(
+    world: &mut SimulationWorld,
+    mission: &mut MissionState,
+    device: crate::devices::DeviceId,
+    positions: impl IntoIterator<Item = (u16, u16)>,
+) {
+    for (x, y) in positions {
+        let _ = admit_build(world, mission, device, CellPos { x, y }, 0);
     }
 }
 

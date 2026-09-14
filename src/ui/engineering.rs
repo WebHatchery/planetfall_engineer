@@ -1,6 +1,6 @@
 //! Engineering readout, build palette, time controls, and field tools.
 
-use super::UiContext;
+use super::{buttons::draw_button, UiContext};
 use crate::ui::status::{device_status, mission_primary_status, mission_secondary_status};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
@@ -46,6 +46,12 @@ fn draw_selection_summary(ctx: &UiContext<'_>) {
         .first()
         .map(|material| material.temperature_dk)
         .unwrap_or(selected_definition.ambient_temperature_dk);
+    draw_cell_details(ctx, selected, heat_dk);
+    draw_mission_details(ctx);
+}
+
+fn draw_cell_details(ctx: &UiContext<'_>, selected: &crate::simulation::SimCell, heat_dk: i32) {
+    let style = TextStyle::new(13.0, Color::new(0.7, 0.76, 0.8, 1.0));
     let device_readout = ctx
         .session
         .simulation
@@ -73,6 +79,27 @@ fn draw_selection_summary(ctx: &UiContext<'_>) {
             )
         })
         .unwrap_or_else(|| "Deposit none".into());
+    draw_ui_text_ex(
+        &format!(
+            "Depth {} vU  Heat {} dK",
+            selected.surface_volume(),
+            heat_dk
+        ),
+        1024.0,
+        244.0,
+        style.params(),
+    );
+    draw_ui_text_ex(
+        &format!("Ground {} bp", selected.ground_contamination_bp),
+        1024.0,
+        262.0,
+        style.params(),
+    );
+    draw_ui_text_ex(&device_readout, 1024.0, 280.0, style.params());
+    draw_ui_text_ex(&deposit_readout, 1024.0, 298.0, style.params());
+}
+
+fn draw_mission_details(ctx: &UiContext<'_>) {
     let tutorial = ctx
         .session
         .mission
@@ -138,26 +165,7 @@ fn draw_selection_summary(ctx: &UiContext<'_>) {
         226.0,
         style.params(),
     );
-    draw_ui_text_ex(
-        &format!(
-            "Depth {} vU  Heat {} dK",
-            selected.surface_volume(),
-            heat_dk
-        ),
-        1024.0,
-        244.0,
-        style.params(),
-    );
-    draw_ui_text_ex(
-        &format!("Ground {} bp", selected.ground_contamination_bp),
-        1024.0,
-        262.0,
-        style.params(),
-    );
-    draw_ui_text_ex(&device_readout, 1024.0, 280.0, style.params());
-    draw_ui_text_ex(&deposit_readout, 1024.0, 298.0, style.params());
 }
-
 fn draw_build_summary(ctx: &UiContext<'_>) {
     let style = TextStyle::new(13.0, Color::new(0.7, 0.76, 0.8, 1.0));
     let verification_status = ctx
@@ -213,11 +221,21 @@ fn draw_palette() {
         let column = index % 2;
         let row = index / 2;
         let x = 1018.0 + column as f32 * 114.0;
-        let y = 344.0 + row as f32 * 26.0;
-        draw_small_button(x, y, 108.0, 22.0, device.name(), 11.0);
+        let y = 344.0 + row as f32 * 24.0;
+        draw_button(
+            Rect::new(x, y, 108.0, 22.0),
+            device.name(),
+            11.0,
+            ButtonTone::Secondary,
+        );
     }
     for (x, label) in [(1018.0, "ROTATE"), (1094.0, "COMMIT"), (1172.0, "CANCEL")] {
-        draw_small_button(x, 468.0, 72.0, 22.0, label, 10.0);
+        draw_button(
+            Rect::new(x, 468.0, 72.0, 22.0),
+            label,
+            10.0,
+            ButtonTone::Secondary,
+        );
     }
 }
 
@@ -228,13 +246,23 @@ fn draw_time_controls() {
         (1138.0, "2X"),
         (1198.0, "4X"),
     ] {
-        draw_small_button(x, 496.0, 52.0, 22.0, label, 10.0);
+        draw_button(
+            Rect::new(x, 496.0, 52.0, 22.0),
+            label,
+            10.0,
+            ButtonTone::Secondary,
+        );
     }
 }
 
 fn draw_verification_controls() {
     for (x, label) in [(1018.0, "RESET"), (1094.0, "STEP"), (1172.0, "RETURN")] {
-        draw_small_button(x, 532.0, 72.0, 28.0, label, 10.0);
+        draw_button(
+            Rect::new(x, 532.0, 72.0, 28.0),
+            label,
+            10.0,
+            ButtonTone::Warning,
+        );
     }
 }
 
@@ -246,10 +274,20 @@ fn draw_field_controls(ctx: &UiContext<'_>) {
         TextStyle::new(10.0, Color::new(0.8, 0.68, 0.4, 1.0)).params(),
     );
     for (x, label) in [(1018.0, "INSPECT"), (1138.0, "EXCAVATE")] {
-        draw_wide_button(x, 532.0, label);
+        draw_button(
+            Rect::new(x, 532.0, 108.0, 28.0),
+            label,
+            9.0,
+            ButtonTone::Positive,
+        );
     }
     for (x, label) in [(1018.0, "RAISE"), (1138.0, "SEAL")] {
-        draw_wide_button(x, 566.0, label);
+        draw_button(
+            Rect::new(x, 566.0, 108.0, 28.0),
+            label,
+            9.0,
+            ButtonTone::Positive,
+        );
     }
     let reservoir_selected = ctx.session.simulation.devices.devices.iter().any(|device| {
         device.anchor == ctx.session.selected
@@ -261,31 +299,19 @@ fn draw_field_controls(ctx: &UiContext<'_>) {
         ["STOP", "25%", "50%", "FULL"]
     };
     for (index, label) in flow_labels.into_iter().enumerate() {
-        draw_small_button(1018.0 + index as f32 * 58.0, 600.0, 54.0, 28.0, label, 8.0);
+        draw_button(
+            Rect::new(1018.0 + index as f32 * 58.0, 600.0, 54.0, 28.0),
+            label,
+            8.0,
+            ButtonTone::Secondary,
+        );
     }
     for (x, label) in [(1018.0, "RECOVER"), (1138.0, "POWER")] {
-        draw_wide_button(x, 634.0, label);
+        draw_button(
+            Rect::new(x, 634.0, 108.0, 28.0),
+            label,
+            9.0,
+            ButtonTone::Positive,
+        );
     }
-}
-
-fn draw_small_button(x: f32, y: f32, width: f32, height: f32, label: &str, font_size: f32) {
-    draw_rectangle(x, y, width, height, Color::new(0.12, 0.16, 0.2, 0.98));
-    draw_rectangle_lines(x, y, width, height, 1.0, Color::new(0.45, 0.55, 0.62, 0.9));
-    draw_ui_text_ex(
-        label,
-        x + 7.0,
-        y + height - 7.0,
-        TextStyle::new(font_size, Color::new(0.82, 0.87, 0.9, 1.0)).params(),
-    );
-}
-
-fn draw_wide_button(x: f32, y: f32, label: &str) {
-    draw_rectangle(x, y, 108.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
-    draw_rectangle_lines(x, y, 108.0, 28.0, 1.0, Color::new(0.35, 0.74, 0.78, 0.95));
-    draw_ui_text_ex(
-        label,
-        x + 14.0,
-        y + 18.0,
-        TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
-    );
 }

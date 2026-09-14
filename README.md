@@ -95,7 +95,7 @@ template maps. L02/L03 campaign starts enable their authored sources, and L03
 begins with its documented water/lava reaction pocket so the live campaign can
 be observed without replay-only material injection.
 
-Save schema version 3 includes simulation, device, mission/tutorial,
+Save schema version 4 includes simulation, device, mission/tutorial,
 checkpoint, and campaign progression state in the deterministic hash. F5/F9
 round-trip tests prove that mission progress and best completion data survive
 save/load. Loading also rejects malformed data, unsupported future schema

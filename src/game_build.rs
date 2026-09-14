@@ -4,7 +4,7 @@ use crate::game::Game;
 use crate::state::TimeControl;
 use crate::{devices::DeviceId, ui, ui_action::UiAction};
 use macroquad::prelude::*;
-use macroquad_toolkit::ui::virtual_mouse_position;
+use macroquad_toolkit::{input::hit_test, ui::virtual_mouse_position};
 
 impl Game {
     pub(crate) fn handle_palette_click(&mut self) -> bool {
@@ -140,45 +140,38 @@ fn field_control_click() -> Option<FieldControl> {
 }
 
 pub fn field_control_at(x: f32, y: f32) -> Option<FieldControl> {
-    if (1018.0..1248.0).contains(&x) && (532.0..560.0).contains(&y) {
-        return Some(if x < 1126.0 {
-            FieldControl::Inspect
-        } else if x >= 1138.0 {
-            FieldControl::Excavate
-        } else {
-            return None;
-        });
-    }
-    if (1018.0..1248.0).contains(&x) && (566.0..594.0).contains(&y) {
-        return Some(if x < 1126.0 {
-            FieldControl::Raise
-        } else if x >= 1138.0 {
-            FieldControl::Seal
-        } else {
-            return None;
-        });
-    }
-    if (1018.0..1248.0).contains(&x) && (600.0..628.0).contains(&y) {
-        return Some(FieldControl::Gate(if x < 1074.0 {
-            0
-        } else if x < 1132.0 {
-            2_500
-        } else if x < 1190.0 {
-            5_000
-        } else {
-            10_000
-        }));
-    }
-    if (1018.0..1248.0).contains(&x) && (634.0..662.0).contains(&y) {
-        return Some(if x < 1132.0 {
-            FieldControl::Recover
-        } else if x >= 1138.0 {
-            FieldControl::ToggleDevice
-        } else {
-            return None;
-        });
-    }
-    None
+    hit_test(
+        [
+            (Rect::new(1018.0, 532.0, 108.0, 28.0), FieldControl::Inspect),
+            (
+                Rect::new(1138.0, 532.0, 108.0, 28.0),
+                FieldControl::Excavate,
+            ),
+            (Rect::new(1018.0, 566.0, 108.0, 28.0), FieldControl::Raise),
+            (Rect::new(1138.0, 566.0, 108.0, 28.0), FieldControl::Seal),
+            (Rect::new(1018.0, 600.0, 54.0, 28.0), FieldControl::Gate(0)),
+            (
+                Rect::new(1076.0, 600.0, 54.0, 28.0),
+                FieldControl::Gate(2_500),
+            ),
+            (
+                Rect::new(1134.0, 600.0, 54.0, 28.0),
+                FieldControl::Gate(5_000),
+            ),
+            (
+                Rect::new(1192.0, 600.0, 54.0, 28.0),
+                FieldControl::Gate(10_000),
+            ),
+            (Rect::new(1018.0, 634.0, 108.0, 28.0), FieldControl::Recover),
+            (
+                Rect::new(1138.0, 634.0, 108.0, 28.0),
+                FieldControl::ToggleDevice,
+            ),
+        ]
+        .into_iter()
+        .map(|(rect, value)| macroquad_toolkit::input::HitTarget::new(rect, value)),
+        vec2(x, y),
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -196,33 +189,36 @@ fn mouse_build_click() -> Option<BuildClick> {
 }
 
 pub fn build_click_at(x: f32, y: f32) -> Option<BuildClick> {
-    if (1018.0..1248.0).contains(&x) && (326.0..456.0).contains(&y) {
-        let column = usize::from(x >= 1132.0);
-        let row = ((y - 326.0) / 26.0) as usize;
-        return DeviceId::ALL
-            .get(row * 2 + column)
-            .copied()
-            .map(BuildClick::Palette);
-    }
-    if (1018.0..1248.0).contains(&x) && (468.0..494.0).contains(&y) {
-        return if x < 1092.0 {
-            Some(BuildClick::Rotate)
-        } else if x < 1170.0 {
-            Some(BuildClick::Commit)
-        } else {
-            Some(BuildClick::Cancel)
-        };
-    }
-    if (1018.0..1250.0).contains(&x) && (496.0..522.0).contains(&y) {
-        return Some(BuildClick::Time(if x < 1076.0 {
-            TimeControl::Paused
-        } else if x < 1136.0 {
-            TimeControl::OneX
-        } else if x < 1196.0 {
-            TimeControl::TwoX
-        } else {
-            TimeControl::FourX
-        }));
-    }
-    None
+    let palette = DeviceId::ALL
+        .into_iter()
+        .enumerate()
+        .map(|(index, device)| {
+            let column = index % 2;
+            let row = index / 2;
+            macroquad_toolkit::input::HitTarget::new(
+                Rect::new(
+                    1018.0 + column as f32 * 114.0,
+                    344.0 + row as f32 * 24.0,
+                    108.0,
+                    22.0,
+                ),
+                BuildClick::Palette(device),
+            )
+        });
+    let build = [
+        (Rect::new(1018.0, 468.0, 72.0, 22.0), BuildClick::Rotate),
+        (Rect::new(1094.0, 468.0, 72.0, 22.0), BuildClick::Commit),
+        (Rect::new(1172.0, 468.0, 72.0, 22.0), BuildClick::Cancel),
+    ]
+    .into_iter()
+    .map(|(rect, value)| macroquad_toolkit::input::HitTarget::new(rect, value));
+    let time = [
+        (Rect::new(1018.0, 496.0, 52.0, 22.0), TimeControl::Paused),
+        (Rect::new(1078.0, 496.0, 52.0, 22.0), TimeControl::OneX),
+        (Rect::new(1138.0, 496.0, 52.0, 22.0), TimeControl::TwoX),
+        (Rect::new(1198.0, 496.0, 52.0, 22.0), TimeControl::FourX),
+    ]
+    .into_iter()
+    .map(|(rect, value)| macroquad_toolkit::input::HitTarget::new(rect, BuildClick::Time(value)));
+    hit_test(palette.chain(build).chain(time), vec2(x, y))
 }

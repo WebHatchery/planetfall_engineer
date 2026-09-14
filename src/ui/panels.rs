@@ -1,5 +1,6 @@
 //! Mission, briefing, guide, pause, and terminal panels.
 
+use super::buttons::draw_button;
 use crate::{content::ContentRegistry, mission::MissionPhase, state::GameSession};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
@@ -275,10 +276,20 @@ pub(super) fn draw_pause_menu() {
         (550.0, "RESUME 2X"),
         (670.0, "RESUME 4X"),
     ] {
-        draw_pause_button(x, 242.0, 110.0, label);
+        draw_button(
+            Rect::new(x, 242.0, 110.0, 32.0),
+            label,
+            11.0,
+            ButtonTone::Positive,
+        );
     }
     for (x, label) in [(430.0, "SAVE"), (555.0, "LOAD"), (680.0, "RESET")] {
-        draw_pause_button(x, 290.0, 125.0, label);
+        draw_button(
+            Rect::new(x, 290.0, 125.0, 32.0),
+            label,
+            11.0,
+            ButtonTone::Positive,
+        );
     }
     draw_ui_text_ex(
         "Saving and reset preserve the authoritative field ledger",
@@ -291,17 +302,6 @@ pub(super) fn draw_pause_menu() {
         430.0,
         382.0,
         TextStyle::new(14.0, Color::new(0.56, 0.66, 0.72, 1.0)).params(),
-    );
-}
-
-fn draw_pause_button(x: f32, y: f32, width: f32, label: &str) {
-    draw_rectangle(x, y, width, 32.0, Color::new(0.1, 0.22, 0.27, 0.98));
-    draw_rectangle_lines(x, y, width, 32.0, 1.0, Color::new(0.35, 0.82, 0.76, 1.0));
-    draw_ui_text_ex(
-        label,
-        x + 12.0,
-        y + 21.0,
-        TextStyle::new(11.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
     );
 }
 

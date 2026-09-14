@@ -11,11 +11,11 @@ use planetfall_engineer::ui_action::{pause_action_at, UiAction};
 #[test]
 fn every_visible_build_control_maps_to_its_action() {
     assert_eq!(
-        build_click_at(1040.0, 337.0),
+        build_click_at(1040.0, 354.0),
         Some(BuildClick::Palette(DeviceId::Channel))
     );
     assert_eq!(
-        build_click_at(1200.0, 441.0),
+        build_click_at(1200.0, 450.0),
         Some(BuildClick::Palette(DeviceId::RuneRelay))
     );
     assert_eq!(build_click_at(1040.0, 480.0), Some(BuildClick::Rotate));

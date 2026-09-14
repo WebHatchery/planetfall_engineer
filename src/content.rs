@@ -315,135 +315,153 @@ fn validate_missions(registry: &ContentRegistry, maps: &HashSet<&str>, errors: &
         ));
     }
     for mission in &registry.missions {
-        if !maps.contains(mission.map_id.as_str()) {
-            errors.push(format!(
-                "mission {}: missing map {}",
-                mission.id, mission.map_id
-            ));
-        }
-        let map = registry.map(mission.map_id.as_str());
-        if map.is_some_and(|map| map.kind != "campaign") {
-            errors.push(format!(
-                "mission {}: map {} is not a campaign map",
-                mission.id, mission.map_id
-            ));
-        }
-        if mission.title.trim().is_empty() {
-            errors.push(format!("mission {}: title must not be empty", mission.id));
-        }
-        if mission.reference_tick_min >= mission.reference_tick_max {
-            errors.push(format!(
-                "mission {}: reference tick range must be ascending",
-                mission.id
-            ));
-        }
-        if mission.source_rate_vu == 0 {
-            errors.push(format!(
-                "mission {}: source rate must be positive",
-                mission.id
-            ));
-        }
-        match (mission.surge_start_tick, mission.surge_end_tick) {
-            (Some(start), Some(end)) if start < end && mission.surge_rate_vu > mission.source_rate_vu => {}
-            (None, None) if mission.surge_rate_vu == 0 => {}
-            _ => errors.push(format!(
-                "mission {}: surge schedule must have an ascending window and a higher rate, or be disabled",
-                mission.id
-            )),
-        }
-        if mission.objective_min_vu == 0
-            || mission.objective_min_vu > mission.objective_max_vu
-            || mission.stability_ticks == 0
-            || mission.failure_ticks == 0
-        {
-            errors.push(format!(
-                "mission {}: objective and stability bounds are invalid",
-                mission.id
-            ));
-        }
-        if mission.hazard_reason.trim().is_empty() {
-            errors.push(format!(
-                "mission {}: hazard_reason must not be empty",
-                mission.id
-            ));
-        }
-        if mission.field_guide.trim().is_empty() {
-            errors.push(format!(
-                "mission {}: field_guide must not be empty",
-                mission.id
-            ));
-        }
-        if mission.fabrication_start_fu > 10_000 {
-            errors.push(format!(
-                "mission {}: starting fabrication exceeds slice bound",
-                mission.id
-            ));
-        }
-        for deposit in &mission.deposits {
-            if let Some(map) = map {
-                validate_position(
-                    &format!("mission {} deposit {}", mission.id, deposit.id),
-                    deposit.position,
-                    map,
-                    errors,
-                );
-            }
-            if deposit.yield_fu == 0 {
-                errors.push(format!(
-                    "mission {} deposit {}: yield must be positive",
-                    mission.id, deposit.id
-                ));
-            }
-            if deposit.asset_id.trim().is_empty() {
-                errors.push(format!(
-                    "mission {} deposit {}: asset_id must not be empty",
-                    mission.id, deposit.id
-                ));
-            } else {
-                validate_asset_id(
-                    &format!("mission {} deposit {}", mission.id, deposit.id),
-                    &deposit.asset_id,
-                    errors,
-                );
-            }
-        }
-        for source in &mission.power_sources {
-            if let Some(map) = map {
-                validate_position(
-                    &format!("mission {} power source {}", mission.id, source.id),
-                    source.position,
-                    map,
-                    errors,
-                );
-            }
-            if source.output_eu_per_tick == 0 {
-                errors.push(format!(
-                    "mission {} power source {}: output must be positive",
-                    mission.id, source.id
-                ));
-            }
-            if source.asset_id.trim().is_empty() {
-                errors.push(format!(
-                    "mission {} power source {}: asset_id must not be empty",
-                    mission.id, source.id
-                ));
-            } else {
-                validate_asset_id(
-                    &format!("mission {} power source {}", mission.id, source.id),
-                    &source.asset_id,
-                    errors,
-                );
-            }
-        }
-        if mission.briefing.trim().is_empty() || mission.objective.trim().is_empty() {
-            errors.push(format!(
-                "mission {}: briefing and objective are required",
-                mission.id
-            ));
-        }
+        validate_mission(registry, maps, mission, errors);
     }
 }
 
+fn validate_mission(
+    registry: &ContentRegistry,
+    maps: &HashSet<&str>,
+    mission: &MissionRecord,
+    errors: &mut Vec<String>,
+) {
+    if !maps.contains(mission.map_id.as_str()) {
+        errors.push(format!(
+            "mission {}: missing map {}",
+            mission.id, mission.map_id
+        ));
+    }
+    let map = registry.map(mission.map_id.as_str());
+    if map.is_some_and(|map| map.kind != "campaign") {
+        errors.push(format!(
+            "mission {}: map {} is not a campaign map",
+            mission.id, mission.map_id
+        ));
+    }
+    validate_mission_rules(mission, errors);
+    validate_mission_copy(mission, errors);
+    validate_mission_assets(mission, map, errors);
+}
+
+fn validate_mission_rules(mission: &MissionRecord, errors: &mut Vec<String>) {
+    if mission.title.trim().is_empty() {
+        errors.push(format!("mission {}: title must not be empty", mission.id));
+    }
+    if mission.reference_tick_min >= mission.reference_tick_max {
+        errors.push(format!(
+            "mission {}: reference tick range must be ascending",
+            mission.id
+        ));
+    }
+    if mission.source_rate_vu == 0 {
+        errors.push(format!(
+            "mission {}: source rate must be positive",
+            mission.id
+        ));
+    }
+    match (mission.surge_start_tick, mission.surge_end_tick) {
+        (Some(start), Some(end)) if start < end && mission.surge_rate_vu > mission.source_rate_vu => {}
+        (None, None) if mission.surge_rate_vu == 0 => {}
+        _ => errors.push(format!(
+            "mission {}: surge schedule must have an ascending window and a higher rate, or be disabled",
+            mission.id
+        )),
+    }
+    if mission.objective_min_vu == 0
+        || mission.objective_min_vu > mission.objective_max_vu
+        || mission.stability_ticks == 0
+        || mission.failure_ticks == 0
+    {
+        errors.push(format!(
+            "mission {}: objective and stability bounds are invalid",
+            mission.id
+        ));
+    }
+    if mission.fabrication_start_fu > 10_000 {
+        errors.push(format!(
+            "mission {}: starting fabrication exceeds slice bound",
+            mission.id
+        ));
+    }
+}
+
+fn validate_mission_copy(mission: &MissionRecord, errors: &mut Vec<String>) {
+    if mission.hazard_reason.trim().is_empty() {
+        errors.push(format!(
+            "mission {}: hazard_reason must not be empty",
+            mission.id
+        ));
+    }
+    if mission.field_guide.trim().is_empty() {
+        errors.push(format!(
+            "mission {}: field_guide must not be empty",
+            mission.id
+        ));
+    }
+    if mission.briefing.trim().is_empty() || mission.objective.trim().is_empty() {
+        errors.push(format!(
+            "mission {}: briefing and objective are required",
+            mission.id
+        ));
+    }
+}
+
+fn validate_mission_assets(
+    mission: &MissionRecord,
+    map: Option<&MapRecord>,
+    errors: &mut Vec<String>,
+) {
+    for deposit in &mission.deposits {
+        if let Some(map) = map {
+            validate_position(
+                &format!("mission {} deposit {}", mission.id, deposit.id),
+                deposit.position,
+                map,
+                errors,
+            );
+        }
+        if deposit.yield_fu == 0 {
+            errors.push(format!(
+                "mission {} deposit {}: yield must be positive",
+                mission.id, deposit.id
+            ));
+        }
+        validate_named_asset(
+            &format!("mission {} deposit {}", mission.id, deposit.id),
+            deposit.asset_id.as_str(),
+            errors,
+        );
+    }
+    for source in &mission.power_sources {
+        if let Some(map) = map {
+            validate_position(
+                &format!("mission {} power source {}", mission.id, source.id),
+                source.position,
+                map,
+                errors,
+            );
+        }
+        if source.output_eu_per_tick == 0 {
+            errors.push(format!(
+                "mission {} power source {}: output must be positive",
+                mission.id, source.id
+            ));
+        }
+        validate_named_asset(
+            &format!("mission {} power source {}", mission.id, source.id),
+            source.asset_id.as_str(),
+            errors,
+        );
+    }
+}
+
+fn validate_named_asset(label: &str, asset_id: &str, errors: &mut Vec<String>) {
+    if asset_id.trim().is_empty() {
+        errors.push(format!("{label}: asset_id must not be empty"));
+    } else {
+        validate_asset_id(label, asset_id, errors);
+    }
+}
 fn validate_tutorials(registry: &ContentRegistry, errors: &mut Vec<String>) {
     for tutorial in &registry.tutorials {
         let namespace = tutorial.id.strip_suffix("_power").unwrap_or(&tutorial.id);

@@ -6,6 +6,7 @@ use crate::{
     state::CellPos,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 
 mod network;
 mod runtime;
@@ -41,7 +42,11 @@ impl DeviceId {
         Self::Filter,
         Self::RuneRelay,
     ];
-    pub const fn cost(self) -> u32 {
+    pub fn cost(self) -> u32 {
+        self.content_record()
+            .map_or_else(|| self.legacy_cost(), |record| record.fabrication_cost_fu)
+    }
+    const fn legacy_cost(self) -> u32 {
         match self {
             Self::Channel => 2,
             Self::Pipe => 3,
@@ -76,7 +81,13 @@ impl DeviceId {
         }
     }
 
-    pub const fn power_demand_eu(self) -> u32 {
+    pub fn power_demand_eu(self) -> u32 {
+        self.content_record().map_or_else(
+            || self.legacy_power_demand_eu(),
+            |record| record.power_demand_eu_per_tick,
+        )
+    }
+    const fn legacy_power_demand_eu(self) -> u32 {
         match self {
             Self::Pump | Self::Filter => 3,
             Self::Reservoir | Self::Sensor => 1,
@@ -85,7 +96,18 @@ impl DeviceId {
         }
     }
 
-    pub const fn power_class(self) -> Option<PowerClass> {
+    pub fn power_class(self) -> Option<PowerClass> {
+        self.content_record()
+            .and_then(|record| match record.power_class.as_deref() {
+                Some("safety") => Some(PowerClass::Safety),
+                Some("transport") => Some(PowerClass::Transport),
+                Some("process") => Some(PowerClass::Process),
+                Some("interface") => Some(PowerClass::Interface),
+                _ => None,
+            })
+            .or_else(|| self.legacy_power_class())
+    }
+    const fn legacy_power_class(self) -> Option<PowerClass> {
         match self {
             Self::Reservoir | Self::Sensor => Some(PowerClass::Safety),
             Self::Pump => Some(PowerClass::Transport),
@@ -93,6 +115,16 @@ impl DeviceId {
             Self::RuneRelay => Some(PowerClass::Interface),
             _ => None,
         }
+    }
+
+    fn content_record(self) -> Option<&'static crate::content::DeviceRecord> {
+        static CONTENT: OnceLock<Option<crate::content::ContentRegistry>> = OnceLock::new();
+        CONTENT
+            .get_or_init(|| crate::content::ContentRegistry::load().ok())
+            .as_ref()?
+            .devices
+            .iter()
+            .find(|record| record.id == self.name())
     }
 }
 

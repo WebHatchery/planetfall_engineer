@@ -336,6 +336,18 @@ fn draw_device_silhouette(
     active: bool,
     rotation: u8,
 ) {
+    draw_device_body(device, center, width, depth, active, rotation);
+    draw_device_orientation_marker(center, active, rotation);
+}
+
+fn draw_device_body(
+    device: DeviceId,
+    center: Vec3,
+    width: u16,
+    depth: u16,
+    active: bool,
+    rotation: u8,
+) {
     let metal = Color::new(0.28, 0.31, 0.29, 1.0);
     let brass = Color::new(0.68, 0.47, 0.18, 1.0);
     let glow = if active {
@@ -343,114 +355,149 @@ fn draw_device_silhouette(
     } else {
         Color::new(0.24, 0.42, 0.41, 1.0)
     };
-    let base = vec3(width as f32 * 0.72, 0.18, depth as f32 * 0.72);
-    draw_cube(center - vec3(0.0, 0.24, 0.0), base, None, metal);
+    draw_cube(
+        center - vec3(0.0, 0.24, 0.0),
+        vec3(width as f32 * 0.72, 0.18, depth as f32 * 0.72),
+        None,
+        metal,
+    );
     match device {
-        DeviceId::Pipe => {
-            let pipe_size = if rotation.is_multiple_of(2) {
-                vec3(0.88, 0.18, 0.24)
-            } else {
-                vec3(0.24, 0.18, 0.88)
-            };
-            draw_cube(center, pipe_size, None, brass);
-            draw_cube(
-                center + vec3(0.0, 0.12, 0.0),
-                if rotation.is_multiple_of(2) {
-                    vec3(0.95, 0.04, 0.12)
-                } else {
-                    vec3(0.12, 0.04, 0.95)
-                },
-                None,
-                glow,
-            );
-        }
-        DeviceId::Floodgate => {
-            draw_cube(
-                center + vec3(0.0, 0.22, 0.0),
-                vec3(0.8, 0.62, 0.15),
-                None,
-                metal,
-            );
-            draw_cube(
-                center + vec3(0.0, 0.22, 0.10),
-                vec3(0.48, 0.4, 0.035),
-                None,
-                glow,
-            );
-        }
-        DeviceId::Pump => {
-            draw_cube(
-                center + vec3(0.0, 0.25, 0.0),
-                vec3(0.48, 0.52, 0.48),
-                None,
-                brass,
-            );
-            draw_sphere(center + vec3(0.0, 0.56, 0.0), 0.18, None, glow);
-        }
-        DeviceId::Reservoir => {
-            draw_cube(
-                center + vec3(0.0, 0.45, 0.0),
-                vec3(0.92, 0.92, 0.92),
-                None,
-                metal,
-            );
-            draw_cube(
-                center + vec3(0.0, 0.48, 0.47),
-                vec3(0.42, 0.46, 0.025),
-                None,
-                glow,
-            );
-        }
-        DeviceId::FlowTurbine => {
-            draw_cube(
-                center + vec3(0.0, 0.28, 0.0),
-                vec3(0.58, 0.6, 0.58),
-                None,
-                metal,
-            );
-            draw_sphere(center + vec3(0.0, 0.32, 0.31), 0.22, None, glow);
-        }
-        DeviceId::RuneRelay => {
-            draw_cube(
-                center + vec3(0.0, 0.36, 0.0),
-                vec3(0.74, 0.72, 0.74),
-                None,
-                Color::new(0.32, 0.22, 0.42, 1.0),
-            );
-            draw_sphere(center + vec3(0.0, 0.82, 0.0), 0.18, None, glow);
-        }
-        DeviceId::Channel | DeviceId::Spillway => {
-            draw_cube(
-                center + vec3(0.0, 0.04, 0.0),
-                vec3(0.84, 0.11, 0.84),
-                None,
-                brass,
-            );
-        }
-        DeviceId::Sensor => {
-            draw_cube(
-                center + vec3(0.0, 0.42, 0.0),
-                vec3(0.18, 0.82, 0.18),
-                None,
-                metal,
-            );
-            draw_sphere(center + vec3(0.0, 0.86, 0.0), 0.12, None, glow);
-        }
-        DeviceId::Filter => {
-            draw_cube(
-                center + vec3(0.0, 0.36, 0.0),
-                vec3(0.56, 0.72, 0.56),
-                None,
-                metal,
-            );
-            draw_cube(
-                center + vec3(0.0, 0.36, 0.30),
-                vec3(0.24, 0.38, 0.03),
-                None,
-                glow,
-            );
-        }
+        DeviceId::Pipe => draw_pipe(center, brass, glow, rotation),
+        DeviceId::Floodgate => draw_floodgate(center, metal, glow),
+        DeviceId::Pump => draw_pump(center, brass, glow),
+        DeviceId::Reservoir => draw_reservoir(center, metal, glow),
+        DeviceId::FlowTurbine => draw_turbine(center, metal, glow),
+        DeviceId::RuneRelay => draw_relay(center, glow),
+        DeviceId::Channel | DeviceId::Spillway => draw_shallow_device(center, brass),
+        DeviceId::Sensor => draw_sensor(center, metal, glow),
+        DeviceId::Filter => draw_filter(center, metal, glow),
     }
+}
+
+fn draw_pipe(center: Vec3, brass: Color, glow: Color, rotation: u8) {
+    let horizontal = rotation.is_multiple_of(2);
+    draw_cube(
+        center,
+        if horizontal {
+            vec3(0.88, 0.18, 0.24)
+        } else {
+            vec3(0.24, 0.18, 0.88)
+        },
+        None,
+        brass,
+    );
+    draw_cube(
+        center + vec3(0.0, 0.12, 0.0),
+        if horizontal {
+            vec3(0.95, 0.04, 0.12)
+        } else {
+            vec3(0.12, 0.04, 0.95)
+        },
+        None,
+        glow,
+    );
+}
+
+fn draw_floodgate(center: Vec3, metal: Color, glow: Color) {
+    draw_cube(
+        center + vec3(0.0, 0.22, 0.0),
+        vec3(0.8, 0.62, 0.15),
+        None,
+        metal,
+    );
+    draw_cube(
+        center + vec3(0.0, 0.22, 0.10),
+        vec3(0.48, 0.4, 0.035),
+        None,
+        glow,
+    );
+}
+
+fn draw_pump(center: Vec3, brass: Color, glow: Color) {
+    draw_cube(
+        center + vec3(0.0, 0.25, 0.0),
+        vec3(0.48, 0.52, 0.48),
+        None,
+        brass,
+    );
+    draw_sphere(center + vec3(0.0, 0.56, 0.0), 0.18, None, glow);
+}
+
+fn draw_reservoir(center: Vec3, metal: Color, glow: Color) {
+    draw_cube(
+        center + vec3(0.0, 0.45, 0.0),
+        vec3(0.92, 0.92, 0.92),
+        None,
+        metal,
+    );
+    draw_cube(
+        center + vec3(0.0, 0.48, 0.47),
+        vec3(0.42, 0.46, 0.025),
+        None,
+        glow,
+    );
+}
+
+fn draw_turbine(center: Vec3, metal: Color, glow: Color) {
+    draw_cube(
+        center + vec3(0.0, 0.28, 0.0),
+        vec3(0.58, 0.6, 0.58),
+        None,
+        metal,
+    );
+    draw_sphere(center + vec3(0.0, 0.32, 0.31), 0.22, None, glow);
+}
+
+fn draw_relay(center: Vec3, glow: Color) {
+    draw_cube(
+        center + vec3(0.0, 0.36, 0.0),
+        vec3(0.74, 0.72, 0.74),
+        None,
+        Color::new(0.32, 0.22, 0.42, 1.0),
+    );
+    draw_sphere(center + vec3(0.0, 0.82, 0.0), 0.18, None, glow);
+}
+
+fn draw_shallow_device(center: Vec3, brass: Color) {
+    draw_cube(
+        center + vec3(0.0, 0.04, 0.0),
+        vec3(0.84, 0.11, 0.84),
+        None,
+        brass,
+    );
+}
+
+fn draw_sensor(center: Vec3, metal: Color, glow: Color) {
+    draw_cube(
+        center + vec3(0.0, 0.42, 0.0),
+        vec3(0.18, 0.82, 0.18),
+        None,
+        metal,
+    );
+    draw_sphere(center + vec3(0.0, 0.86, 0.0), 0.12, None, glow);
+}
+
+fn draw_filter(center: Vec3, metal: Color, glow: Color) {
+    draw_cube(
+        center + vec3(0.0, 0.36, 0.0),
+        vec3(0.56, 0.72, 0.56),
+        None,
+        metal,
+    );
+    draw_cube(
+        center + vec3(0.0, 0.36, 0.30),
+        vec3(0.24, 0.38, 0.03),
+        None,
+        glow,
+    );
+}
+
+fn draw_device_orientation_marker(center: Vec3, active: bool, rotation: u8) {
+    let glow = if active {
+        Color::new(0.12, 0.82, 0.78, 1.0)
+    } else {
+        Color::new(0.24, 0.42, 0.41, 1.0)
+    };
     let (dx, dz) = match rotation % 4 {
         0 => (0.46, 0.0),
         1 => (0.0, 0.46),

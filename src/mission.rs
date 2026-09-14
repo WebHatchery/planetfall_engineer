@@ -175,6 +175,13 @@ pub struct MissionRules {
     pub hazard_reason: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MissionMetrics {
+    basin_water: u32,
+    trench_water: u32,
+    shelf_rock: u32,
+}
+
 const fn default_alert_level() -> AlertLevel {
     AlertLevel::Clear
 }
@@ -195,6 +202,12 @@ impl MissionState {
             failure_ticks: 0,
             alert_level: AlertLevel::Clear,
             rules,
+        }
+    }
+
+    pub(crate) fn ensure_current_rules(&mut self) {
+        if self.rules.stability_ticks == 0 {
+            self.rules = rules_for(self.id);
         }
     }
     pub fn start(&mut self) {
@@ -241,6 +254,30 @@ impl MissionState {
             return;
         }
         self.tick = world.tick;
+        self.advance_tutorial();
+        let metrics = MissionMetrics {
+            basin_water: zone_water(world, 26..=30, 7..=11),
+            trench_water: zone_water(world, 31..=36, 7..=9),
+            shelf_rock: zone_rock(world, 20..=25, 12..=16),
+        };
+        self.objective_progress = self.objective_progress(metrics);
+        let hazard_active = self.hazard_active(world);
+        self.update_alert(hazard_active);
+        if self.failure_ticks >= self.rules.failure_ticks {
+            self.fail(self.rules.hazard_reason.clone());
+            return;
+        }
+        if self.objectives_met(world, metrics) {
+            self.stability_ticks = self.stability_ticks.saturating_add(1);
+        } else {
+            self.stability_ticks = 0;
+        }
+        if self.stability_ticks >= self.rules.stability_ticks {
+            self.phase = MissionPhase::Success;
+        }
+    }
+
+    fn advance_tutorial(&mut self) {
         if let Some(tutorial) = &mut self.tutorial {
             tutorial.ticks_in_step = tutorial.ticks_in_step.saturating_add(1);
             if tutorial.current_step_id == "tutorial_l01_beacon_warning"
@@ -249,15 +286,18 @@ impl MissionState {
                 tutorial.complete_current();
             }
         }
-        let basin_water = zone_water(world, 26..=30, 7..=11);
-        let trench_water = zone_water(world, 31..=36, 7..=9);
-        let shelf_rock = zone_rock(world, 20..=25, 12..=16);
-        self.objective_progress = match self.id {
-            MissionId::L01FirstFlow => basin_water,
-            MissionId::L02HoldingLine => trench_water,
-            MissionId::L03Firebreak => shelf_rock,
-        };
-        let hazard_active = match self.id {
+    }
+
+    fn objective_progress(&self, metrics: MissionMetrics) -> u32 {
+        match self.id {
+            MissionId::L01FirstFlow => metrics.basin_water,
+            MissionId::L02HoldingLine => metrics.trench_water,
+            MissionId::L03Firebreak => metrics.shelf_rock,
+        }
+    }
+
+    fn hazard_active(&self, world: &SimulationWorld) -> bool {
+        match self.id {
             MissionId::L01FirstFlow => {
                 cell_water(world, crate::state::CellPos { x: 24, y: 8 })
                     >= self.rules.hazard_threshold_vu
@@ -268,7 +308,10 @@ impl MissionState {
             MissionId::L03Firebreak => {
                 zone_fluid(world, 35..=40, 12..=18, crate::simulation::FluidId::Lava) > 0
             }
-        };
+        }
+    }
+
+    fn update_alert(&mut self, hazard_active: bool) {
         self.failure_ticks = if hazard_active {
             self.failure_ticks.saturating_add(1)
         } else {
@@ -289,7 +332,7 @@ impl MissionState {
                 AlertLevel::Advisory
             }
             MissionId::L03Firebreak if hazard_active => AlertLevel::Critical,
-            MissionId::L03Firebreak if shelf_rock > 0 => AlertLevel::Warning,
+            MissionId::L03Firebreak if self.objective_progress > 0 => AlertLevel::Warning,
             MissionId::L03Firebreak
                 if self.rules.advisory_tick > 0 && self.tick >= self.rules.advisory_tick =>
             {
@@ -297,22 +340,17 @@ impl MissionState {
             }
             _ => AlertLevel::Clear,
         };
-        let failure_limit = self.rules.failure_ticks;
-        if self.failure_ticks >= failure_limit {
-            self.fail(match self.id {
-                MissionId::L01FirstFlow | MissionId::L02HoldingLine | MissionId::L03Firebreak => {
-                    self.rules.hazard_reason.clone()
-                }
-            });
-            return;
-        }
-        let objectives_met = match self.id {
-            MissionId::L01FirstFlow => basin_water >= self.rules.objective_max_vu,
+    }
+
+    fn objectives_met(&self, world: &SimulationWorld, metrics: MissionMetrics) -> bool {
+        match self.id {
+            MissionId::L01FirstFlow => metrics.basin_water >= self.rules.objective_max_vu,
             MissionId::L02HoldingLine => {
                 let reserve = world.devices.devices.iter().any(|device| {
                     device.device == DeviceId::Reservoir && device.stored_vu >= 2_000
                 });
-                (self.rules.objective_min_vu..=self.rules.objective_max_vu).contains(&trench_water)
+                (self.rules.objective_min_vu..=self.rules.objective_max_vu)
+                    .contains(&metrics.trench_water)
                     && reserve
                     && self.tick >= self.rules.advisory_tick.saturating_add(650)
             }
@@ -325,19 +363,11 @@ impl MissionState {
                     .devices
                     .iter()
                     .any(|device| device.device == DeviceId::RuneRelay && device.active);
-                shelf_rock >= self.rules.objective_min_vu
+                metrics.shelf_rock >= self.rules.objective_min_vu
                     && turbine_power
                     && relay_active
                     && self.tick >= self.rules.advisory_tick.saturating_add(550)
             }
-        };
-        if objectives_met {
-            self.stability_ticks = self.stability_ticks.saturating_add(1);
-        } else {
-            self.stability_ticks = 0;
-        }
-        if self.stability_ticks >= self.rules.stability_ticks {
-            self.phase = MissionPhase::Success;
         }
     }
     pub fn fail(&mut self, reason: impl Into<String>) {
@@ -517,7 +547,7 @@ impl Default for CampaignProgress {
             unlocked: [true, false, false],
             completed: [false; 3],
             best_ticks: [None; 3],
-            content_version: "phase-e-1".into(),
+            content_version: "1.2.0".into(),
         }
     }
 }

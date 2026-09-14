@@ -9,6 +9,7 @@ use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
 
+pub(crate) mod buttons;
 mod engineering;
 mod panels;
 mod status;

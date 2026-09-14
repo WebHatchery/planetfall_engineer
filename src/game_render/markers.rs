@@ -6,6 +6,12 @@ use macroquad::prelude::*;
 
 impl Game {
     pub(super) fn draw_authored_markers(&self) {
+        self.draw_source_markers();
+        self.draw_cell_markers();
+        self.draw_reaction_markers();
+    }
+
+    fn draw_source_markers(&self) {
         for source in &self.session.simulation.sources {
             let Some(index) = self.session.simulation.index(source.position) else {
                 continue;
@@ -34,6 +40,9 @@ impl Game {
                 color,
             );
         }
+    }
+
+    fn draw_cell_markers(&self) {
         for (index, definition) in self.session.simulation.definitions.iter().enumerate() {
             if definition.surface_drain_rate_vu > 0 {
                 let x = (index % self.session.simulation.width as usize) as f32 + 0.5;
@@ -85,6 +94,9 @@ impl Game {
                 );
             }
         }
+    }
+
+    fn draw_reaction_markers(&self) {
         for event in &self.session.simulation.events {
             let crate::simulation::SimEvent::MaterialReacted {
                 cell, volume_vu, ..

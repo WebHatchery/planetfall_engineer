@@ -10,6 +10,14 @@ use crate::{
 
 impl Game {
     pub(crate) fn dispatch_action(&mut self, action: UiAction) -> bool {
+        self.dispatch_field_action(action)
+            .or_else(|| self.dispatch_session_action(action))
+            .or_else(|| self.dispatch_menu_action(action))
+            .or_else(|| self.dispatch_debug_action(action))
+            .unwrap_or(false)
+    }
+
+    fn dispatch_field_action(&mut self, action: UiAction) -> Option<bool> {
         match action {
             UiAction::TogglePause => {
                 self.pause_menu = !self.pause_menu;
@@ -17,27 +25,27 @@ impl Game {
                     self.session.time_control = TimeControl::Paused;
                     self.notice = "Pause menu open".into();
                 }
-                true
+                Some(true)
             }
             UiAction::SetTime(time) => {
                 self.set_time(time);
-                true
+                Some(true)
             }
             UiAction::Select(position) => {
                 if self.session.simulation.index(position).is_none() {
-                    return false;
+                    return Some(false);
                 }
                 self.session.selected = position;
                 let _ = self.session.mission.admit(CommandKind::Select);
                 self.notice = format!("Survey target selected: {}, {}", position.x, position.y);
-                true
+                Some(true)
             }
             UiAction::MoveSelection(dx, dy) => {
                 self.session.move_selected(dx, dy);
                 let position = self.session.selected;
                 let _ = self.session.mission.admit(CommandKind::Select);
                 self.notice = format!("Survey target selected: {}, {}", position.x, position.y);
-                true
+                Some(true)
             }
             UiAction::Inspect => {
                 if self.admit(CommandKind::Inspect) {
@@ -46,40 +54,46 @@ impl Game {
                         self.session.selected.x, self.session.selected.y
                     );
                 }
-                true
+                Some(true)
             }
             UiAction::Terrain(action) => {
                 self.apply_terrain(action);
-                true
+                Some(true)
             }
             UiAction::QueueDevice(device) => {
                 self.queue_device(device);
-                true
+                Some(true)
             }
             UiAction::RotatePlacement => {
                 self.placement_rotation = (self.placement_rotation + 1) % 4;
                 self.notice = format!("Placement rotation {}°", self.placement_rotation * 90);
-                true
+                Some(true)
             }
             UiAction::CommitPlan => {
                 self.commit_build_plan();
-                true
+                Some(true)
             }
             UiAction::CancelPlan => {
                 self.cancel_build_plan();
-                true
+                Some(true)
             }
             UiAction::SetGate(setting) => {
                 self.set_gate(setting);
-                true
+                Some(true)
             }
-            UiAction::RecoverDeposit => self.recover_selected_deposit(),
-            UiAction::ToggleSelectedDevice => self.toggle_selected_device(),
+            UiAction::RecoverDeposit => Some(self.recover_selected_deposit()),
+            UiAction::ToggleSelectedDevice => Some(self.toggle_selected_device()),
+            _ => None,
+        }
+    }
+
+    fn dispatch_session_action(&mut self, action: UiAction) -> Option<bool> {
+        match action {
             UiAction::Save => {
                 self.notice = save_session(&self.session, &self.data.config)
                     .map(|_| "Checkpoint saved".into())
                     .unwrap_or_else(|error| error);
-                true
+                Some(true)
             }
             UiAction::Load => {
                 match load_session(&self.data.config) {
@@ -89,11 +103,11 @@ impl Game {
                     }
                     Err(error) => self.notice = error,
                 }
-                true
+                Some(true)
             }
             UiAction::ResetMission => {
                 self.reset_mission();
-                true
+                Some(true)
             }
             UiAction::BeginMission => {
                 if self.session.mission.phase == MissionPhase::Briefing {
@@ -103,43 +117,49 @@ impl Game {
                         self.mission_title(self.session.mission.id)
                     );
                 }
-                true
+                Some(true)
             }
             UiAction::SkipTutorial => {
                 self.skip_tutorial();
-                true
+                Some(true)
             }
             UiAction::ToggleLab => {
                 self.toggle_lab_mode();
-                true
+                Some(true)
             }
             UiAction::EnterShowcase(device) => {
                 self.enter_showcase(device);
-                true
+                Some(true)
             }
             UiAction::RestoreCampaign => {
                 self.restore_campaign_session();
-                true
+                Some(true)
             }
             UiAction::StepVerification => {
                 self.step_verification();
-                true
+                Some(true)
             }
             UiAction::NextCampaign => {
                 self.select_next_campaign();
-                true
+                Some(true)
             }
+            _ => None,
+        }
+    }
+
+    fn dispatch_menu_action(&mut self, action: UiAction) -> Option<bool> {
+        match action {
             UiAction::StartNewCampaign => {
                 self.start_new_campaign();
-                true
+                Some(true)
             }
             UiAction::OpenCampaignSelect => {
                 self.frontend_mode = crate::game::FrontendMode::CampaignSelect;
-                true
+                Some(true)
             }
             UiAction::OpenVerificationSelect => {
                 self.frontend_mode = crate::game::FrontendMode::VerificationSelect;
-                true
+                Some(true)
             }
             UiAction::SelectMission(id) => {
                 if self.session.campaign.unlocked[id.sequence() - 1] {
@@ -150,7 +170,7 @@ impl Game {
                         self.mission_title(id)
                     );
                 }
-                true
+                Some(true)
             }
             UiAction::TerminalPrimary => {
                 if self.session.mission.phase == MissionPhase::Success {
@@ -158,7 +178,7 @@ impl Game {
                 } else {
                     self.reset_mission();
                 }
-                true
+                Some(true)
             }
             UiAction::TerminalSecondary => {
                 if self.session.mission.phase == MissionPhase::Success {
@@ -168,13 +188,19 @@ impl Game {
                     self.checkpoint_session = None;
                     self.load_mission(self.session.mission.id, "restarted from failure");
                 }
-                true
+                Some(true)
             }
             UiAction::ResetVerification => {
                 self.reset_verification();
-                true
+                Some(true)
             }
-            UiAction::RemoveSelectedDevice => self.remove_selected_device(),
+            UiAction::RemoveSelectedDevice => Some(self.remove_selected_device()),
+            _ => None,
+        }
+    }
+
+    fn dispatch_debug_action(&mut self, action: UiAction) -> Option<bool> {
+        match action {
             UiAction::Checkpoint => {
                 self.session.mission.checkpoint();
                 self.checkpoint_session = Some(self.session.clone());
@@ -182,27 +208,27 @@ impl Game {
                     "Mission checkpoint recorded at tick {}",
                     self.session.mission.checkpoint_tick
                 );
-                true
+                Some(true)
             }
             UiAction::FailMission => {
                 self.session.mission.fail("manual failure-path check");
                 self.notice = "Mission failed — reset to checkpoint".into();
-                true
+                Some(true)
             }
             UiAction::ReloadMission => {
                 self.load_mission(self.session.mission.id, "reloaded from authored state");
-                true
+                Some(true)
             }
             UiAction::Inject(fluid) => {
                 self.session
                     .simulation
                     .inject(self.session.selected, fluid, 500);
-                true
+                Some(true)
             }
             UiAction::CycleOverlay => {
                 self.overlay_mode = (self.overlay_mode + 1) % 5;
                 self.notice = format!("{} overlay", crate::game::overlay_name(self.overlay_mode));
-                true
+                Some(true)
             }
             UiAction::RunShowcaseReport => {
                 let admission = self.session.mission.admit(CommandKind::DismissPrompt);
@@ -210,16 +236,17 @@ impl Game {
                     "{} — tutorial command: {admission:?}",
                     crate::devices::run_all_showcases()
                 );
-                true
+                Some(true)
             }
             UiAction::RunScenarioReport => {
                 self.notice = run_all_scenarios();
-                true
+                Some(true)
             }
             UiAction::DismissPrompt => {
                 let _ = self.admit(CommandKind::DismissPrompt);
-                true
+                Some(true)
             }
+            _ => None,
         }
     }
 

@@ -2,7 +2,7 @@
   "game_name": "planetfall_engineer",
   "display_name": "Planetfall Engineer",
   "save_slot": "autosave",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "world_width": 32,
   "world_height": 20
 }

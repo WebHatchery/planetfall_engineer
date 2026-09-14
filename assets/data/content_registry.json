@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "content_version": "1.1.0",
+  "content_version": "1.2.0",
   "fluids": [
     {"id":"water","enabled":true}, {"id":"brine","enabled":false},
     {"id":"lava","enabled":true}, {"id":"steam","enabled":true},

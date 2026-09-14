@@ -6,6 +6,8 @@ use crate::{
     simulation::{FluidId, TerrainAction},
     state::{CellPos, TimeControl},
 };
+use macroquad::prelude::*;
+use macroquad_toolkit::input::{hit_test, HitTarget};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UiAction {
@@ -51,30 +53,24 @@ pub enum UiAction {
 }
 
 pub fn pause_action_at(x: f32, y: f32) -> Option<UiAction> {
-    if !(430.0..=810.0).contains(&x) {
-        return None;
-    }
-    if (242.0..=274.0).contains(&y) {
-        return if x < 540.0 {
-            Some(UiAction::SetTime(TimeControl::OneX))
-        } else if x < 660.0 {
-            Some(UiAction::SetTime(TimeControl::TwoX))
-        } else if x < 780.0 {
-            Some(UiAction::SetTime(TimeControl::FourX))
-        } else {
-            None
-        };
-    }
-    if (290.0..=322.0).contains(&y) {
-        return if x < 555.0 {
-            Some(UiAction::Save)
-        } else if x < 680.0 {
-            Some(UiAction::Load)
-        } else if x < 810.0 {
-            Some(UiAction::ResetMission)
-        } else {
-            None
-        };
-    }
-    None
+    hit_test(
+        [
+            HitTarget::new(
+                Rect::new(430.0, 242.0, 110.0, 32.0),
+                UiAction::SetTime(TimeControl::OneX),
+            ),
+            HitTarget::new(
+                Rect::new(550.0, 242.0, 110.0, 32.0),
+                UiAction::SetTime(TimeControl::TwoX),
+            ),
+            HitTarget::new(
+                Rect::new(670.0, 242.0, 110.0, 32.0),
+                UiAction::SetTime(TimeControl::FourX),
+            ),
+            HitTarget::new(Rect::new(430.0, 290.0, 125.0, 32.0), UiAction::Save),
+            HitTarget::new(Rect::new(555.0, 290.0, 125.0, 32.0), UiAction::Load),
+            HitTarget::new(Rect::new(680.0, 290.0, 125.0, 32.0), UiAction::ResetMission),
+        ],
+        vec2(x, y),
+    )
 }
