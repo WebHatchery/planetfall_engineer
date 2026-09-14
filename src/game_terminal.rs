@@ -33,12 +33,12 @@ impl Game {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TerminalAction {
+pub enum TerminalAction {
     Primary,
     Secondary,
 }
 
-fn terminal_action_at(x: f32, y: f32) -> Option<TerminalAction> {
+pub fn terminal_action_at(x: f32, y: f32) -> Option<TerminalAction> {
     if !(374.0..=414.0).contains(&y) {
         return None;
     }
@@ -50,6 +50,3 @@ fn terminal_action_at(x: f32, y: f32) -> Option<TerminalAction> {
         None
     }
 }
-
-#[cfg(test)]
-mod tests;

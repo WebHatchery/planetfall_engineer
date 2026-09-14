@@ -1,4 +1,6 @@
-use super::*;
+//! Logical hit regions for verification fixture controls.
+
+use planetfall_engineer::game_verification::{verification_click_at, VerificationClick};
 
 #[test]
 fn verification_controls_have_distinct_touch_targets() {

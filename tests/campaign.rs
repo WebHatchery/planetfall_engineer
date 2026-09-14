@@ -1,4 +1,9 @@
-use super::*;
+//! Authored campaign geometry, resources, and schedule coverage.
+
+use planetfall_engineer::campaign::*;
+use planetfall_engineer::mission::MissionId;
+use planetfall_engineer::simulation::FluidId;
+use planetfall_engineer::state::CellPos;
 #[test]
 fn all_campaign_maps_have_authored_sizes_and_budget() {
     let maps: Vec<_> = MissionId::ALL.into_iter().map(load_campaign).collect();
@@ -62,7 +67,7 @@ fn l01_barriers_are_required_to_feed_the_far_side_dam() {
     ] {
         solved
             .world
-            .terrain_edit(pos, crate::simulation::TerrainAction::Raise)
+            .terrain_edit(pos, planetfall_engineer::simulation::TerrainAction::Raise)
             .unwrap();
     }
     solved.world.set_sources_enabled(true);
@@ -111,19 +116,19 @@ fn authored_l02_and_l03_maps_do_not_autocomplete_without_player_builds() {
     for id in [MissionId::L02HoldingLine, MissionId::L03Firebreak] {
         let mut map = load_campaign(id);
         map.world.set_sources_enabled(true);
-        let mut mission = crate::mission::MissionState::new(id);
+        let mut mission = planetfall_engineer::mission::MissionState::new(id);
         mission.start();
         for _ in 0..2_200 {
             apply_scheduled_events(&mut map.world, id);
             map.world.tick();
             mission.on_tick(&map.world);
-            if mission.phase != crate::mission::MissionPhase::Active {
+            if mission.phase != planetfall_engineer::mission::MissionPhase::Active {
                 break;
             }
         }
         assert_ne!(
             mission.phase,
-            crate::mission::MissionPhase::Success,
+            planetfall_engineer::mission::MissionPhase::Success,
             "{id:?}: {mission:?}"
         );
     }

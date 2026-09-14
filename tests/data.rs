@@ -1,4 +1,6 @@
-use super::*;
+//! Embedded configuration and content loading coverage.
+
+use planetfall_engineer::data::GameData;
 
 #[test]
 fn embedded_foundation_data_loads() {

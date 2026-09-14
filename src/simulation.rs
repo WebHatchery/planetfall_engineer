@@ -379,7 +379,7 @@ impl SimulationWorld {
         }
     }
 
-    fn flow_surface(&mut self) {
+    pub fn flow_surface(&mut self) {
         let snapshot = self.cells.clone();
         let mut transfers: Vec<(usize, usize, FluidId, u32, i32, u16)> = Vec::new();
         for y in 0..self.height {
@@ -485,7 +485,7 @@ impl SimulationWorld {
         }
     }
 
-    fn flow_steam(&mut self) {
+    pub fn flow_steam(&mut self) {
         let snapshot = self.cells.clone();
         let mut moves = Vec::new();
         for y in 0..self.height {
@@ -716,7 +716,7 @@ pub enum TerrainError {
     Capacity,
 }
 
-fn volume(entries: &[FluidEntry], fluid: FluidId) -> u32 {
+pub fn volume(entries: &[FluidEntry], fluid: FluidId) -> u32 {
     entries
         .iter()
         .find(|m| m.fluid == fluid)
@@ -768,6 +768,3 @@ fn mixture_split(source: &SimCell, amount: u32) -> Vec<(FluidId, u32, i32, u16)>
     }
     split
 }
-
-#[cfg(test)]
-mod tests;

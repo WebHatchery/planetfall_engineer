@@ -1,4 +1,7 @@
-use super::*;
+//! Deterministic terrain, fluid, reaction, and material-ledger coverage.
+
+use planetfall_engineer::simulation::*;
+use planetfall_engineer::state::CellPos;
 fn pos(x: u16, y: u16) -> CellPos {
     CellPos { x, y }
 }

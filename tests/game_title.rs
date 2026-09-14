@@ -1,4 +1,7 @@
-use super::*;
+//! Logical hit regions for title and verification entry controls.
+
+use planetfall_engineer::game::FrontendMode;
+use planetfall_engineer::game_title::frontend_mouse_choice_at;
 
 #[test]
 fn title_buttons_have_distinct_click_targets() {

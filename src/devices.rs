@@ -8,11 +8,11 @@ use serde::{Deserialize, Serialize};
 
 mod network;
 mod showcase;
+pub use network::pipe_endpoint;
 use network::{
-    direction, footprint_outlet, pipe_connected, pipe_endpoint, step, transfer_surface,
-    transfer_surface_to,
+    direction, footprint_outlet, pipe_connected, step, transfer_surface, transfer_surface_to,
 };
-pub use showcase::{run_all_showcases, showcase_world};
+pub use showcase::{run_all_showcases, run_showcase, showcase_world};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DeviceId {
@@ -678,6 +678,3 @@ fn footprints_overlap(
         })
     })
 }
-
-#[cfg(test)]
-mod tests;

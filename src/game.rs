@@ -42,7 +42,7 @@ pub(crate) enum VerificationMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum FrontendMode {
+pub enum FrontendMode {
     Title,
     CampaignSelect,
     VerificationSelect,

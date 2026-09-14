@@ -337,6 +337,3 @@ fn set_cell_ambient(world: &mut SimulationWorld, pos: CellPos, ambient: i32) {
         .expect("authored campaign anchor is in bounds");
     world.definitions[index].ambient_temperature_dk = ambient;
 }
-
-#[cfg(test)]
-mod tests;

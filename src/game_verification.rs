@@ -9,7 +9,7 @@ use macroquad::prelude::*;
 use macroquad_toolkit::ui::{Pointer, VirtualUi};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum VerificationClick {
+pub enum VerificationClick {
     Reset,
     Step,
     Return,
@@ -144,7 +144,7 @@ impl Game {
     }
 }
 
-fn verification_click_at(x: f32, y: f32) -> Option<VerificationClick> {
+pub fn verification_click_at(x: f32, y: f32) -> Option<VerificationClick> {
     if !(1018.0..1248.0).contains(&x) || !(532.0..560.0).contains(&y) {
         return None;
     }
@@ -160,6 +160,3 @@ fn verification_click_at(x: f32, y: f32) -> Option<VerificationClick> {
 fn world_state_for(simulation: &crate::simulation::SimulationWorld) -> WorldState {
     WorldState::from_simulation(simulation)
 }
-
-#[cfg(test)]
-mod tests;

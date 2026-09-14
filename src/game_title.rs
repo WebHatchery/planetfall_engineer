@@ -317,7 +317,7 @@ fn mouse_choice(mode: FrontendMode) -> Option<usize> {
     frontend_mouse_choice_at(mode, pointer.position.x, pointer.position.y)
 }
 
-pub(crate) fn frontend_mouse_choice_at(mode: FrontendMode, x: f32, y: f32) -> Option<usize> {
+pub fn frontend_mouse_choice_at(mode: FrontendMode, x: f32, y: f32) -> Option<usize> {
     match mode {
         FrontendMode::Title | FrontendMode::CampaignSelect => (MENU_X..=MENU_X + MENU_WIDTH)
             .contains(&x)
@@ -338,6 +338,3 @@ pub(crate) fn frontend_mouse_choice_at(mode: FrontendMode, x: f32, y: f32) -> Op
         FrontendMode::Playing => None,
     }
 }
-
-#[cfg(test)]
-mod tests;

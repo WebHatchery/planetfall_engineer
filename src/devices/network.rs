@@ -62,7 +62,7 @@ pub(super) fn pipe_connected(devices: &[DeviceState], first: CellPos, second: Ce
     false
 }
 
-pub(super) fn pipe_endpoint(
+pub fn pipe_endpoint(
     devices: &[DeviceState],
     start: CellPos,
     direction: (i16, i16),

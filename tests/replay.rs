@@ -1,4 +1,7 @@
-use super::*;
+//! Deterministic campaign reference and recovery replay coverage.
+
+use planetfall_engineer::mission::MissionId;
+use planetfall_engineer::replay::*;
 
 #[test]
 fn each_campaign_reference_reaches_terminal_success() {

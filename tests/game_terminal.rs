@@ -1,4 +1,6 @@
-use super::*;
+//! Logical hit regions for terminal recovery controls.
+
+use planetfall_engineer::game_terminal::{terminal_action_at, TerminalAction};
 
 #[test]
 fn terminal_buttons_have_distinct_touch_targets() {

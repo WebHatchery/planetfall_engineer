@@ -1,5 +1,8 @@
-use super::*;
-use crate::simulation::{FluidId, SimulationWorld};
+//! Mission lifecycle, tutorial, hazard, and campaign progression coverage.
+
+use planetfall_engineer::devices::DeviceId;
+use planetfall_engineer::mission::*;
+use planetfall_engineer::simulation::{FluidId, SimulationWorld};
 #[test]
 fn clean_campaign_unlocks_only_l01() {
     let progress = CampaignProgress::default();
@@ -97,7 +100,11 @@ fn success_requires_stability_and_terminal_state_stops_ticks() {
     let mut mission = MissionState::new(MissionId::L01FirstFlow);
     mission.start();
     let mut world = SimulationWorld::new(32, 20);
-    world.inject(crate::state::CellPos { x: 28, y: 9 }, FluidId::Water, 8_000);
+    world.inject(
+        planetfall_engineer::state::CellPos { x: 28, y: 9 },
+        FluidId::Water,
+        8_000,
+    );
     for _ in 0..100 {
         world.tick += 1;
         mission.on_tick(&world);
@@ -112,7 +119,7 @@ fn firebreak_progress_uses_formed_rock() {
     let mut mission = MissionState::new(MissionId::L03Firebreak);
     mission.start();
     let mut world = SimulationWorld::new(48, 30);
-    let shelf = crate::state::CellPos { x: 22, y: 14 };
+    let shelf = planetfall_engineer::state::CellPos { x: 22, y: 14 };
     world.inject(shelf, FluidId::Water, 4_000);
     world.inject(shelf, FluidId::Lava, 4_000);
     world.tick();
@@ -125,14 +132,20 @@ fn campaign_progress_ignores_material_outside_its_authored_zone() {
     let mut l01 = MissionState::new(MissionId::L01FirstFlow);
     l01.start();
     let mut basin = SimulationWorld::new(32, 20);
-    basin.inject(crate::state::CellPos { x: 2, y: 2 }, FluidId::Water, 8_000);
+    basin.inject(
+        planetfall_engineer::state::CellPos { x: 2, y: 2 },
+        FluidId::Water,
+        8_000,
+    );
     l01.on_tick(&basin);
     assert_eq!(l01.objective_progress, 0);
 
     let mut l03 = MissionState::new(MissionId::L03Firebreak);
     l03.start();
     let mut caldera = SimulationWorld::new(48, 30);
-    let outside = caldera.index(crate::state::CellPos { x: 2, y: 2 }).unwrap();
+    let outside = caldera
+        .index(planetfall_engineer::state::CellPos { x: 2, y: 2 })
+        .unwrap();
     let cell = &mut caldera.cells[outside];
     cell.formed_rock_vu = 8_000;
     l03.on_tick(&caldera);
@@ -143,7 +156,7 @@ fn authored_hazard_fails_before_success() {
     let mut mission = MissionState::new(MissionId::L01FirstFlow);
     mission.start();
     let mut world = SimulationWorld::new(32, 20);
-    let beacon = crate::state::CellPos { x: 24, y: 8 };
+    let beacon = planetfall_engineer::state::CellPos { x: 24, y: 8 };
     let index = world.index(beacon).unwrap();
     world.cells[index].sealed = true;
     world.inject(beacon, FluidId::Water, 1_500);
@@ -167,7 +180,7 @@ fn authored_alert_levels_escalate_before_failure() {
     world.tick = 800;
     mission.on_tick(&world);
     assert_eq!(mission.alert_level, AlertLevel::Warning);
-    let camp = crate::state::CellPos { x: 26, y: 16 };
+    let camp = planetfall_engineer::state::CellPos { x: 26, y: 16 };
     world.inject(camp, FluidId::Water, 1_500);
     mission.on_tick(&world);
     assert_eq!(mission.alert_level, AlertLevel::Critical);

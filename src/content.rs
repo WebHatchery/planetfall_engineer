@@ -178,6 +178,3 @@ fn validate_unique<'a>(kind: &str, ids: impl Iterator<Item = &'a str>, errors: &
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

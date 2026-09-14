@@ -125,7 +125,7 @@ impl Game {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FieldControl {
+pub enum FieldControl {
     Inspect,
     Excavate,
     Raise,
@@ -138,7 +138,7 @@ fn field_control_click() -> Option<FieldControl> {
     field_control_at(point.x, point.y)
 }
 
-fn field_control_at(x: f32, y: f32) -> Option<FieldControl> {
+pub fn field_control_at(x: f32, y: f32) -> Option<FieldControl> {
     if (1018.0..1248.0).contains(&x) && (532.0..560.0).contains(&y) {
         return Some(if x < 1126.0 {
             FieldControl::Inspect
@@ -172,7 +172,7 @@ fn field_control_at(x: f32, y: f32) -> Option<FieldControl> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BuildClick {
+pub enum BuildClick {
     Palette(DeviceId),
     Rotate,
     Commit,
@@ -185,7 +185,7 @@ fn mouse_build_click() -> Option<BuildClick> {
     build_click_at(point.x, point.y)
 }
 
-fn build_click_at(x: f32, y: f32) -> Option<BuildClick> {
+pub fn build_click_at(x: f32, y: f32) -> Option<BuildClick> {
     if (1018.0..1248.0).contains(&x) && (326.0..456.0).contains(&y) {
         let column = usize::from(x >= 1132.0);
         let row = ((y - 326.0) / 26.0) as usize;
@@ -216,6 +216,3 @@ fn build_click_at(x: f32, y: f32) -> Option<BuildClick> {
     }
     None
 }
-
-#[cfg(test)]
-mod tests;

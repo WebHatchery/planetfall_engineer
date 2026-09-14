@@ -1,4 +1,9 @@
-use super::*;
+//! Fixed-tick, persistence, and save compatibility coverage.
+
+use planetfall_engineer::data::GameConfig;
+use planetfall_engineer::mission::MissionId;
+use planetfall_engineer::state::*;
+use serde_json::Value;
 fn config() -> GameConfig {
     GameConfig {
         game_name: "test".into(),

@@ -2,27 +2,8 @@
 
 use macroquad::prelude::*;
 use macroquad_toolkit::capture;
-
-mod campaign;
-mod content;
-mod data;
-mod devices;
-mod game;
-mod game_build;
-mod game_placement;
-mod game_render;
-mod game_terminal;
-mod game_title;
-mod game_verification;
-mod mission;
-mod replay;
-mod simulation;
-mod state;
-mod ui;
-mod ui_tutorial;
-mod verification;
-
-use game::Game;
+use planetfall_engineer::game::Game;
+use planetfall_engineer::ui;
 
 fn window_conf() -> Conf {
     capture::capture_window_conf(

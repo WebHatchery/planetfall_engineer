@@ -1,4 +1,8 @@
-use super::*;
+//! Executable fluid-laboratory and deterministic soak coverage.
+
+use planetfall_engineer::simulation::{FluidId, SimulationWorld};
+use planetfall_engineer::state::CellPos;
+use planetfall_engineer::verification::*;
 #[test]
 fn lab_has_four_active_and_five_reserved_bays() {
     assert_eq!(LAB_BAYS.iter().filter(|bay| bay.fluid.is_some()).count(), 4);

@@ -229,7 +229,7 @@ pub fn load_session(config: &GameConfig) -> Result<GameSession, String> {
     Ok(GameSession::from_save(save))
 }
 
-fn migrate_save_value(value: Value, config: &GameConfig) -> Result<SaveData, String> {
+pub fn migrate_save_value(value: Value, config: &GameConfig) -> Result<SaveData, String> {
     let raw = value.get("data").cloned().unwrap_or(value);
     let save: SaveData = serde_json::from_value(raw)
         .map_err(|e| format!("Save data is malformed or from an unsupported era: {e}"))?;
@@ -255,6 +255,3 @@ fn migrate_save_value(value: Value, config: &GameConfig) -> Result<SaveData, Str
     }
     Ok(save)
 }
-
-#[cfg(test)]
-mod tests;

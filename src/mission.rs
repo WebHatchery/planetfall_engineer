@@ -484,6 +484,3 @@ pub fn campaign_summary() -> String {
         .collect::<Vec<_>>()
         .join(" | ")
 }
-
-#[cfg(test)]
-mod tests;

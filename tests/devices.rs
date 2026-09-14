@@ -1,5 +1,8 @@
-use super::showcase::run_showcase;
-use super::*;
+//! Device placement, network, power, and showcase behavior coverage.
+
+use planetfall_engineer::devices::{run_showcase, *};
+use planetfall_engineer::simulation::{FluidId, SimulationWorld};
+use planetfall_engineer::state::CellPos;
 #[test]
 fn all_ten_devices_have_unique_showcases() {
     let reports: Vec<_> = DeviceId::ALL.into_iter().map(run_showcase).collect();

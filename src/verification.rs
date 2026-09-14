@@ -63,7 +63,6 @@ pub const LAB_BAYS: [FluidBay; 9] = [
     },
 ];
 
-#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LabReport {
     pub tick: u64,
@@ -135,7 +134,6 @@ impl FluidsLab {
         *self = Self::new();
     }
 
-    #[cfg(test)]
     pub fn automatic_scenario(&mut self) -> LabReport {
         self.reset();
         let mut reaction_events = 0;
@@ -173,8 +171,13 @@ impl FluidsLab {
     }
 }
 
-#[cfg(test)]
-fn state_hash(world: &SimulationWorld) -> u64 {
+impl Default for FluidsLab {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub fn state_hash(world: &SimulationWorld) -> u64 {
     let mut hash = 1469598103934665603u64;
     for byte in serde_json::to_vec(world).expect("verification world serializes") {
         hash ^= byte as u64;
@@ -182,6 +185,3 @@ fn state_hash(world: &SimulationWorld) -> u64 {
     }
     hash
 }
-
-#[cfg(test)]
-mod tests;

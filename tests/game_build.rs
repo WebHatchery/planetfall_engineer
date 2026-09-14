@@ -1,4 +1,8 @@
-use super::*;
+//! Logical hit regions for the visible build and time controls.
+
+use planetfall_engineer::devices::DeviceId;
+use planetfall_engineer::game_build::{build_click_at, field_control_at, BuildClick, FieldControl};
+use planetfall_engineer::state::TimeControl;
 
 #[test]
 fn every_visible_build_control_maps_to_its_action() {

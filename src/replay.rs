@@ -453,6 +453,3 @@ pub fn run_all_scenarios() -> String {
     }
     format!("{passed}/{total} deterministic campaign scenarios PASS")
 }
-
-#[cfg(test)]
-mod tests;

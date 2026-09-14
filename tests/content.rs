@@ -1,4 +1,6 @@
-use super::*;
+//! Embedded content registry validation coverage.
+
+use planetfall_engineer::content::ContentRegistry;
 
 #[test]
 fn embedded_registry_validates_all_slice_references() {
