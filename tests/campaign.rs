@@ -5,14 +5,16 @@ use planetfall_engineer::mission::MissionId;
 use planetfall_engineer::simulation::FluidId;
 use planetfall_engineer::state::CellPos;
 #[test]
-fn all_campaign_maps_have_authored_sizes_and_budget() {
+fn all_campaign_maps_have_authored_sizes_and_fabrication() {
     let maps: Vec<_> = MissionId::ALL.into_iter().map(load_campaign).collect();
     assert_eq!((maps[0].world.width, maps[0].world.height), (32, 20));
     assert_eq!((maps[1].world.width, maps[1].world.height), (40, 24));
     assert_eq!((maps[2].world.width, maps[2].world.height), (48, 30));
     assert_eq!(
-        maps.iter().map(|map| map.budget).collect::<Vec<_>>(),
-        vec![40, 105, 160]
+        maps.iter()
+            .map(|map| map.fabrication_start_fu)
+            .collect::<Vec<_>>(),
+        vec![0, 0, 0]
     );
 }
 #[test]

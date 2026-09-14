@@ -1,6 +1,6 @@
 //! Deterministic conduit traversal and material delivery helpers.
 
-use super::{remove_fluid, DeviceId, DeviceState};
+use super::{DeviceId, DeviceState};
 use crate::{simulation::SimulationWorld, state::CellPos};
 
 pub(super) fn direction(rotation: u8) -> (i16, i16) {
@@ -42,7 +42,7 @@ fn is_conduit(device: DeviceId) -> bool {
     matches!(device, DeviceId::Pipe | DeviceId::Channel)
 }
 
-pub(super) fn pipe_connected(devices: &[DeviceState], first: CellPos, second: CellPos) -> bool {
+pub fn pipe_connected(devices: &[DeviceState], first: CellPos, second: CellPos) -> bool {
     let mut frontier = vec![first];
     let mut visited = Vec::new();
     while let Some(position) = frontier.pop() {
@@ -90,6 +90,8 @@ pub fn pipe_endpoint(
             .filter(|device| {
                 !is_conduit(device.device)
                     && device.device != DeviceId::Pump
+                    && device.device != DeviceId::FlowTurbine
+                    && device.enabled
                     && Some(device.anchor) != excluded_anchor
                     && adjacent_to_footprint(position, device)
             })
@@ -184,4 +186,15 @@ pub(super) fn transfer_surface_to(
         contamination_bp: entry.contamination_bp,
     });
     moved
+}
+
+fn remove_fluid(
+    entries: &mut Vec<crate::simulation::FluidEntry>,
+    fluid: crate::simulation::FluidId,
+    amount: u32,
+) {
+    if let Some(entry) = entries.iter_mut().find(|entry| entry.fluid == fluid) {
+        entry.volume_vu -= amount.min(entry.volume_vu);
+    }
+    entries.retain(|entry| entry.volume_vu > 0);
 }

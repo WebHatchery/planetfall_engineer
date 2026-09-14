@@ -42,6 +42,18 @@ pub struct ScenarioReport {
     pub relay_present: bool,
     pub relay_stored_vu: u32,
     pub relay_powered: bool,
+    pub total_material_vu: u64,
+    pub fabrication_available_fu: u32,
+    pub fabrication_reserved_fu: u32,
+    pub fabrication_spent_fu: u32,
+    pub fabrication_refunded_fu: u32,
+    pub fabrication_recovered_fu: u32,
+    pub fabrication_balance_error: i64,
+    pub power_authored_eu: u32,
+    pub power_turbine_eu: u32,
+    pub power_allocated_eu: u32,
+    pub power_curtailed_eu: u32,
+    pub power_deficit_eu: u32,
 }
 
 pub fn run_scenario(id: MissionId, kind: ScenarioKind) -> ScenarioReport {
@@ -127,6 +139,18 @@ pub fn run_scenario(id: MissionId, kind: ScenarioKind) -> ScenarioReport {
             .devices
             .iter()
             .any(|device| device.device == crate::devices::DeviceId::RuneRelay && device.powered),
+        total_material_vu: map.world.total_material_volume(),
+        fabrication_available_fu: map.world.fabrication.available_fu,
+        fabrication_reserved_fu: map.world.fabrication.reserved_fu,
+        fabrication_spent_fu: map.world.fabrication.spent_fu,
+        fabrication_refunded_fu: map.world.fabrication.refunded_fu,
+        fabrication_recovered_fu: map.world.fabrication.recovered_fu,
+        fabrication_balance_error: map.world.fabrication.balance_error(),
+        power_authored_eu: map.world.power.authored_generation_eu,
+        power_turbine_eu: map.world.power.turbine_generation_eu,
+        power_allocated_eu: map.world.power.allocated_demand_eu,
+        power_curtailed_eu: map.world.power.curtailed_supply_eu,
+        power_deficit_eu: map.world.power.deficit_eu,
     }
 }
 
@@ -137,9 +161,9 @@ fn seed_scenario(
     kind: ScenarioKind,
 ) {
     match kind {
-        // Success branches begin solely from the authored map state. Their
-        // material arrives through sources and the admitted build below.
-        ScenarioKind::Reference | ScenarioKind::Alternate => {}
+        // The replay represents the operator's opening recovery commands
+        // explicitly, so the build below consumes finite authored stock.
+        ScenarioKind::Reference | ScenarioKind::Alternate => recover_authored_stock(world),
         ScenarioKind::Failure => match id {
             MissionId::L01FirstFlow => {
                 world.inject(CellPos { x: 24, y: 8 }, FluidId::Water, 4_000);
@@ -171,6 +195,17 @@ fn seed_scenario(
     }
 }
 
+fn recover_authored_stock(world: &mut SimulationWorld) {
+    let deposit_ids = world
+        .deposits
+        .iter()
+        .map(|deposit| deposit.id.clone())
+        .collect::<Vec<_>>();
+    for id in deposit_ids {
+        let _ = world.recover_deposit(&id);
+    }
+}
+
 fn install_reference_build(
     world: &mut SimulationWorld,
     mission: &mut MissionState,
@@ -193,6 +228,13 @@ fn install_reference_build(
                 mission,
                 crate::devices::DeviceId::Pump,
                 CellPos { x: 5, y: 16 },
+                0,
+            );
+            let _ = admit_build(
+                world,
+                mission,
+                crate::devices::DeviceId::FlowTurbine,
+                CellPos { x: 27, y: 9 },
                 0,
             );
             for pos in [
@@ -229,6 +271,23 @@ fn install_reference_build(
                     0,
                 );
             }
+            let _ = admit_build(
+                world,
+                mission,
+                crate::devices::DeviceId::Spillway,
+                CellPos { x: 39, y: 18 },
+                0,
+            );
+            let _ = world.devices.set_enabled(
+                world
+                    .devices
+                    .devices
+                    .iter()
+                    .find(|device| device.device == crate::devices::DeviceId::Reservoir)
+                    .map(|device| device.entity_id)
+                    .unwrap_or(u32::MAX),
+                false,
+            );
         }
         MissionId::L03Firebreak => {
             let _ = admit_build(
@@ -343,15 +402,17 @@ fn admit_build(
         return false;
     }
     let mut devices = std::mem::take(&mut world.devices);
+    let mut fabrication = std::mem::take(&mut world.fabrication);
     let queued = devices
-        .queue(world, device, anchor, rotation, mission.budget)
+        .queue(world, device, anchor, rotation, &mut fabrication)
         .is_ok();
     let committed = if queued && mission.admit(CommandKind::CommitPlan) == Admission::Accepted {
-        devices.commit_plan(world, mission.budget).is_ok()
+        devices.commit_plan(world, &mut fabrication).is_ok()
     } else {
         false
     };
     world.devices = devices;
+    world.fabrication = fabrication;
     committed
 }
 
@@ -361,9 +422,41 @@ fn tick_scenario(
     id: MissionId,
     kind: ScenarioKind,
 ) {
+    if id == MissionId::L03Firebreak
+        && matches!(kind, ScenarioKind::Reference | ScenarioKind::Alternate)
+        && world.devices.devices.iter().any(|device| {
+            device.device == crate::devices::DeviceId::FlowTurbine && device.power_generated >= 2
+        })
+    {
+        if let Some(pump) = world
+            .devices
+            .devices
+            .iter()
+            .find(|device| device.device == crate::devices::DeviceId::Pump)
+            .map(|device| device.entity_id)
+        {
+            // Once the turbine has made the minimum useful delayed supply,
+            // shed the bootstrap pump and give the relay a complete demand
+            // allocation while the reaction stream settles.
+            world.devices.set_enabled(pump, false);
+        }
+    }
     if id == MissionId::L02HoldingLine
         && matches!(kind, ScenarioKind::Reference | ScenarioKind::Alternate)
     {
+        if world.devices.devices.iter().any(|device| {
+            device.device == crate::devices::DeviceId::FlowTurbine && device.cumulative_power > 0
+        }) {
+            if let Some(reservoir) = world
+                .devices
+                .devices
+                .iter()
+                .find(|device| device.device == crate::devices::DeviceId::Reservoir)
+                .map(|device| device.entity_id)
+            {
+                world.devices.set_enabled(reservoir, true);
+            }
+        }
         let trench_water = (31..=36)
             .flat_map(|x| (7..=9).map(move |y| CellPos { x, y }))
             .filter_map(|position| world.index(position))

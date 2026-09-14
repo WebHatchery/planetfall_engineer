@@ -2,6 +2,7 @@
 
 use super::{DeviceId, SHOWCASE_MAPS};
 use crate::{
+    economy::FabricationState,
     simulation::{FluidId, SimulationWorld},
     state::CellPos,
 };
@@ -43,6 +44,14 @@ pub fn showcase_world(device: DeviceId) -> SimulationWorld {
 
 fn build_showcase_world(device: DeviceId) -> (SimulationWorld, bool) {
     let mut world = SimulationWorld::new(32, 18);
+    if device.power_demand_eu() > 0 {
+        world.add_power_source(
+            "showcase_power",
+            CellPos { x: 2, y: 2 },
+            10,
+            "placeholder_power",
+        );
+    }
     if device == DeviceId::FlowTurbine {
         for definition in &mut world.definitions {
             definition.ambient_temperature_dk = 4_730;
@@ -50,7 +59,10 @@ fn build_showcase_world(device: DeviceId) -> (SimulationWorld, bool) {
     }
     let anchor = CellPos { x: 15, y: 8 };
     let mut devices = std::mem::take(&mut world.devices);
-    let placed = devices.place(&world, device, anchor, 0, 1_000).is_ok();
+    let mut fabrication = FabricationState::new(1_000);
+    let placed = devices
+        .place(&world, device, anchor, 0, &mut fabrication)
+        .is_ok();
     world.devices = devices;
     if placed {
         let fluid = if matches!(device, DeviceId::FlowTurbine) {

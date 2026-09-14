@@ -1,9 +1,16 @@
-//! Deterministic terrain, surface-fluid, steam, and reaction simulation.
+//! Deterministic terrain, surface-fluid, steam, reaction, and ledger state.
 //!
 //! The renderer consumes this state but never participates in its decisions.
 
-use crate::{devices::DeviceSystem, state::CellPos};
+use crate::{
+    devices::DeviceSystem,
+    economy::{FabricationError, FabricationState, PowerLedger, PowerSource, ResourceDeposit},
+    state::CellPos,
+};
 use serde::{Deserialize, Serialize};
+
+mod process;
+pub use process::volume;
 
 pub const CELL_CAPACITY_VU: u32 = 8_000;
 pub const WATER_BOIL_DK: i32 = 3_730;
@@ -121,35 +128,41 @@ impl SimCell {
             formed_vitrified_vu: 0,
         }
     }
+
     pub fn surface_volume(&self) -> u32 {
-        self.surface.iter().map(|m| m.volume_vu).sum()
+        self.surface.iter().map(|material| material.volume_vu).sum()
     }
+
     pub fn airborne_volume(&self) -> u32 {
-        self.airborne.iter().map(|m| m.volume_vu).sum()
+        self.airborne
+            .iter()
+            .map(|material| material.volume_vu)
+            .sum()
     }
+
     pub fn surface_head_hu(&self) -> i32 {
         self.height_hu as i32 + self.surface_volume() as i32
     }
+
     pub fn add_surface(&mut self, mut entry: FluidEntry) -> u32 {
         let accepted = entry
             .volume_vu
             .min(CELL_CAPACITY_VU.saturating_sub(self.surface_volume()));
         entry.volume_vu = accepted;
-        if accepted == 0 {
-            return 0;
+        if accepted > 0 {
+            merge_entry(&mut self.surface, entry);
         }
-        merge_entry(&mut self.surface, entry);
         accepted
     }
+
     pub fn add_airborne(&mut self, mut entry: FluidEntry) -> u32 {
         let accepted = entry
             .volume_vu
             .min(CELL_CAPACITY_VU.saturating_sub(self.airborne_volume()));
         entry.volume_vu = accepted;
-        if accepted == 0 {
-            return 0;
+        if accepted > 0 {
+            merge_entry(&mut self.airborne, entry);
         }
-        merge_entry(&mut self.airborne, entry);
         accepted
     }
 }
@@ -185,6 +198,14 @@ pub enum SimEvent {
     HighPressureSteam {
         cell: CellPos,
     },
+    DepositRecovered {
+        id: String,
+        yield_fu: u32,
+    },
+    PowerBrownout {
+        entity_id: u32,
+        demand_eu: u32,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,6 +219,10 @@ pub struct SimulationWorld {
     pub events: Vec<SimEvent>,
     pub devices: DeviceSystem,
     pub sources: Vec<SourceState>,
+    pub deposits: Vec<ResourceDeposit>,
+    pub power_sources: Vec<PowerSource>,
+    pub fabrication: FabricationState,
+    pub power: PowerLedger,
 }
 
 impl SimulationWorld {
@@ -205,7 +230,7 @@ impl SimulationWorld {
         let definitions = vec![CellDefinition::default(); width as usize * height as usize];
         let cells = definitions
             .iter()
-            .map(|d| SimCell::empty(d.base_height_hu, false))
+            .map(|definition| SimCell::empty(definition.base_height_hu, false))
             .collect();
         Self {
             width,
@@ -217,6 +242,10 @@ impl SimulationWorld {
             events: Vec::new(),
             devices: DeviceSystem::default(),
             sources: Vec::new(),
+            deposits: Vec::new(),
+            power_sources: Vec::new(),
+            fabrication: FabricationState::default(),
+            power: PowerLedger::default(),
         }
     }
 
@@ -224,6 +253,7 @@ impl SimulationWorld {
         (pos.x < self.width && pos.y < self.height)
             .then_some(pos.y as usize * self.width as usize + pos.x as usize)
     }
+
     fn neighbors(&self, pos: CellPos) -> Vec<(CellPos, u8)> {
         [(0, -1), (1, 0), (0, 1), (-1, 0)]
             .into_iter()
@@ -243,9 +273,7 @@ impl SimulationWorld {
     }
 
     pub fn inject(&mut self, pos: CellPos, fluid: FluidId, volume_vu: u32) {
-        let Some(index) = self.index(pos) else {
-            return;
-        };
+        let Some(index) = self.index(pos) else { return };
         let accepted = if fluid.is_airborne() {
             self.cells[index].add_airborne(FluidEntry::new(fluid, volume_vu))
         } else {
@@ -269,10 +297,83 @@ impl SimulationWorld {
             enabled: false,
         });
     }
+
     pub fn set_sources_enabled(&mut self, enabled: bool) {
         for source in &mut self.sources {
             source.enabled = enabled;
         }
+    }
+
+    pub fn set_power_source_enabled(&mut self, id: &str, enabled: bool) -> bool {
+        if let Some(source) = self.power_sources.iter_mut().find(|source| source.id == id) {
+            source.enabled = enabled;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn add_deposit(
+        &mut self,
+        id: impl Into<String>,
+        position: CellPos,
+        yield_fu: u32,
+        asset_id: impl Into<String>,
+    ) {
+        self.deposits.push(ResourceDeposit {
+            id: id.into(),
+            position,
+            yield_fu,
+            asset_id: asset_id.into(),
+            depleted: false,
+        });
+    }
+
+    pub fn add_power_source(
+        &mut self,
+        id: impl Into<String>,
+        position: CellPos,
+        output_eu_per_tick: u32,
+        asset_id: impl Into<String>,
+    ) {
+        self.power_sources.push(PowerSource {
+            id: id.into(),
+            position,
+            output_eu_per_tick,
+            enabled: true,
+            asset_id: asset_id.into(),
+        });
+    }
+
+    pub fn recover_deposit(&mut self, id: &str) -> Result<u32, FabricationError> {
+        let deposit = self
+            .deposits
+            .iter_mut()
+            .find(|deposit| deposit.id == id)
+            .ok_or_else(|| FabricationError::DepositNotFound(id.into()))?;
+        if deposit.depleted {
+            return Err(FabricationError::DepositDepleted(id.into()));
+        }
+        deposit.depleted = true;
+        self.fabrication.recovered_fu += deposit.yield_fu;
+        self.fabrication.available_fu += deposit.yield_fu;
+        self.events.push(SimEvent::DepositRecovered {
+            id: deposit.id.clone(),
+            yield_fu: deposit.yield_fu,
+        });
+        Ok(deposit.yield_fu)
+    }
+
+    pub fn recover_deposit_at(&mut self, position: CellPos) -> Result<u32, FabricationError> {
+        let id = self
+            .deposits
+            .iter()
+            .find(|deposit| deposit.position == position)
+            .map(|deposit| deposit.id.clone())
+            .ok_or_else(|| {
+                FabricationError::DepositNotFound(format!("{},{}", position.x, position.y))
+            })?;
+        self.recover_deposit(&id)
     }
 
     pub fn total_material_volume(&self) -> u64 {
@@ -294,9 +395,6 @@ impl SimulationWorld {
                     + u64::from(cell.formed_vitrified_vu)
             })
             .sum::<u64>()
-            // Reservoir contents are real retained material, not an accounting
-            // exception. The current slice stores only volume, so it is added
-            // here until reservoir fluid composition is modelled explicitly.
             + self
                 .devices
                 .devices
@@ -317,13 +415,13 @@ impl SimulationWorld {
         action: TerrainAction,
     ) -> Result<(), TerrainError> {
         let index = self.index(pos).ok_or(TerrainError::OutOfBounds)?;
-        let definition = &self.definitions[index];
-        if definition.protected {
+        if self.definitions[index].protected {
             return Err(TerrainError::Protected);
         }
         if action == TerrainAction::Raise && self.cells[index].surface_volume() > 0 {
             return Err(TerrainError::Capacity);
         }
+        let definition = &self.definitions[index];
         let cell = &mut self.cells[index];
         match action {
             TerrainAction::Excavate => {
@@ -340,8 +438,12 @@ impl SimulationWorld {
     pub fn tick(&mut self) {
         self.events.clear();
         self.tick = self.tick.saturating_add(1);
-        let sources = self.sources.clone();
-        for source in sources.into_iter().filter(|source| source.enabled) {
+        for source in self
+            .sources
+            .clone()
+            .into_iter()
+            .filter(|source| source.enabled)
+        {
             self.inject(source.position, source.fluid, source.rate_vu);
         }
         self.flow_surface();
@@ -350,7 +452,19 @@ impl SimulationWorld {
         self.react_materials();
         self.heat_and_phase_change();
         self.apply_terrain_products();
+        let authored_supply: u32 = self
+            .power_sources
+            .iter()
+            .filter(|source| source.enabled)
+            .map(|source| source.output_eu_per_tick)
+            .sum();
         let mut devices = std::mem::take(&mut self.devices);
+        for (entity_id, demand_eu) in devices.allocate_power(&mut self.power, authored_supply) {
+            self.events.push(SimEvent::PowerBrownout {
+                entity_id,
+                demand_eu,
+            });
+        }
         devices.tick(self);
         self.devices = devices;
         self.sort_entries();
@@ -379,325 +493,10 @@ impl SimulationWorld {
         }
     }
 
-    pub fn flow_surface(&mut self) {
-        let snapshot = self.cells.clone();
-        let mut transfers: Vec<(usize, usize, FluidId, u32, i32, u16)> = Vec::new();
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let source_pos = CellPos { x, y };
-                let source_index = self.index(source_pos).unwrap();
-                let source = &snapshot[source_index];
-                let total = source.surface_volume();
-                if total == 0 {
-                    continue;
-                }
-                let limit = source
-                    .surface
-                    .iter()
-                    .map(|m| m.fluid.max_transfer())
-                    .min()
-                    .unwrap_or(0);
-                let options: Vec<_> = self
-                    .neighbors(source_pos)
-                    .into_iter()
-                    .filter_map(|(dest_pos, direction)| {
-                        let dest = &snapshot[self.index(dest_pos).unwrap()];
-                        let delta = source.surface_head_hu() - dest.surface_head_hu();
-                        let gate_factor = self.devices.surface_flow_factor(source_pos, dest_pos);
-                        if delta <= 1
-                            || (source.contained != dest.contained
-                                && !self.devices.controls_surface_edge(source_pos, dest_pos))
-                            || dest.surface_volume() >= CELL_CAPACITY_VU
-                            || gate_factor == 0
-                        {
-                            None
-                        } else {
-                            Some((
-                                dest_pos,
-                                direction,
-                                (delta.max(0) as u32 / 4).saturating_mul(gate_factor) / 10_000,
-                            ))
-                        }
-                    })
-                    .collect();
-                let total_weight: u32 = options.iter().map(|o| o.2).sum();
-                if total_weight == 0 {
-                    continue;
-                }
-                // The hydraulic gradient limits how much can move this tick.
-                // Spending the full material cap for any non-zero slope made
-                // shallow pools leap between alternating cells and rendered
-                // broad flows as a checkerboard.
-                let budget = total.min(limit).min(total_weight);
-                let mut assigned = 0;
-                for &(dest_pos, _, weight) in &options {
-                    let amount = (budget as u64 * weight as u64 / total_weight as u64) as u32;
-                    assigned += amount;
-                    if amount > 0 {
-                        for (fluid, amount, temp, contamination) in mixture_split(source, amount) {
-                            transfers.push((
-                                source_index,
-                                self.index(dest_pos).unwrap(),
-                                fluid,
-                                amount,
-                                temp,
-                                contamination,
-                            ));
-                        }
-                    }
-                }
-                if assigned < budget {
-                    if let Some((dest_pos, _, _)) = options.first().copied() {
-                        let amount = budget - assigned;
-                        for (fluid, amount, temp, contamination) in mixture_split(source, amount) {
-                            transfers.push((
-                                source_index,
-                                self.index(dest_pos).unwrap(),
-                                fluid,
-                                amount,
-                                temp,
-                                contamination,
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-        for (source, destination, fluid, amount, temp, contamination) in transfers {
-            let available = self.cells[source]
-                .surface
-                .iter()
-                .find(|entry| entry.fluid == fluid)
-                .map(|entry| entry.volume_vu)
-                .unwrap_or(0);
-            let moved = amount
-                .min(available)
-                .min(CELL_CAPACITY_VU.saturating_sub(self.cells[destination].surface_volume()));
-            if moved > 0 {
-                remove_fluid(&mut self.cells[source].surface, fluid, moved);
-                self.cells[destination].add_surface(FluidEntry {
-                    fluid,
-                    volume_vu: moved,
-                    temperature_dk: temp,
-                    contamination_bp: contamination,
-                });
-            }
-        }
-    }
-
-    pub fn flow_steam(&mut self) {
-        let snapshot = self.cells.clone();
-        let mut moves = Vec::new();
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let pos = CellPos { x, y };
-                let source_index = self.index(pos).unwrap();
-                let source = &snapshot[source_index];
-                let Some(steam) = source.airborne.iter().find(|m| m.fluid == FluidId::Steam) else {
-                    continue;
-                };
-                let options: Vec<_> = self
-                    .neighbors(pos)
-                    .into_iter()
-                    .filter_map(|(dest, _)| {
-                        let di = self.index(dest).unwrap();
-                        let target = &snapshot[di];
-                        if target.airborne_volume() >= source.airborne_volume()
-                            || target.sealed
-                            || self.definitions[di].gas_blocked
-                        {
-                            return None;
-                        }
-                        let raw = (source.airborne_volume() - target.airborne_volume()) / 5;
-                        (raw > 0).then_some((di, raw))
-                    })
-                    .collect();
-                let total_weight: u32 = options.iter().map(|option| option.1).sum();
-                let budget = steam
-                    .volume_vu
-                    .min(FluidId::Steam.max_transfer())
-                    .min(total_weight);
-                if budget == 0 {
-                    continue;
-                }
-                let mut assigned = 0;
-                for &(destination, weight) in &options {
-                    let amount = (budget as u64 * weight as u64 / total_weight as u64) as u32;
-                    assigned += amount;
-                    if amount > 0 {
-                        moves.push((source_index, destination, amount));
-                    }
-                }
-                if assigned < budget {
-                    moves.push((source_index, options[0].0, budget - assigned));
-                }
-            }
-        }
-        for (source, destination, amount) in moves {
-            let available = self.cells[source]
-                .airborne
-                .iter()
-                .find(|entry| entry.fluid == FluidId::Steam)
-                .map(|entry| entry.volume_vu)
-                .unwrap_or(0);
-            let moved = amount
-                .min(available)
-                .min(CELL_CAPACITY_VU.saturating_sub(self.cells[destination].airborne_volume()));
-            if moved > 0 {
-                remove_fluid(&mut self.cells[source].airborne, FluidId::Steam, moved);
-                self.cells[destination].add_airborne(FluidEntry::new(FluidId::Steam, moved));
-            }
-        }
-        for index in 0..self.cells.len() {
-            if self.cells[index].airborne_volume() > 6_000 {
-                let pos = CellPos {
-                    x: index as u16 % self.width,
-                    y: index as u16 / self.width,
-                };
-                self.events.push(SimEvent::HighPressureSteam { cell: pos });
-            }
-        }
-        for index in 0..self.cells.len() {
-            let ambient = self.definitions[index].ambient_temperature_dk;
-            let cold = ambient <= WATER_BOIL_DK;
-            if cold {
-                let amount = self.cells[index]
-                    .airborne
-                    .iter()
-                    .find(|m| m.fluid == FluidId::Steam)
-                    .map(|m| m.volume_vu.min(200))
-                    .unwrap_or(0)
-                    .min(CELL_CAPACITY_VU.saturating_sub(self.cells[index].surface_volume()));
-                if amount > 0 && self.cells[index].surface_volume() < CELL_CAPACITY_VU {
-                    remove_fluid(&mut self.cells[index].airborne, FluidId::Steam, amount);
-                    self.cells[index].add_surface(FluidEntry::new(FluidId::Water, amount));
-                }
-            }
-        }
-    }
-
-    fn react_materials(&mut self) {
-        for index in 0..self.cells.len() {
-            let pos = CellPos {
-                x: index as u16 % self.width,
-                y: index as u16 / self.width,
-            };
-            let water = volume(&self.cells[index].surface, FluidId::Water);
-            let lava = volume(&self.cells[index].surface, FluidId::Lava);
-            let reaction = water
-                .min(lava)
-                .min(250)
-                .min(CELL_CAPACITY_VU.saturating_sub(self.cells[index].airborne_volume()));
-            if reaction > 0 {
-                remove_fluid(&mut self.cells[index].surface, FluidId::Water, reaction);
-                remove_fluid(&mut self.cells[index].surface, FluidId::Lava, reaction);
-                self.cells[index].add_airborne(FluidEntry {
-                    fluid: FluidId::Steam,
-                    volume_vu: reaction,
-                    temperature_dk: 4_730,
-                    contamination_bp: 0,
-                });
-                self.cells[index].pending_rock_vu += reaction;
-                self.ledger.reacted += (reaction * 2) as u64;
-                self.ledger.products += reaction as u64;
-                self.events.push(SimEvent::MaterialReacted {
-                    reaction: "water_lava".into(),
-                    cell: pos,
-                    volume_vu: reaction,
-                });
-            }
-            let lava = volume(&self.cells[index].surface, FluidId::Lava);
-            let slurry = volume(&self.cells[index].surface, FluidId::ToxicSlurry);
-            let reaction = lava.min(slurry).min(120);
-            if reaction > 0 {
-                remove_fluid(&mut self.cells[index].surface, FluidId::Lava, reaction);
-                remove_fluid(
-                    &mut self.cells[index].surface,
-                    FluidId::ToxicSlurry,
-                    reaction,
-                );
-                self.cells[index].pending_vitrified_vu += reaction * 2;
-                self.cells[index].ground_contamination_bp = self.cells[index]
-                    .ground_contamination_bp
-                    .saturating_sub((reaction * 5).min(u16::MAX as u32) as u16);
-                self.ledger.reacted += (reaction * 2) as u64;
-                self.events.push(SimEvent::MaterialReacted {
-                    reaction: "slurry_vitrified".into(),
-                    cell: pos,
-                    volume_vu: reaction,
-                });
-            }
-            if volume(&self.cells[index].surface, FluidId::ToxicSlurry) > 0
-                && !self.cells[index].sealed
-            {
-                let concentration = self.cells[index]
-                    .surface
-                    .iter()
-                    .find(|m| m.fluid == FluidId::ToxicSlurry)
-                    .map(|m| m.contamination_bp)
-                    .unwrap_or(0);
-                self.cells[index].ground_contamination_bp =
-                    self.cells[index].ground_contamination_bp.max(concentration);
-            }
-        }
-    }
-
-    fn heat_and_phase_change(&mut self) {
-        for index in 0..self.cells.len() {
-            let ambient = self.definitions[index].ambient_temperature_dk;
-            for entry in &mut self.cells[index].surface {
-                let delta = ambient - entry.temperature_dk;
-                if delta != 0 {
-                    entry.temperature_dk += delta / 100 + delta.signum();
-                }
-            }
-            let water = self.cells[index]
-                .surface
-                .iter()
-                .find(|m| m.fluid == FluidId::Water && m.temperature_dk >= WATER_BOIL_DK)
-                .map(|m| m.volume_vu.min(150))
-                .unwrap_or(0)
-                .min(CELL_CAPACITY_VU.saturating_sub(self.cells[index].airborne_volume()));
-            if water > 0 {
-                remove_fluid(&mut self.cells[index].surface, FluidId::Water, water);
-                self.cells[index].add_airborne(FluidEntry::new(FluidId::Steam, water));
-            }
-            let lava = self.cells[index]
-                .surface
-                .iter()
-                .find(|m| m.fluid == FluidId::Lava && m.temperature_dk < 9_000)
-                .map(|m| m.volume_vu.min(80))
-                .unwrap_or(0);
-            if lava > 0 {
-                remove_fluid(&mut self.cells[index].surface, FluidId::Lava, lava);
-                self.cells[index].pending_rock_vu += lava;
-            }
-        }
-    }
-    fn apply_terrain_products(&mut self) {
-        for cell in &mut self.cells {
-            if cell.pending_rock_vu >= 1_000 {
-                let steps = cell.pending_rock_vu / 1_000;
-                cell.height_hu = cell
-                    .height_hu
-                    .saturating_add((steps * 1_000).min(i16::MAX as u32) as i16);
-                cell.formed_rock_vu += steps * 1_000;
-                cell.pending_rock_vu %= 1_000;
-            }
-            if cell.pending_vitrified_vu >= 1_000 {
-                let steps = cell.pending_vitrified_vu / 1_000;
-                cell.height_hu = cell
-                    .height_hu
-                    .saturating_add((steps * 500).min(i16::MAX as u32) as i16);
-                cell.formed_vitrified_vu += steps * 1_000;
-                cell.pending_vitrified_vu %= 1_000;
-            }
-        }
-    }
     fn sort_entries(&mut self) {
         for cell in &mut self.cells {
-            cell.surface.sort_by_key(|m| m.fluid);
-            cell.airborne.sort_by_key(|m| m.fluid);
+            cell.surface.sort_by_key(|material| material.fluid);
+            cell.airborne.sort_by_key(|material| material.fluid);
         }
     }
 }
@@ -716,21 +515,18 @@ pub enum TerrainError {
     Capacity,
 }
 
-pub fn volume(entries: &[FluidEntry], fluid: FluidId) -> u32 {
-    entries
-        .iter()
-        .find(|m| m.fluid == fluid)
-        .map(|m| m.volume_vu)
-        .unwrap_or(0)
-}
 fn remove_fluid(entries: &mut Vec<FluidEntry>, fluid: FluidId, amount: u32) {
-    if let Some(entry) = entries.iter_mut().find(|m| m.fluid == fluid) {
+    if let Some(entry) = entries.iter_mut().find(|entry| entry.fluid == fluid) {
         entry.volume_vu -= amount.min(entry.volume_vu);
     }
-    entries.retain(|m| m.volume_vu > 0);
+    entries.retain(|entry| entry.volume_vu > 0);
 }
+
 fn merge_entry(entries: &mut Vec<FluidEntry>, entry: FluidEntry) {
-    if let Some(existing) = entries.iter_mut().find(|m| m.fluid == entry.fluid) {
+    if let Some(existing) = entries
+        .iter_mut()
+        .find(|material| material.fluid == entry.fluid)
+    {
         let total = existing.volume_vu + entry.volume_vu;
         existing.temperature_dk = ((existing.temperature_dk as i64 * existing.volume_vu as i64
             + entry.temperature_dk as i64 * entry.volume_vu as i64)
@@ -741,30 +537,6 @@ fn merge_entry(entries: &mut Vec<FluidEntry>, entry: FluidEntry) {
         existing.volume_vu = total;
     } else {
         entries.push(entry);
-        entries.sort_by_key(|m| m.fluid);
+        entries.sort_by_key(|material| material.fluid);
     }
-}
-fn mixture_split(source: &SimCell, amount: u32) -> Vec<(FluidId, u32, i32, u16)> {
-    let total = source.surface_volume();
-    let mut remaining = amount.min(total);
-    let mut split = Vec::new();
-    for (index, entry) in source.surface.iter().enumerate() {
-        let part = if index + 1 == source.surface.len() {
-            remaining
-        } else {
-            (amount as u64 * entry.volume_vu as u64 / total as u64) as u32
-        }
-        .min(entry.volume_vu)
-        .min(remaining);
-        if part > 0 {
-            split.push((
-                entry.fluid,
-                part,
-                entry.temperature_dk,
-                entry.contamination_bp,
-            ));
-            remaining -= part;
-        }
-    }
-    split
 }

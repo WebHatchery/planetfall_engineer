@@ -6,7 +6,7 @@ use planetfall_engineer::content::ContentRegistry;
 fn embedded_registry_validates_all_slice_references() {
     let registry = ContentRegistry::load().unwrap();
     registry.validate().unwrap();
-    assert_eq!(registry.maps.len(), 14);
+    assert_eq!(registry.maps.len(), 15);
 }
 
 #[test]

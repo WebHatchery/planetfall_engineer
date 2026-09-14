@@ -50,14 +50,8 @@ impl Game {
         }) {
             return (false, "occupied");
         }
-        if self.session.simulation.devices.reserved_budget + self.placement_device.cost()
-            > self
-                .session
-                .mission
-                .budget
-                .saturating_sub(self.session.simulation.devices.budget_spent)
-        {
-            return (false, "budget exhausted");
+        if self.session.simulation.fabrication.available_fu < self.placement_device.cost() {
+            return (false, "fabrication exhausted");
         }
         (true, "ready")
     }

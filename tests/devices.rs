@@ -1,6 +1,7 @@
 //! Device placement, network, power, and showcase behavior coverage.
 
 use planetfall_engineer::devices::{run_showcase, *};
+use planetfall_engineer::economy::FabricationState;
 use planetfall_engineer::simulation::{FluidId, SimulationWorld};
 use planetfall_engineer::state::CellPos;
 #[test]
@@ -36,30 +37,63 @@ fn showcase_index_has_exactly_one_named_map_per_device() {
 fn footprint_rotation_and_overlap_are_rejected() {
     let world = SimulationWorld::new(4, 4);
     let mut devices = DeviceSystem::default();
+    let mut fabrication = FabricationState::new(100);
     assert!(devices
-        .place(&world, DeviceId::Reservoir, CellPos { x: 1, y: 1 }, 3, 100)
+        .place(
+            &world,
+            DeviceId::Reservoir,
+            CellPos { x: 1, y: 1 },
+            3,
+            &mut fabrication
+        )
         .is_ok());
     assert_eq!(
-        devices.place(&world, DeviceId::Channel, CellPos { x: 1, y: 1 }, 0, 100),
+        devices.place(
+            &world,
+            DeviceId::Channel,
+            CellPos { x: 1, y: 1 },
+            0,
+            &mut fabrication
+        ),
         Err(DeviceError::Occupied)
     );
     assert_eq!(
-        devices.place(&world, DeviceId::Channel, CellPos { x: 3, y: 3 }, 4, 100),
+        devices.place(
+            &world,
+            DeviceId::Channel,
+            CellPos { x: 3, y: 3 },
+            4,
+            &mut fabrication
+        ),
         Err(DeviceError::InvalidRotation)
     );
 }
 #[test]
-fn budget_and_protected_placement_are_explained() {
+fn fabrication_and_protected_placement_are_explained() {
     let mut world = SimulationWorld::new(4, 4);
     world.definitions[0].protected = true;
     let mut devices = DeviceSystem::default();
+    let mut protected_fabrication = FabricationState::new(100);
     assert_eq!(
-        devices.place(&world, DeviceId::Pump, CellPos { x: 0, y: 0 }, 0, 100),
+        devices.place(
+            &world,
+            DeviceId::Pump,
+            CellPos { x: 0, y: 0 },
+            0,
+            &mut protected_fabrication,
+        ),
         Err(DeviceError::Protected)
     );
+    let mut scarce_fabrication = FabricationState::new(10);
     assert_eq!(
-        devices.place(&world, DeviceId::Pump, CellPos { x: 1, y: 1 }, 0, 10),
-        Err(DeviceError::InsufficientBudget)
+        devices.place(
+            &world,
+            DeviceId::Pump,
+            CellPos { x: 1, y: 1 },
+            0,
+            &mut scarce_fabrication,
+        ),
+        Err(DeviceError::InsufficientFabrication)
     );
 }
 #[test]
@@ -75,8 +109,9 @@ fn pump_moves_water_in_rotated_direction() {
     let mut world = SimulationWorld::new(3, 1);
     let anchor = CellPos { x: 0, y: 0 };
     let mut placed = std::mem::take(&mut world.devices);
+    let mut fabrication = FabricationState::new(100);
     placed
-        .place(&world, DeviceId::Pump, anchor, 0, 100)
+        .place(&world, DeviceId::Pump, anchor, 0, &mut fabrication)
         .unwrap();
     world.devices = placed;
     world.inject(anchor, FluidId::Water, 500);
@@ -91,8 +126,15 @@ fn pump_moves_water_in_rotated_direction() {
 fn filter_removes_contamination_without_losing_volume() {
     let mut world = SimulationWorld::new(2, 1);
     let mut devices = std::mem::take(&mut world.devices);
+    let mut fabrication = FabricationState::new(100);
     devices
-        .place(&world, DeviceId::Filter, CellPos { x: 0, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Filter,
+            CellPos { x: 0, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     world.devices = devices;
     world.inject(CellPos { x: 0, y: 0 }, FluidId::ToxicSlurry, 500);
@@ -105,41 +147,68 @@ fn filter_removes_contamination_without_losing_volume() {
     world.devices = devices;
 }
 #[test]
-fn queued_plans_reserve_budget_and_commit_atomically() {
+fn queued_plans_reserve_fabrication_and_commit_atomically() {
     let mut world = SimulationWorld::new(4, 2);
     let mut devices = std::mem::take(&mut world.devices);
+    let mut fabrication = FabricationState::new(5);
     assert_eq!(
-        devices.queue(&world, DeviceId::Channel, CellPos { x: 0, y: 0 }, 0, 5),
+        devices.queue(
+            &world,
+            DeviceId::Channel,
+            CellPos { x: 0, y: 0 },
+            0,
+            &mut fabrication,
+        ),
         Ok(0)
     );
     assert_eq!(
-        devices.queue(&world, DeviceId::Pipe, CellPos { x: 1, y: 0 }, 0, 5),
+        devices.queue(
+            &world,
+            DeviceId::Pipe,
+            CellPos { x: 1, y: 0 },
+            0,
+            &mut fabrication,
+        ),
         Ok(1)
     );
-    assert_eq!(devices.reserved_budget, 5);
-    let committed = devices.commit_plan(&world, 5).unwrap();
+    assert_eq!(fabrication.reserved_fu, 5);
+    let committed = devices.commit_plan(&world, &mut fabrication).unwrap();
     assert_eq!(committed, vec![0, 1]);
     assert!(devices.queued.is_empty());
-    assert_eq!(devices.budget_spent, 5);
+    assert_eq!(fabrication.spent_fu, 5);
     world.devices = devices;
 }
 #[test]
-fn cancelling_a_plan_releases_reserved_budget() {
+fn cancelling_a_plan_releases_reserved_fabrication() {
     let world = SimulationWorld::new(2, 1);
     let mut devices = DeviceSystem::default();
+    let mut fabrication = FabricationState::new(10);
     devices
-        .queue(&world, DeviceId::Channel, CellPos { x: 0, y: 0 }, 0, 10)
+        .queue(
+            &world,
+            DeviceId::Channel,
+            CellPos { x: 0, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
-    assert!(devices.cancel_last_plan());
-    assert_eq!(devices.reserved_budget, 0);
-    assert!(!devices.cancel_last_plan());
+    assert!(devices.cancel_last_plan(&mut fabrication));
+    assert_eq!(fabrication.reserved_fu, 0);
+    assert!(!devices.cancel_last_plan(&mut fabrication));
 }
 #[test]
 fn floodgate_setting_changes_edge_flow_factor() {
     let world = SimulationWorld::new(2, 1);
     let mut devices = DeviceSystem::default();
+    let mut fabrication = FabricationState::new(100);
     devices
-        .place(&world, DeviceId::Floodgate, CellPos { x: 0, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Floodgate,
+            CellPos { x: 0, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     assert_eq!(
         devices.surface_flow_factor(CellPos { x: 0, y: 0 }, CellPos { x: 1, y: 0 }),
@@ -162,8 +231,15 @@ fn closed_gate_stops_surface_transfer_until_reopened() {
     world.cells[0].height_hu = 2_000;
     world.cells[1].height_hu = 0;
     let mut devices = std::mem::take(&mut world.devices);
+    let mut fabrication = FabricationState::new(100);
     devices
-        .place(&world, DeviceId::Floodgate, CellPos { x: 0, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Floodgate,
+            CellPos { x: 0, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     devices.set_selected_gate(CellPos { x: 0, y: 0 }, 0);
     world.devices = devices;
@@ -182,17 +258,42 @@ fn closed_gate_stops_surface_transfer_until_reopened() {
 fn pump_transports_into_a_connected_pipe_endpoint() {
     let mut world = SimulationWorld::new(5, 2);
     let mut devices = std::mem::take(&mut world.devices);
+    let mut fabrication = FabricationState::new(100);
     devices
-        .place(&world, DeviceId::Pump, CellPos { x: 0, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Pump,
+            CellPos { x: 0, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     devices
-        .place(&world, DeviceId::Pipe, CellPos { x: 1, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Pipe,
+            CellPos { x: 1, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     devices
-        .place(&world, DeviceId::Pipe, CellPos { x: 2, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Pipe,
+            CellPos { x: 2, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     devices
-        .place(&world, DeviceId::Reservoir, CellPos { x: 3, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Reservoir,
+            CellPos { x: 3, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     assert_eq!(
         pipe_endpoint(&devices.devices, CellPos { x: 1, y: 0 }, (1, 0), None,),
@@ -208,12 +309,25 @@ fn pump_transports_into_a_connected_pipe_endpoint() {
 fn reservoir_releases_beyond_a_connected_pipe_run() {
     let mut world = SimulationWorld::new(8, 3);
     let mut devices = DeviceSystem::default();
+    let mut fabrication = FabricationState::new(100);
     devices
-        .place(&world, DeviceId::Reservoir, CellPos { x: 1, y: 1 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Reservoir,
+            CellPos { x: 1, y: 1 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     for x in 3..=5 {
         devices
-            .place(&world, DeviceId::Pipe, CellPos { x, y: 1 }, 0, 100)
+            .place(
+                &world,
+                DeviceId::Pipe,
+                CellPos { x, y: 1 },
+                0,
+                &mut fabrication,
+            )
             .unwrap();
     }
     let reservoir = devices
@@ -233,20 +347,33 @@ fn reservoir_releases_beyond_a_connected_pipe_run() {
 fn relay_requires_an_operating_turbine_and_pipe_link() {
     let mut world = SimulationWorld::new(5, 2);
     let mut devices = std::mem::take(&mut world.devices);
+    let mut fabrication = FabricationState::new(100);
     devices
         .place(
             &world,
             DeviceId::FlowTurbine,
             CellPos { x: 0, y: 0 },
             0,
-            100,
+            &mut fabrication,
         )
         .unwrap();
     devices
-        .place(&world, DeviceId::Pipe, CellPos { x: 1, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::Pipe,
+            CellPos { x: 1, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     devices
-        .place(&world, DeviceId::RuneRelay, CellPos { x: 2, y: 0 }, 0, 100)
+        .place(
+            &world,
+            DeviceId::RuneRelay,
+            CellPos { x: 2, y: 0 },
+            0,
+            &mut fabrication,
+        )
         .unwrap();
     world.inject(CellPos { x: 0, y: 0 }, FluidId::Steam, 500);
     world.inject(CellPos { x: 2, y: 0 }, FluidId::Water, 100);

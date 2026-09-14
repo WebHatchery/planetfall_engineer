@@ -1,5 +1,6 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
+  "content_version": "1.1.0",
   "fluids": [
     {"id":"water","enabled":true}, {"id":"brine","enabled":false},
     {"id":"lava","enabled":true}, {"id":"steam","enabled":true},
@@ -8,30 +9,68 @@
     {"id":"aetheric_condensate","enabled":false}
   ],
   "devices": [
-    {"id":"channel","showcase_map_id":"device_channel"},
-    {"id":"pipe","showcase_map_id":"device_pipe"},
-    {"id":"pump","showcase_map_id":"device_pump"},
-    {"id":"floodgate","showcase_map_id":"device_floodgate"},
-    {"id":"reservoir","showcase_map_id":"device_reservoir"},
-    {"id":"spillway","showcase_map_id":"device_spillway"},
-    {"id":"flow_turbine","showcase_map_id":"device_flow_turbine"},
-    {"id":"sensor","showcase_map_id":"device_sensor"},
-    {"id":"filter","showcase_map_id":"device_filter"},
-    {"id":"rune_relay","showcase_map_id":"device_rune_relay"}
+    {"id":"channel","showcase_map_id":"device_channel","fabrication_cost_fu":2,"power_demand_eu_per_tick":0,"power_class":null,"asset_id":"placeholder_channel"},
+    {"id":"pipe","showcase_map_id":"device_pipe","fabrication_cost_fu":3,"power_demand_eu_per_tick":0,"power_class":null,"asset_id":"placeholder_pipe"},
+    {"id":"pump","showcase_map_id":"device_pump","fabrication_cost_fu":12,"power_demand_eu_per_tick":3,"power_class":"transport","asset_id":"placeholder_pump"},
+    {"id":"floodgate","showcase_map_id":"device_floodgate","fabrication_cost_fu":8,"power_demand_eu_per_tick":0,"power_class":null,"asset_id":"placeholder_floodgate"},
+    {"id":"reservoir","showcase_map_id":"device_reservoir","fabrication_cost_fu":16,"power_demand_eu_per_tick":1,"power_class":"safety","asset_id":"placeholder_reservoir"},
+    {"id":"spillway","showcase_map_id":"device_spillway","fabrication_cost_fu":6,"power_demand_eu_per_tick":0,"power_class":null,"asset_id":"placeholder_spillway"},
+    {"id":"flow_turbine","showcase_map_id":"device_flow_turbine","fabrication_cost_fu":14,"power_demand_eu_per_tick":0,"power_class":null,"asset_id":"placeholder_flow_turbine"},
+    {"id":"sensor","showcase_map_id":"device_sensor","fabrication_cost_fu":5,"power_demand_eu_per_tick":1,"power_class":"safety","asset_id":"placeholder_sensor"},
+    {"id":"filter","showcase_map_id":"device_filter","fabrication_cost_fu":14,"power_demand_eu_per_tick":3,"power_class":"process","asset_id":"placeholder_filter"},
+    {"id":"rune_relay","showcase_map_id":"device_rune_relay","fabrication_cost_fu":20,"power_demand_eu_per_tick":2,"power_class":"interface","asset_id":"placeholder_rune_relay"}
   ],
   "missions": [
-    {"id":"campaign_l01_first_flow","map_id":"campaign_l01_first_flow","sequence":1,"budget_credits":40},
-    {"id":"campaign_l02_holding_line","map_id":"campaign_l02_holding_line","sequence":2,"budget_credits":105},
-    {"id":"campaign_l03_firebreak","map_id":"campaign_l03_firebreak","sequence":3,"budget_credits":160}
+    {
+      "id":"campaign_l01_first_flow", "map_id":"campaign_l01_first_flow", "sequence":1,
+      "fabrication_start_fu":0,
+      "deposits":[{"id":"wreckage_cache","position":[5,6],"yield_fu":28,"asset_id":"deposit_wreckage"}],
+      "power_sources":[],
+      "briefing":"Raise three runoff barriers, recover the marked wreckage, and protect the beacon while the dam fills.",
+      "objective":"Guide 6,000 vU of meltwater into the far-side restoration dam."
+    },
+    {
+      "id":"campaign_l02_holding_line", "map_id":"campaign_l02_holding_line", "sequence":2,
+      "fabrication_start_fu":0,
+      "deposits":[
+        {"id":"salvage_scaffold","position":[9,19],"yield_fu":60,"asset_id":"deposit_scaffold"},
+        {"id":"ore_cache","position":[33,20],"yield_fu":40,"asset_id":"deposit_ore"}
+      ],
+      "power_sources":[{"id":"geothermal_tap","position":[6,16],"output_eu_per_tick":3,"enabled":true,"asset_id":"power_geothermal_tap"}],
+      "briefing":"Recover local fabrication, bootstrap the aquifer pump from geothermal power, and hold the camp through the surge.",
+      "objective":"Hold 6,000–9,000 vU in the restoration trench and survive the forecast surge."
+    },
+    {
+      "id":"campaign_l03_firebreak", "map_id":"campaign_l03_firebreak", "sequence":3,
+      "fabrication_start_fu":0,
+      "deposits":[
+        {"id":"caldera_wreckage_a","position":[10,24],"yield_fu":40,"asset_id":"deposit_caldera_wreckage"},
+        {"id":"caldera_wreckage_b","position":[31,24],"yield_fu":40,"asset_id":"deposit_caldera_wreckage"},
+        {"id":"ruin_cache","position":[41,8],"yield_fu":40,"asset_id":"deposit_ruin_cache"}
+      ],
+      "power_sources":[{"id":"thermal_tap","position":[6,17],"output_eu_per_tick":3,"enabled":true,"asset_id":"power_thermal_tap"}],
+      "briefing":"Meter finite cistern water into lava, capture the steam, and power the relay before the ancient foundation is reached.",
+      "objective":"Form 3,000 vU of rock on the reaction shelf and sustain the powered relay."
+    }
   ],
   "tutorials": [
-    {"id":"tutorial_l01","steps":["tutorial_l01_welcome","tutorial_l01_move_camera","tutorial_l01_move_cursor","tutorial_l01_inspect_grade","tutorial_l01_pause_plan","tutorial_l01_excavate","tutorial_l01_place_channel","tutorial_l01_commit_plan","tutorial_l01_run_and_observe","tutorial_l01_control_gate","tutorial_l01_see_impact","tutorial_l01_stabilize"]}
+    {"id":"tutorial_l01","steps":[
+      "tutorial_l01_welcome","tutorial_l01_move_camera","tutorial_l01_move_cursor","tutorial_l01_inspect_grade",
+      "tutorial_l01_select_deposit","tutorial_l01_recover_deposit","tutorial_l01_pause_plan","tutorial_l01_raise_first",
+      "tutorial_l01_raise_remaining","tutorial_l01_place_channel","tutorial_l01_run_and_observe","tutorial_l01_beacon_warning",
+      "tutorial_l01_open_gate","tutorial_l01_stabilize"
+    ]},
+    {"id":"tutorial_l02_power","steps":[
+      "tutorial_l02_inspect_grid","tutorial_l02_bootstrap_pump","tutorial_l02_place_turbine",
+      "tutorial_l02_observe_generation","tutorial_l02_manage_demand"
+    ]}
   ],
   "maps": [
     {"id":"campaign_l01_first_flow","kind":"campaign","width":32,"height":20},
     {"id":"campaign_l02_holding_line","kind":"campaign","width":40,"height":24},
     {"id":"campaign_l03_firebreak","kind":"campaign","width":48,"height":30},
     {"id":"lab_fluids_all","kind":"fluid_lab","width":64,"height":48},
+    {"id":"lab_field_economy","kind":"fluid_lab","width":24,"height":16},
     {"id":"device_channel","kind":"device_showcase","width":32,"height":18},
     {"id":"device_pipe","kind":"device_showcase","width":32,"height":18},
     {"id":"device_pump","kind":"device_showcase","width":32,"height":18},

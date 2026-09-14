@@ -19,9 +19,9 @@ engineering contract; the GDD remains the source of product intent.
 The technical contract now includes the approved R0 planetary-constraint
 retrofit: finite `fabU` recovered from map deposits, deterministic `eU` supplied
 by geothermal fixtures and actual turbine flow, brownouts, refunds, and stronger
-loss/recovery routes. That retrofit is specified but not yet implemented; the
-current executable still uses its earlier credit allowance and partial power
-state. Milestone F in the implementation plan is the active engineering queue.
+loss/recovery routes. The executable now runs those constraints through the
+authoritative simulation, saves, replay harness, and renderer-independent tests.
+The remaining Milestone F work is the player-facing onboarding and evidence pass.
 
 ## Phase 1 Foundation
 
@@ -52,13 +52,13 @@ state. Milestone F in the implementation plan is the active engineering queue.
   sensor threshold state, and rune-relay flow/power gating.
 - Floodgates now control their authored surface edge at 0%, 50%, and 100%;
   `J/K/H` set the selected gate, and the inspector readout shows setting and
-  active state alongside queued-plan budget.
+  active state alongside queued-plan fabrication.
 - Authored campaign sources are fixed-rate and deterministic: L01 starts with
   its 20 `vU`/tick west-side meltwater source stopped, and tutorial completion
   or skip enables it after the player has shaped the route.
 - Deterministic placement validation for bounds, overlap, protected terrain,
-  budget, and rotation, plus renderer-independent device showcase fixtures.
-- Build-plan queue with budget reservation, atomic commit, cancellation, and
+  fabrication, and rotation, plus renderer-independent device showcase fixtures.
+- Build-plan queue with fabrication reservation, atomic commit, cancellation, and
   renderer-independent queued-plan state. Runtime controls: `B/P/O` queue a
   channel/pipe/pump, `Enter` commits, `Backspace` cancels, `C` removes the
   selected device, and `F2` opens the ten-device showcase browser.
@@ -68,7 +68,7 @@ state. Milestone F in the implementation plan is the active engineering queue.
 - Mission phases (`Briefing`, `Active`, `Success`, `Failure`, `Debrief`) with
   stability windows, terminal-state guards, checkpoints, failure notices, and
   campaign unlock progression for exactly L01, L02, and L03.
-- Event-driven L01 tutorial state with twelve ordered steps, stable
+- Event-driven L01 tutorial state with fourteen ordered steps, stable
   `tutorial_locked` admissions, skip behavior, saved progress fields, and
   deterministic tutorial tests.
 - The active L01 step is rendered as a readable field prompt with the required
@@ -86,7 +86,8 @@ state. Milestone F in the implementation plan is the active engineering queue.
 - `N` selects the next unlocked authored campaign level, rebuilding its map and
   camera while preserving campaign unlocks and best-time progress.
 
-Campaign constructors now author the exact L01/L02/L03 map sizes, budgets,
+Campaign constructors now author the exact L01/L02/L03 map sizes, fabrication
+deposits, and power fixtures,
 ambient temperatures, protected zones, basins/shelves, and reference tick
 ranges from `docs/06_FIRST_THREE_LEVELS.md`. A clean launch opens authored L01
 (`32×20`); L02 and L03 remain campaign progression content rather than generic
@@ -124,8 +125,8 @@ The showcase index names exactly one executable map for each enabled device:
 
 The embedded `content_registry.json` now validates the four enabled fluids,
 reserved fluid IDs, ten device/showcase references, three campaign map sizes
-and budgets, the twelve-step tutorial namespace, and all fourteen authored map
-IDs before the game starts.
+and fabrication/power records, the fourteen-step tutorial namespace, and all
+fifteen authored map IDs before the game starts.
 
 ## 3D Vertical-Slice Presentation
 
@@ -173,11 +174,11 @@ corresponding executable showcase; F2 opens the channel showcase in free play
 and V cycles the ten authored device maps without losing the campaign session.
 The HUD build palette lists all ten placeables and its mouse hit regions queue
 the same validated plans as the keyboard bindings, including visible rejection
-notices for tutorial, budget, bounds, protected-cell, and overlap failures.
+notices for tutorial, fabrication, bounds, protected-cell, and overlap failures.
 The selected build has a translucent 3D footprint ghost; `Z` cycles its quarter
 turn rotation, and the queued plan carries that rotation into the authoritative
 device entity and directional behavior. The readout shows its cost and
-`READY`/`BLOCKED` reason for bounds, protection, overlap, or budget before queue.
+`READY`/`BLOCKED` reason for bounds, protection, overlap, or fabrication before queue.
 Visible `ROTATE`, `COMMIT`, and `CANCEL` buttons mirror the keyboard actions so
 the core placement loop is fully mouse-reachable.
 Visible `PAUSE`, `1X`, `2X`, and `4X` buttons likewise drive the fixed-tick time

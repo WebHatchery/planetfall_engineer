@@ -2,6 +2,7 @@
 
 use crate::{
     devices::DeviceId,
+    economy::FabricationState,
     mission::MissionId,
     simulation::{CellDefinition, FluidId, SimulationWorld},
     state::CellPos,
@@ -10,17 +11,17 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct CampaignMap {
     pub world: SimulationWorld,
-    pub budget: u32,
+    pub fabrication_start_fu: u32,
     pub reference_tick_range: (u64, u64),
 }
 
 pub fn load_campaign(id: MissionId) -> CampaignMap {
     let (width, height) = id.map_size();
-    let budget = match id {
-        MissionId::L01FirstFlow => 40,
-        MissionId::L02HoldingLine => 105,
-        MissionId::L03Firebreak => 160,
-    };
+    let content = crate::content::ContentRegistry::load()
+        .expect("embedded content registry must be readable");
+    let record = content
+        .mission(id.content_id())
+        .expect("every campaign must have a content record");
     let reference_tick_range = match id {
         MissionId::L01FirstFlow => (900, 1_400),
         MissionId::L02HoldingLine => (1_400, 1_800),
@@ -32,9 +33,39 @@ pub fn load_campaign(id: MissionId) -> CampaignMap {
         MissionId::L02HoldingLine => author_l02(&mut world),
         MissionId::L03Firebreak => author_l03(&mut world),
     }
+    world.fabrication = FabricationState::new(record.fabrication_start_fu);
+    for deposit in &record.deposits {
+        world.add_deposit(
+            &deposit.id,
+            CellPos {
+                x: deposit.position[0],
+                y: deposit.position[1],
+            },
+            deposit.yield_fu,
+            &deposit.asset_id,
+        );
+    }
+    for source in &record.power_sources {
+        world.add_power_source(
+            &source.id,
+            CellPos {
+                x: source.position[0],
+                y: source.position[1],
+            },
+            source.output_eu_per_tick,
+            &source.asset_id,
+        );
+    }
+    for source in &mut world.power_sources {
+        source.enabled = record
+            .power_sources
+            .iter()
+            .find(|authored| authored.id == source.id)
+            .is_some_and(|authored| authored.enabled);
+    }
     CampaignMap {
         world,
-        budget,
+        fabrication_start_fu: record.fabrication_start_fu,
         reference_tick_range,
     }
 }
@@ -224,6 +255,8 @@ fn author_l03(world: &mut SimulationWorld) {
     for y in 5..=6 {
         for x in 38..=39 {
             set_height(world, CellPos { x, y }, 2_000);
+            set_sealed(world, CellPos { x, y });
+            set_contained(world, CellPos { x, y });
         }
     }
     for x in 24..=30 {
@@ -256,6 +289,14 @@ fn author_l03(world: &mut SimulationWorld) {
         install_device(world, DeviceId::Pipe, CellPos { x, y }, rotation, 0);
     }
     install_device(world, DeviceId::Channel, CellPos { x: 30, y: 9 }, 0, 0);
+    // The cold-side service trunk is authored infrastructure; player stock is
+    // spent on the pump-to-shelf route and the turbine's reaction-side riser.
+    for x in [28, 29, 31, 32, 33, 34, 35, 36, 37] {
+        install_device(world, DeviceId::Pipe, CellPos { x, y: 9 }, 0, 0);
+    }
+    for y in 5..=8 {
+        install_device(world, DeviceId::Pipe, CellPos { x: 37, y }, 0, 0);
+    }
 }
 
 pub fn apply_scheduled_events(world: &mut SimulationWorld, id: MissionId) {

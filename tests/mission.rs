@@ -26,13 +26,11 @@ fn tutorial_rejects_locked_state_changes_and_advances_on_events() {
     );
 }
 #[test]
-fn skip_completes_tutorial_without_mutating_budget() {
+fn skip_completes_tutorial_without_mutating_mission_state() {
     let mut mission = MissionState::new(MissionId::L01FirstFlow);
     mission.start();
-    let budget = mission.budget;
     assert_eq!(mission.skip_tutorial(), Admission::Accepted);
     assert!(mission.tutorial.as_ref().unwrap().is_complete());
-    assert_eq!(mission.budget, budget);
 }
 #[test]
 fn normal_tutorial_path_reaches_completion() {

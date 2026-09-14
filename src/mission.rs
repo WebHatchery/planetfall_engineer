@@ -33,6 +33,14 @@ impl MissionId {
             Self::L03Firebreak => (48, 30),
         }
     }
+
+    pub const fn content_id(self) -> &'static str {
+        match self {
+            Self::L01FirstFlow => "campaign_l01_first_flow",
+            Self::L02HoldingLine => "campaign_l02_holding_line",
+            Self::L03Firebreak => "campaign_l03_firebreak",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,7 +165,6 @@ pub struct MissionState {
     pub tick: u64,
     pub stability_ticks: u32,
     pub objective_progress: u32,
-    pub budget: u32,
     pub command_count: u32,
     pub failure_reason: Option<String>,
     pub tutorial: Option<TutorialState>,
@@ -180,11 +187,6 @@ impl MissionState {
             tick: 0,
             stability_ticks: 0,
             objective_progress: 0,
-            budget: match id {
-                MissionId::L01FirstFlow => 40,
-                MissionId::L02HoldingLine => 105,
-                MissionId::L03Firebreak => 160,
-            },
             command_count: 0,
             failure_reason: None,
             tutorial: (id == MissionId::L01FirstFlow).then(TutorialState::l01),

@@ -4,6 +4,7 @@ pub mod campaign;
 pub mod content;
 pub mod data;
 pub mod devices;
+pub mod economy;
 pub mod game;
 pub mod game_build;
 pub mod game_placement;

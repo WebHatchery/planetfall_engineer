@@ -80,14 +80,16 @@ impl Game {
             return;
         }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
+        let mut fabrication = std::mem::take(&mut self.session.simulation.fabrication);
         let result = devices.queue(
             &self.session.simulation,
             device,
             self.session.selected,
             self.placement_rotation,
-            self.session.mission.budget,
+            &mut fabrication,
         );
         self.session.simulation.devices = devices;
+        self.session.simulation.fabrication = fabrication;
         self.notice = result
             .map(|id| {
                 format!(
@@ -104,8 +106,10 @@ impl Game {
             return;
         }
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let result = devices.commit_plan(&self.session.simulation, self.session.mission.budget);
+        let mut fabrication = std::mem::take(&mut self.session.simulation.fabrication);
+        let result = devices.commit_plan(&self.session.simulation, &mut fabrication);
         self.session.simulation.devices = devices;
+        self.session.simulation.fabrication = fabrication;
         self.notice = result
             .map(|entities| format!("Committed {} build plan(s)", entities.len()))
             .unwrap_or_else(|error| format!("Plan commit rejected: {error:?}"));
@@ -113,8 +117,10 @@ impl Game {
 
     pub(crate) fn cancel_build_plan(&mut self) {
         let mut devices = std::mem::take(&mut self.session.simulation.devices);
-        let cancelled = devices.cancel_last_plan();
+        let mut fabrication = std::mem::take(&mut self.session.simulation.fabrication);
+        let cancelled = devices.cancel_last_plan(&mut fabrication);
         self.session.simulation.devices = devices;
+        self.session.simulation.fabrication = fabrication;
         self.notice = if cancelled {
             "Last build plan cancelled"
         } else {

@@ -229,9 +229,9 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     draw_ui_text_ex(&device_readout, 1024.0, 280.0, style.params());
     draw_ui_text_ex(
         &format!(
-            "Queue {} / {} credits",
+            "Queue {} / {} FAB reserved",
             ctx.session.simulation.devices.queued.len(),
-            ctx.session.simulation.devices.reserved_budget
+            ctx.session.simulation.fabrication.reserved_fu
         ),
         1024.0,
         298.0,

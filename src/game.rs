@@ -169,7 +169,7 @@ impl Game {
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
         let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
-        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, verification_returns_to_menu: false, frontend_mode: FrontendMode::Title, _assets: assets, terrain_texture, camera, lab: FluidsLab::new(), notice: format!("First Flow ready — {width}×{height} — budget {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.budget, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
+        Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, verification_returns_to_menu: false, frontend_mode: FrontendMode::Title, _assets: assets, terrain_texture, camera, lab: FluidsLab::new(), notice: format!("First Flow ready — {width}×{height} — FAB {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.fabrication_start_fu, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
@@ -442,8 +442,13 @@ impl Game {
                 .find(|device| device.anchor == self.session.selected)
                 .map(|device| device.entity_id)
             {
-                self.session.simulation.devices.remove(entity_id);
-                self.notice = "Device removed and budget released".into();
+                let mut fabrication = std::mem::take(&mut self.session.simulation.fabrication);
+                self.session
+                    .simulation
+                    .devices
+                    .remove(entity_id, &mut fabrication);
+                self.session.simulation.fabrication = fabrication;
+                self.notice = "Device removed and fabrication refunded".into();
             }
         }
         if is_key_pressed(KeyCode::B) {

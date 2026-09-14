@@ -9,7 +9,7 @@ fn each_campaign_reference_reaches_terminal_success() {
         let report = run_scenario(id, ScenarioKind::Reference);
         assert!(report.terminal_success, "{report:?}");
         assert!(report.continuation_matches);
-        assert_eq!(report.mass_balance_error, 0);
+        assert_eq!(report.mass_balance_error, 0, "{report:?}");
         assert!(report.ticks >= 100);
         assert!(report.injected_vu > 0);
         assert!(report.admitted_commands > 0, "{report:?}");
@@ -35,7 +35,7 @@ fn alternate_routes_reach_success_and_preserve_midpoint_continuation() {
         assert_eq!(first, second);
         assert!(first.terminal_success, "{first:?}");
         assert!(first.continuation_matches);
-        assert_eq!(first.mass_balance_error, 0);
+        assert_eq!(first.mass_balance_error, 0, "{first:?}");
         assert_ne!(first.midpoint_hash, first.final_hash);
         assert!(first.admitted_commands > 0, "{first:?}");
     }
