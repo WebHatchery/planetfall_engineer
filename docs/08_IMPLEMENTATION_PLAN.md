@@ -227,6 +227,10 @@ queue cancel/failed atomic commit preserve stock; pre-operation and operated
 refunds are exact; save/load and replay ledgers match; no campaign starts with
 untracked construction stock.
 
+Status: Complete. Delivered in `77d9ca7` with five focused economy tests,
+finite campaign deposits, exact reservation/refund accounting, and replay/save
+coverage.
+
 ### WP-F2 Planetary field power
 
 Implement authored sources, prior-tick turbine generation, current-tick demand,
@@ -238,6 +242,9 @@ allocation follows power class/stable entity ID across render-frame partition;
 no underpowered consumer partially acts; one-tick turbine delay is visible and
 replay-exact.
 
+Status: Complete. Delivered in `77d9ca7` with authored sources, brownout
+transitions, powered showcases, and deterministic ledger assertions.
+
 ### WP-F3 Campaign retune and onboarding
 
 Advance schema/content/save versions; author L01–L03 deposits and power sources;
@@ -248,6 +255,11 @@ checkpoints, UI/captures, and alternate reference streams.
 Acceptance: all revised §§06–07 criteria pass. Untouched/underpowered/depleted
 routes demonstrate their documented failure or recovery state, while reference
 and alternate solutions finish without hidden stock or free power.
+
+Status: Complete. Delivered across `bdbe430`, `6cc6ef0`, and `fe56ba9` with
+touch-accessible onboarding, data-backed mission rules and prompts, schema/content
+versioning, recovery and alternate replay evidence, and refreshed publisher
+packages.
 
 ### Milestone F commits
 
