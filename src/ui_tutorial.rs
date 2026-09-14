@@ -1,12 +1,17 @@
 //! Touch-first tutorial prompt presentation.
 
-use crate::mission::TutorialState;
+use crate::{content::ContentRegistry, mission::TutorialState};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
 
-pub(crate) fn draw_tutorial_prompt(tutorial: &TutorialState) {
-    let (step, instruction, action) = tutorial_prompt(tutorial.current_step_id.as_str());
+pub(crate) fn draw_tutorial_prompt(tutorial: &TutorialState, content: &ContentRegistry) {
+    let (step, instruction, action) = tutorial_prompt(content, tutorial.current_step_id.as_str());
+    let total_steps = content
+        .tutorials
+        .iter()
+        .find(|record| record.id == tutorial.tutorial_id)
+        .map_or(0, |record| record.steps.len());
     draw_rectangle(
         24.0,
         104.0,
@@ -24,8 +29,9 @@ pub(crate) fn draw_tutorial_prompt(tutorial: &TutorialState) {
     );
     draw_ui_text_ex(
         &format!(
-            "FIELD TUTORIAL // STEP {}/14 // {}",
+            "FIELD TUTORIAL // STEP {}/{} // {}",
             tutorial.completed_step_ids.len() + 1,
+            total_steps,
             step
         ),
         42.0,
@@ -76,7 +82,10 @@ fn draw_button(x: f32, y: f32, width: f32, label: &str, border: Color) {
     );
 }
 
-fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
+fn tutorial_prompt<'a>(content: &'a ContentRegistry, step: &str) -> (&'a str, &'a str, &'a str) {
+    if let Some(prompt) = content.tutorial_prompt(step) {
+        return (&prompt.title, &prompt.instruction, &prompt.action);
+    }
     match step {
         "tutorial_l01_welcome" => (
             "WELCOME",

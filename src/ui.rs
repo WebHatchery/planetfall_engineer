@@ -1,6 +1,7 @@
 //! Screen-space engineering HUD restored after the 3D world pass.
 
 use crate::{
+    content::ContentRegistry,
     mission::MissionPhase,
     state::{GameSession, TimeControl},
 };
@@ -16,6 +17,7 @@ pub const LOGICAL_HEIGHT: f32 = 720.0;
 
 pub struct UiContext<'a> {
     pub session: &'a GameSession,
+    pub content: &'a ContentRegistry,
     pub camera_yaw: u8,
     pub camera_zoom: f32,
     pub notice: &'a str,
@@ -46,10 +48,16 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         .verification_label
         .map(str::to_owned)
         .unwrap_or_else(|| {
+            let title = ctx
+                .content
+                .mission(ctx.session.mission.id.content_id())
+                .map_or(ctx.session.mission.id.content_id(), |mission| {
+                    mission.title.as_str()
+                });
             format!(
                 "L0{} // {} // {}",
                 ctx.session.mission.id.sequence(),
-                ctx.session.mission.id.name().to_uppercase(),
+                title.to_uppercase(),
                 phase_name(ctx.session.mission.phase)
             )
         });
@@ -127,10 +135,15 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         130.0,
         TextStyle::new(14.0, Color::new(0.8, 0.68, 0.4, 1.0)).params(),
     );
-    let selected =
-        &ctx.session.simulation.cells[ctx.session.simulation.index(ctx.session.selected).unwrap()];
-    let selected_definition = &ctx.session.simulation.definitions
-        [ctx.session.simulation.index(ctx.session.selected).unwrap()];
+    let Some(selected_index) = ctx.session.simulation.index(ctx.session.selected) else {
+        return;
+    };
+    let Some(selected) = ctx.session.simulation.cells.get(selected_index) else {
+        return;
+    };
+    let Some(selected_definition) = ctx.session.simulation.definitions.get(selected_index) else {
+        return;
+    };
     let heat_dk = selected
         .surface
         .first()
@@ -188,7 +201,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
     let objective = ctx
         .verification_label
         .map(|label| format!("{} tick {}", label, ctx.session.simulation.tick))
-        .unwrap_or_else(|| mission_primary_status(ctx.session));
+        .unwrap_or_else(|| mission_primary_status(ctx.session, ctx.content));
     let objective = if ctx.verification_label.is_some() {
         objective
     } else {
@@ -196,13 +209,13 @@ pub fn draw_hud(ctx: UiContext<'_>) {
             "{}  STAB {}/{}",
             objective,
             ctx.session.mission.stability_ticks,
-            stability_target(ctx.session.mission.id)
+            stability_target(ctx.session.mission.id, ctx.content)
         )
     };
     draw_ui_text_ex(&objective, 1024.0, 172.0, style.params());
     if ctx.verification_label.is_none() {
         draw_ui_text_ex(
-            &mission_secondary_status(ctx.session),
+            &mission_secondary_status(ctx.session, ctx.content),
             1024.0,
             190.0,
             style.params(),
@@ -440,21 +453,21 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         ctx.session.mission.phase,
         MissionPhase::Success | MissionPhase::Failure | MissionPhase::Debrief
     ) {
-        draw_terminal_panel(ctx.session);
+        draw_terminal_panel(ctx.session, ctx.content);
     }
     if ctx.session.mission.phase == MissionPhase::Briefing {
-        draw_mission_briefing(ctx.session);
+        draw_mission_briefing(ctx.session, ctx.content);
     }
     if let Some(tutorial) = ctx.session.mission.tutorial.as_ref() {
         if ctx.session.mission.phase == MissionPhase::Active && !tutorial.is_complete() {
-            crate::ui_tutorial::draw_tutorial_prompt(tutorial);
+            crate::ui_tutorial::draw_tutorial_prompt(tutorial, ctx.content);
         }
     }
     if ctx.verification_label.is_none()
         && ctx.session.mission.phase == MissionPhase::Active
         && ctx.session.mission.id != crate::mission::MissionId::L01FirstFlow
     {
-        draw_stage_guide(ctx.session.mission.id);
+        draw_stage_guide(ctx.session.mission.id, ctx.content);
     }
     if ctx.pause_menu {
         draw_pause_menu();
@@ -488,14 +501,13 @@ fn overlay_name(mode: u8) -> &'static str {
         _ => "MATERIAL",
     }
 }
-fn stability_target(id: crate::mission::MissionId) -> u32 {
-    match id {
-        crate::mission::MissionId::L01FirstFlow => 100,
-        crate::mission::MissionId::L02HoldingLine | crate::mission::MissionId::L03Firebreak => 150,
-    }
+fn stability_target(id: crate::mission::MissionId, content: &ContentRegistry) -> u32 {
+    content
+        .mission(id.content_id())
+        .map_or(0, |mission| mission.stability_ticks)
 }
 
-fn draw_terminal_panel(session: &GameSession) {
+fn draw_terminal_panel(session: &GameSession, content: &ContentRegistry) {
     let success = session.mission.phase == MissionPhase::Success;
     draw_rectangle(
         300.0,
@@ -536,7 +548,11 @@ fn draw_terminal_panel(session: &GameSession) {
         .params(),
     );
     draw_ui_text_ex(
-        session.mission.id.name(),
+        content
+            .mission(session.mission.id.content_id())
+            .map_or(session.mission.id.content_id(), |mission| {
+                mission.title.as_str()
+            }),
         336.0,
         310.0,
         TextStyle::new(16.0, Color::new(0.76, 0.82, 0.86, 1.0)).params(),
@@ -588,24 +604,15 @@ fn draw_terminal_panel(session: &GameSession) {
     }
 }
 
-fn draw_mission_briefing(session: &GameSession) {
-    let (title, lesson, objective) = match session.mission.id {
-        crate::mission::MissionId::L01FirstFlow => (
-            "L01 // FIRST FLOW",
-            "Three runoff cuts feed deep fissures. Raise a barrier across each cut to redirect the stream.",
-            "Guide 6,000 vU of meltwater across the map into the far-side dam.",
-        ),
-        crate::mission::MissionId::L02HoldingLine => (
-            "L02 // THE HOLDING LINE",
-            "Plan for a scheduled surge. Use storage, spillways, and optional sensing to keep the camp dry.",
-            "Hold 6,000 vU safely while the meltwater source rises and falls.",
-        ),
-        crate::mission::MissionId::L03Firebreak => (
-            "L03 // FIREBREAK PROTOCOL",
-            "Combine routing with reaction engineering: water and lava form rock and steam.",
-            "Build a 3,000 vU firebreak before lava can reach the ancient foundation.",
-        ),
+fn draw_mission_briefing(session: &GameSession, content: &ContentRegistry) {
+    let Some(mission) = content.mission(session.mission.id.content_id()) else {
+        return;
     };
+    let title = format!(
+        "L0{} // {}",
+        session.mission.id.sequence(),
+        mission.title.to_uppercase()
+    );
     draw_rectangle(
         300.0,
         214.0,
@@ -622,7 +629,7 @@ fn draw_mission_briefing(session: &GameSession) {
         Color::new(0.35, 0.74, 0.78, 0.95),
     );
     draw_ui_text_ex(
-        title,
+        &title,
         338.0,
         270.0,
         TextStyle::new(28.0, Color::new(0.94, 0.84, 0.48, 1.0)).params(),
@@ -634,13 +641,13 @@ fn draw_mission_briefing(session: &GameSession) {
         TextStyle::new(14.0, Color::new(0.52, 0.74, 0.78, 1.0)).params(),
     );
     draw_ui_text_ex(
-        lesson,
+        &mission.briefing,
         338.0,
         346.0,
         TextStyle::new(16.0, Color::new(0.78, 0.84, 0.88, 1.0)).params(),
     );
     draw_ui_text_ex(
-        objective,
+        &mission.objective,
         338.0,
         388.0,
         TextStyle::new(16.0, Color::new(0.78, 0.84, 0.88, 1.0)).params(),
@@ -668,18 +675,14 @@ fn draw_mission_briefing(session: &GameSession) {
     );
 }
 
-fn draw_stage_guide(id: crate::mission::MissionId) {
-    let (heading, guidance) = match id {
-        crate::mission::MissionId::L02HoldingLine => (
-            "FIELD GUIDE // HOLDING LINE",
-            "Watch the alert level. The source surges at tick 900; reservoirs retain water and spillways shed excess.",
-        ),
-        crate::mission::MissionId::L03Firebreak => (
-            "FIELD GUIDE // FIREBREAK",
-            "Bring water to lava deliberately: their reaction creates the rock barrier. Keep lava away from the foundation.",
-        ),
-        crate::mission::MissionId::L01FirstFlow => return,
+fn draw_stage_guide(id: crate::mission::MissionId, content: &ContentRegistry) {
+    let Some(mission) = content.mission(id.content_id()) else {
+        return;
     };
+    if id == crate::mission::MissionId::L01FirstFlow {
+        return;
+    }
+    let heading = format!("FIELD GUIDE // {}", mission.title.to_uppercase());
     draw_rectangle(
         24.0,
         104.0,
@@ -696,13 +699,13 @@ fn draw_stage_guide(id: crate::mission::MissionId) {
         Color::new(0.52, 0.74, 0.78, 0.9),
     );
     draw_ui_text_ex(
-        heading,
+        &heading,
         42.0,
         130.0,
         TextStyle::new(13.0, Color::new(0.52, 0.78, 0.8, 1.0)).params(),
     );
     draw_ui_text_ex(
-        guidance,
+        &mission.field_guide,
         42.0,
         158.0,
         TextStyle::new(14.0, Color::new(0.84, 0.88, 0.9, 1.0)).params(),

@@ -23,26 +23,40 @@
   "missions": [
     {
       "id":"campaign_l01_first_flow", "map_id":"campaign_l01_first_flow", "sequence":1,
-      "fabrication_start_fu":0,
+      "title":"First Flow", "fabrication_start_fu":0,
+      "reference_tick_min":900, "reference_tick_max":1400, "source_rate_vu":20,
+      "surge_start_tick":null, "surge_end_tick":null, "surge_rate_vu":0,
+      "objective_min_vu":6000, "objective_max_vu":6000, "stability_ticks":100, "failure_ticks":10,
+      "advisory_tick":0, "warning_tick":0, "hazard_threshold_vu":1500, "hazard_reason":"protected beacon flooded",
       "deposits":[{"id":"wreckage_cache","position":[5,6],"yield_fu":28,"asset_id":"deposit_wreckage"}],
       "power_sources":[],
       "briefing":"Raise three runoff barriers, recover the marked wreckage, and protect the beacon while the dam fills.",
+      "field_guide":"Raise each runoff barrier, then watch the beacon alert while the far-side dam fills.",
       "objective":"Guide 6,000 vU of meltwater into the far-side restoration dam."
     },
     {
       "id":"campaign_l02_holding_line", "map_id":"campaign_l02_holding_line", "sequence":2,
-      "fabrication_start_fu":0,
+      "title":"The Holding Line", "fabrication_start_fu":0,
+      "reference_tick_min":1400, "reference_tick_max":1800, "source_rate_vu":100,
+      "surge_start_tick":900, "surge_end_tick":1200, "surge_rate_vu":400,
+      "objective_min_vu":6000, "objective_max_vu":9000, "stability_ticks":150, "failure_ticks":20,
+      "advisory_tick":600, "warning_tick":800, "hazard_threshold_vu":1500, "hazard_reason":"camp zone flooded",
       "deposits":[
         {"id":"salvage_scaffold","position":[9,19],"yield_fu":60,"asset_id":"deposit_scaffold"},
         {"id":"ore_cache","position":[33,20],"yield_fu":40,"asset_id":"deposit_ore"}
       ],
       "power_sources":[{"id":"geothermal_tap","position":[6,16],"output_eu_per_tick":3,"enabled":true,"asset_id":"power_geothermal_tap"}],
       "briefing":"Recover local fabrication, bootstrap the aquifer pump from geothermal power, and hold the camp through the surge.",
+      "field_guide":"Watch the alert level. The source surges at tick 900; reservoirs retain water and spillways shed excess.",
       "objective":"Hold 6,000–9,000 vU in the restoration trench and survive the forecast surge."
     },
     {
       "id":"campaign_l03_firebreak", "map_id":"campaign_l03_firebreak", "sequence":3,
-      "fabrication_start_fu":0,
+      "title":"Firebreak Protocol", "fabrication_start_fu":0,
+      "reference_tick_min":1500, "reference_tick_max":2100, "source_rate_vu":100,
+      "surge_start_tick":1000, "surge_end_tick":1250, "surge_rate_vu":220,
+      "objective_min_vu":3000, "objective_max_vu":3000, "stability_ticks":150, "failure_ticks":20,
+      "advisory_tick":700, "warning_tick":0, "hazard_threshold_vu":0, "hazard_reason":"ancient foundation reached by lava",
       "deposits":[
         {"id":"caldera_wreckage_a","position":[10,24],"yield_fu":40,"asset_id":"deposit_caldera_wreckage"},
         {"id":"caldera_wreckage_b","position":[31,24],"yield_fu":40,"asset_id":"deposit_caldera_wreckage"},
@@ -50,6 +64,7 @@
       ],
       "power_sources":[{"id":"thermal_tap","position":[6,17],"output_eu_per_tick":3,"enabled":true,"asset_id":"power_thermal_tap"}],
       "briefing":"Meter finite cistern water into lava, capture the steam, and power the relay before the ancient foundation is reached.",
+      "field_guide":"Bring water to lava deliberately: their reaction creates the rock barrier. Keep lava away from the foundation.",
       "objective":"Form 3,000 vU of rock on the reaction shelf and sustain the powered relay."
     }
   ],
@@ -59,10 +74,31 @@
       "tutorial_l01_select_deposit","tutorial_l01_recover_deposit","tutorial_l01_pause_plan","tutorial_l01_raise_first",
       "tutorial_l01_raise_remaining","tutorial_l01_place_channel","tutorial_l01_run_and_observe","tutorial_l01_beacon_warning",
       "tutorial_l01_open_gate","tutorial_l01_stabilize"
+    ],"prompts":[
+      {"id":"tutorial_l01_welcome","title":"WELCOME","instruction":"Survey the ash basin and dismiss this briefing.","action":"Tap DISMISS"},
+      {"id":"tutorial_l01_move_camera","title":"CAMERA","instruction":"Adjust the survey view to inspect the ridge.","action":"Drag across the map"},
+      {"id":"tutorial_l01_move_cursor","title":"SURVEY CURSOR","instruction":"Position the survey cursor on a terrain cell.","action":"Tap a terrain cell on the map"},
+      {"id":"tutorial_l01_inspect_grade","title":"INSPECT","instruction":"Inspect the selected cell before changing it.","action":"Tap INSPECT in FIELD TOOLS, then DISMISS"},
+      {"id":"tutorial_l01_select_deposit","title":"FABRICATION CACHE","instruction":"Select the marked wreckage cache to inspect its recoverable stock.","action":"Tap the marked deposit at (5, 6)"},
+      {"id":"tutorial_l01_recover_deposit","title":"RECOVER STOCK","instruction":"Recover the one-shot cache; its fabU enters the field ledger exactly once.","action":"Tap RECOVER in FIELD TOOLS"},
+      {"id":"tutorial_l01_pause_plan","title":"PAUSE AND PLAN","instruction":"Pause the simulation before changing the terrain.","action":"Tap PAUSE in the time controls at right"},
+      {"id":"tutorial_l01_raise_first","title":"FIRST BARRIER","instruction":"Raise the first runoff cut at (8, 10) to block the fissure.","action":"Tap cell (8, 10), then tap RAISE"},
+      {"id":"tutorial_l01_raise_remaining","title":"REMAINING BARRIERS","instruction":"Raise the two remaining runoff cuts so water stays in the eastbound course.","action":"Tap each target, then tap RAISE"},
+      {"id":"tutorial_l01_place_channel","title":"CHANNEL PLAN","instruction":"Queue and commit a channel at the marked saddle before running water.","action":"Choose CHANNEL, then COMMIT"},
+      {"id":"tutorial_l01_run_and_observe","title":"OBSERVE","instruction":"Run time and watch water cross the map toward the dam.","action":"Tap 1X in the time controls at right"},
+      {"id":"tutorial_l01_beacon_warning","title":"BEACON WARNING","instruction":"Inspect the advisory warning before changing the inlet gate.","action":"Tap INSPECT and read the warning"},
+      {"id":"tutorial_l01_open_gate","title":"OPEN THE INLET","instruction":"Open the floodgate fully during the grace period to protect the beacon.","action":"Tap FULL in the flow controls"},
+      {"id":"tutorial_l01_stabilize","title":"STABILIZE","instruction":"Keep time running while the far-side dam fills and verifies.","action":"Tap 1X and watch the DAM objective readout"}
     ]},
     {"id":"tutorial_l02_power","steps":[
       "tutorial_l02_inspect_grid","tutorial_l02_bootstrap_pump","tutorial_l02_place_turbine",
       "tutorial_l02_observe_generation","tutorial_l02_manage_demand"
+    ],"prompts":[
+      {"id":"tutorial_l02_inspect_grid","title":"GRID READOUT","instruction":"Inspect the field readout before placing powered equipment.","action":"Tap INSPECT"},
+      {"id":"tutorial_l02_bootstrap_pump","title":"BOOTSTRAP PUMP","instruction":"Connect the aquifer pump to the geothermal power source.","action":"Place and commit a PUMP"},
+      {"id":"tutorial_l02_place_turbine","title":"POWER LOOP","instruction":"Place a flow turbine on the routed water path.","action":"Place and commit a FLOW TURBINE"},
+      {"id":"tutorial_l02_observe_generation","title":"GENERATION","instruction":"Run time and observe the power ledger respond.","action":"Tap 1X"},
+      {"id":"tutorial_l02_manage_demand","title":"DEMAND","instruction":"Keep powered devices online while the surge passes.","action":"Watch the POWER readout"}
     ]}
   ],
   "maps": [

@@ -141,7 +141,14 @@ impl Game {
             };
             draw_menu_button(
                 index,
-                &format!("L0{} — {}", id.sequence(), id.name()),
+                &format!(
+                    "L0{} — {}",
+                    id.sequence(),
+                    self.data
+                        .content
+                        .mission(id.content_id())
+                        .map_or(id.content_id(), |mission| mission.title.as_str())
+                ),
                 detail,
                 unlocked,
             );

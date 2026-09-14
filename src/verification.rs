@@ -95,22 +95,26 @@ impl FluidsLab {
                     }
                 }
             }
-            if bay.fluid.is_none() {
+            let Some(fluid) = bay.fluid else {
                 continue;
-            }
+            };
             let source = CellPos {
                 x: origin.x + 1,
                 y: origin.y + 1,
             };
-            let source_index = world.index(source).unwrap();
+            let Some(source_index) = world.index(source) else {
+                continue;
+            };
             world.cells[source_index].height_hu = 2_000;
             let lower = CellPos {
                 x: origin.x + 6,
                 y: origin.y + 1,
             };
-            let lower_index = world.index(lower).unwrap();
+            let Some(lower_index) = world.index(lower) else {
+                continue;
+            };
             world.cells[lower_index].height_hu = 0;
-            world.inject(source, bay.fluid.unwrap(), 2_000);
+            world.inject(source, fluid, 2_000);
         }
         Self::seed_interaction_lanes(&mut world);
         Self { world }
@@ -152,7 +156,9 @@ impl FluidsLab {
             .iter()
             .filter(|bay| bay.fluid.is_none())
             .all(|bay| {
-                let index = self.world.index(bay.origin).unwrap();
+                let Some(index) = self.world.index(bay.origin) else {
+                    return false;
+                };
                 self.world.cells[index].surface.is_empty()
                     && self.world.cells[index].airborne.is_empty()
             });
@@ -179,7 +185,10 @@ impl Default for FluidsLab {
 
 pub fn state_hash(world: &SimulationWorld) -> u64 {
     let mut hash = 1469598103934665603u64;
-    for byte in serde_json::to_vec(world).expect("verification world serializes") {
+    let Ok(bytes) = serde_json::to_vec(world) else {
+        return 0;
+    };
+    for byte in bytes {
         hash ^= byte as u64;
         hash = hash.wrapping_mul(1099511628211);
     }

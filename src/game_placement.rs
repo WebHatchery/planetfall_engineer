@@ -15,15 +15,13 @@ impl Game {
         }
         if (0..height).any(|dy| {
             (0..width).any(|dx| {
-                let index = self
-                    .session
+                self.session
                     .simulation
                     .index(CellPos {
                         x: anchor.x + dx,
                         y: anchor.y + dy,
                     })
-                    .unwrap();
-                self.session.simulation.definitions[index].protected
+                    .is_some_and(|index| self.session.simulation.definitions[index].protected)
             })
         }) {
             return (false, "protected cell");
@@ -65,7 +63,10 @@ impl Game {
         {
             return;
         }
-        let cell = &self.session.simulation.cells[self.session.simulation.index(anchor).unwrap()];
+        let Some(index) = self.session.simulation.index(anchor) else {
+            return;
+        };
+        let cell = &self.session.simulation.cells[index];
         let base = cell.height_hu as f32 * 0.0005;
         let center = vec3(
             anchor.x as f32 + width as f32 * 0.5,

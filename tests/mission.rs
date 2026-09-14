@@ -47,6 +47,7 @@ fn normal_tutorial_path_reaches_completion() {
         CommandKind::SetPaused,
         CommandKind::SelectTerrain,
         CommandKind::SelectTerrain,
+        CommandKind::SelectTerrain,
         CommandKind::QueueDevice(DeviceId::Channel),
         CommandKind::CommitPlan,
         CommandKind::SetTimeRunning,

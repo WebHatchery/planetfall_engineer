@@ -4,7 +4,7 @@ use crate::{
     devices::DeviceId,
     economy::FabricationState,
     mission::MissionId,
-    simulation::{CellDefinition, FluidId, SimulationWorld},
+    simulation::{CellDefinition, FluidId, SimulationWorld, SourceSchedule},
     state::CellPos,
 };
 
@@ -16,18 +16,30 @@ pub struct CampaignMap {
 }
 
 pub fn load_campaign(id: MissionId) -> CampaignMap {
-    let (width, height) = id.map_size();
+    // Campaign data is embedded and validated by Game::new before gameplay.
+    // These lookups are authoring invariants, not user-controlled input.
     let content = crate::content::ContentRegistry::load()
         .expect("embedded content registry must be readable");
     let record = content
         .mission(id.content_id())
         .expect("every campaign must have a content record");
-    let reference_tick_range = match id {
-        MissionId::L01FirstFlow => (900, 1_400),
-        MissionId::L02HoldingLine => (1_400, 1_800),
-        MissionId::L03Firebreak => (1_500, 2_100),
-    };
+    let map_record = content
+        .map(record.map_id.as_str())
+        .expect("every campaign mission must reference a map");
+    let width = map_record.width;
+    let height = map_record.height;
+    let reference_tick_range = (record.reference_tick_min, record.reference_tick_max);
     let mut world = SimulationWorld::new(width, height);
+    world.source_schedule =
+        record
+            .surge_start_tick
+            .zip(record.surge_end_tick)
+            .map(|(start_tick, end_tick)| SourceSchedule {
+                start_tick,
+                end_tick,
+                base_rate_vu: record.source_rate_vu,
+                surge_rate_vu: record.surge_rate_vu,
+            });
     match id {
         MissionId::L01FirstFlow => author_l01(&mut world),
         MissionId::L02HoldingLine => author_l02(&mut world),
@@ -62,6 +74,9 @@ pub fn load_campaign(id: MissionId) -> CampaignMap {
             .iter()
             .find(|authored| authored.id == source.id)
             .is_some_and(|authored| authored.enabled);
+    }
+    for source in &mut world.sources {
+        source.rate_vu = record.source_rate_vu;
     }
     CampaignMap {
         world,
@@ -300,47 +315,50 @@ fn author_l03(world: &mut SimulationWorld) {
 }
 
 pub fn apply_scheduled_events(world: &mut SimulationWorld, id: MissionId) {
-    let (start_tick, end_tick, surge_rate) = match id {
-        MissionId::L02HoldingLine => (900, 1_200, 400),
-        MissionId::L03Firebreak => (1_000, 1_250, 220),
-        MissionId::L01FirstFlow => return,
+    let _ = id;
+    let Some(schedule) = world.source_schedule.as_ref() else {
+        return;
     };
-    if world.tick == start_tick {
+    if world.tick == schedule.start_tick {
         if let Some(source) = world.sources.first_mut() {
-            source.rate_vu = surge_rate;
+            source.rate_vu = schedule.surge_rate_vu;
         }
-    } else if world.tick == end_tick {
+    } else if world.tick == schedule.end_tick {
         if let Some(source) = world.sources.first_mut() {
-            source.rate_vu = 100;
+            source.rate_vu = schedule.base_rate_vu;
         }
     }
 }
 
-fn cell_mut(world: &mut SimulationWorld, pos: CellPos) -> &mut crate::simulation::SimCell {
-    let index = world
-        .index(pos)
-        .expect("authored campaign anchor is in bounds");
-    &mut world.cells[index]
+fn cell_mut(world: &mut SimulationWorld, pos: CellPos) -> Option<&mut crate::simulation::SimCell> {
+    let index = world.index(pos)?;
+    world.cells.get_mut(index)
 }
 fn set_height(world: &mut SimulationWorld, pos: CellPos, height: i16) {
-    cell_mut(world, pos).height_hu = height;
+    if let Some(cell) = cell_mut(world, pos) {
+        cell.height_hu = height;
+    }
 }
 fn set_sealed(world: &mut SimulationWorld, pos: CellPos) {
-    cell_mut(world, pos).sealed = true;
+    if let Some(cell) = cell_mut(world, pos) {
+        cell.sealed = true;
+    }
 }
 fn set_contained(world: &mut SimulationWorld, pos: CellPos) {
-    cell_mut(world, pos).contained = true;
+    if let Some(cell) = cell_mut(world, pos) {
+        cell.contained = true;
+    }
 }
 fn protect(world: &mut SimulationWorld, pos: CellPos) {
-    let index = world
-        .index(pos)
-        .expect("authored protected anchor is in bounds");
+    let Some(index) = world.index(pos) else {
+        return;
+    };
     world.definitions[index].protected = true;
 }
 fn set_surface_drain(world: &mut SimulationWorld, pos: CellPos, rate_vu: u32) {
-    let index = world
-        .index(pos)
-        .expect("authored drain anchor is in bounds");
+    let Some(index) = world.index(pos) else {
+        return;
+    };
     world.definitions[index].surface_drain_rate_vu = rate_vu;
 }
 fn install_device(
@@ -373,8 +391,8 @@ fn set_ambient(world: &mut SimulationWorld, ambient: i32) {
 }
 
 fn set_cell_ambient(world: &mut SimulationWorld, pos: CellPos, ambient: i32) {
-    let index = world
-        .index(pos)
-        .expect("authored campaign anchor is in bounds");
+    let Some(index) = world.index(pos) else {
+        return;
+    };
     world.definitions[index].ambient_temperature_dk = ambient;
 }

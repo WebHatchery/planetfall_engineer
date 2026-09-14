@@ -158,6 +158,8 @@ fn overlay_name(mode: u8) -> &'static str {
 
 impl Game {
     pub async fn new() -> Self {
+        // GameData is embedded and validated before the first frame; failure
+        // here means the shipped binary cannot satisfy its startup contract.
         let data = GameData::load().expect("embedded foundation data must be valid");
         let mut assets = AssetManager::new();
         let placeholder = Image::gen_image_color(8, 8, Color::new(0.7, 0.25, 0.35, 1.0));
@@ -166,10 +168,10 @@ impl Game {
         let terrain_texture = make_terrain_texture();
         let mut session = GameSession::new(&data.config);
         let campaign = load_campaign(MissionId::L01FirstFlow);
+        let (width, height) = (campaign.world.width, campaign.world.height);
         session.simulation = campaign.world;
         session.world = WorldState::from_simulation(&session.simulation);
         let camera = FoundationCamera::new(data.config.world_width, data.config.world_height);
-        let (width, height) = MissionId::L01FirstFlow.map_size();
         let content_maps = data.content.maps.len();
         Self { data, session, checkpoint_session: None, saved_campaign_session: None, verification_mode: None, verification_returns_to_menu: false, frontend_mode: FrontendMode::Title, _assets: assets, terrain_texture, camera, lab: FluidsLab::new(), notice: format!("First Flow ready — {width}×{height} — FAB {} — reference {}–{} ticks — content {content_maps} maps validated", campaign.fabrication_start_fu, campaign.reference_tick_range.0, campaign.reference_tick_range.1), pause_menu: false, placement_device: DeviceId::Channel, placement_rotation: 0, overlay_mode: 0 }
     }
@@ -460,7 +462,7 @@ impl Game {
                     .map(|_| {
                         format!(
                             "Mission success — {} complete and campaign progress saved",
-                            self.session.mission.id.name()
+                            self.mission_title(self.session.mission.id)
                         )
                     })
                     .unwrap_or_else(|error| {
@@ -502,8 +504,10 @@ impl Game {
         for y in 0..self.session.simulation.height {
             for x in 0..self.session.simulation.width {
                 let pos = CellPos { x, y };
-                let cell =
-                    &self.session.simulation.cells[self.session.simulation.index(pos).unwrap()];
+                let Some(index) = self.session.simulation.index(pos) else {
+                    continue;
+                };
+                let cell = &self.session.simulation.cells[index];
                 let height = (cell.height_hu as f32 * 0.0005).max(0.12);
                 if let Some(distance) = Aabb3::from_center_size(
                     vec3(x as f32 + 0.5, height * 0.5, y as f32 + 0.5),
@@ -519,8 +523,10 @@ impl Game {
         }
         for device in &self.session.simulation.devices.devices {
             let (width, height) = device.device.footprint();
-            let cell = &self.session.simulation.cells
-                [self.session.simulation.index(device.anchor).unwrap()];
+            let Some(index) = self.session.simulation.index(device.anchor) else {
+                continue;
+            };
+            let cell = &self.session.simulation.cells[index];
             let base = cell.height_hu as f32 * 0.0005;
             if let Some(distance) = Aabb3::from_center_size(
                 vec3(
@@ -624,7 +630,14 @@ impl Game {
         self.camera = FoundationCamera::new(width, height);
         self.checkpoint_session = None;
         self.frontend_mode = FrontendMode::Playing;
-        self.notice = format!("{} {reason}", id.name());
+        self.notice = format!("{} {reason}", self.mission_title(id));
+    }
+
+    pub(crate) fn mission_title(&self, id: MissionId) -> &str {
+        self.data
+            .content
+            .mission(id.content_id())
+            .map_or(id.content_id(), |mission| mission.title.as_str())
     }
 
     pub(crate) fn set_time(&mut self, time: TimeControl) {

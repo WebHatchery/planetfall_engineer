@@ -9,7 +9,9 @@ impl SimulationWorld {
         for y in 0..self.height {
             for x in 0..self.width {
                 let source_pos = CellPos { x, y };
-                let source_index = self.index(source_pos).unwrap();
+                let Some(source_index) = self.index(source_pos) else {
+                    continue;
+                };
                 let source = &snapshot[source_index];
                 let total = source.surface_volume();
                 if total == 0 {
@@ -25,7 +27,8 @@ impl SimulationWorld {
                     .neighbors(source_pos)
                     .into_iter()
                     .filter_map(|(dest_pos, direction)| {
-                        let dest = &snapshot[self.index(dest_pos).unwrap()];
+                        let dest_index = self.index(dest_pos)?;
+                        let dest = &snapshot[dest_index];
                         let delta = source.surface_head_hu() - dest.surface_head_hu();
                         let gate_factor = self.devices.surface_flow_factor(source_pos, dest_pos);
                         if delta <= 1
@@ -51,6 +54,9 @@ impl SimulationWorld {
                 let transfer_budget = total.min(limit).min(total_weight);
                 let mut assigned = 0;
                 for &(dest_pos, _, weight) in &options {
+                    let Some(destination) = self.index(dest_pos) else {
+                        continue;
+                    };
                     let amount =
                         (transfer_budget as u64 * weight as u64 / total_weight as u64) as u32;
                     assigned += amount;
@@ -58,7 +64,7 @@ impl SimulationWorld {
                         for (fluid, amount, temp, contamination) in mixture_split(source, amount) {
                             transfers.push((
                                 source_index,
-                                self.index(dest_pos).unwrap(),
+                                destination,
                                 fluid,
                                 amount,
                                 temp,
@@ -69,11 +75,14 @@ impl SimulationWorld {
                 }
                 if assigned < transfer_budget {
                     if let Some((dest_pos, _, _)) = options.first().copied() {
+                        let Some(destination) = self.index(dest_pos) else {
+                            continue;
+                        };
                         let amount = transfer_budget - assigned;
                         for (fluid, amount, temp, contamination) in mixture_split(source, amount) {
                             transfers.push((
                                 source_index,
-                                self.index(dest_pos).unwrap(),
+                                destination,
                                 fluid,
                                 amount,
                                 temp,
@@ -112,7 +121,9 @@ impl SimulationWorld {
         for y in 0..self.height {
             for x in 0..self.width {
                 let pos = CellPos { x, y };
-                let source_index = self.index(pos).unwrap();
+                let Some(source_index) = self.index(pos) else {
+                    continue;
+                };
                 let source = &snapshot[source_index];
                 let Some(steam) = source.airborne.iter().find(|m| m.fluid == FluidId::Steam) else {
                     continue;
@@ -121,7 +132,7 @@ impl SimulationWorld {
                     .neighbors(pos)
                     .into_iter()
                     .filter_map(|(dest, _)| {
-                        let di = self.index(dest).unwrap();
+                        let di = self.index(dest)?;
                         let target = &snapshot[di];
                         if target.airborne_volume() >= source.airborne_volume()
                             || target.sealed
@@ -151,7 +162,9 @@ impl SimulationWorld {
                     }
                 }
                 if assigned < transfer_budget {
-                    moves.push((source_index, options[0].0, transfer_budget - assigned));
+                    if let Some(&(destination, _)) = options.first() {
+                        moves.push((source_index, destination, transfer_budget - assigned));
+                    }
                 }
             }
         }

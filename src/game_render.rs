@@ -26,6 +26,7 @@ impl Game {
         begin_virtual_ui_frame(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
         ui::draw_hud(UiContext {
             session: &self.session,
+            content: &self.data.content,
             camera_yaw: self.camera.yaw,
             camera_zoom: self.camera.zoom,
             notice: &self.notice,
@@ -55,7 +56,10 @@ impl Game {
         for y in 0..world.height {
             for x in 0..world.width {
                 let pos = CellPos { x, y };
-                let cell = &world.cells[world.index(pos).unwrap()];
+                let Some(index) = world.index(pos) else {
+                    continue;
+                };
+                let cell = &world.cells[index];
                 let h = cell.height_hu as f32 * 0.0005;
                 let top = terrain_color(cell, x, y, self.session.mission.id);
                 let base_tint = if self.overlay_mode == 0 && pos == selected {
@@ -74,7 +78,9 @@ impl Game {
                 }
                 let surface_depth = visual_fluid_depth(cell.surface_volume());
                 if surface_depth > 0.0 {
-                    let material = cell.surface.first().unwrap();
+                    let Some(material) = cell.surface.first() else {
+                        continue;
+                    };
                     draw_fluid_surface(x, y, h, surface_depth, material.fluid, world.tick);
                     if self.overlay_mode == 2 {
                         draw_flow_arrow(world, pos, h + surface_depth + 0.065);
@@ -88,8 +94,10 @@ impl Game {
         }
         for device in &self.session.simulation.devices.devices {
             let (width, height) = device.device.footprint();
-            let anchor = &self.session.simulation.cells
-                [self.session.simulation.index(device.anchor).unwrap()];
+            let Some(index) = self.session.simulation.index(device.anchor) else {
+                continue;
+            };
+            let anchor = &self.session.simulation.cells[index];
             let center = vec3(
                 device.anchor.x as f32 + width as f32 * 0.5,
                 anchor.height_hu as f32 * 0.0005 + 0.35,
@@ -118,8 +126,10 @@ impl Game {
 
     fn draw_authored_markers(&self) {
         for source in &self.session.simulation.sources {
-            let cell = &self.session.simulation.cells
-                [self.session.simulation.index(source.position).unwrap()];
+            let Some(index) = self.session.simulation.index(source.position) else {
+                continue;
+            };
+            let cell = &self.session.simulation.cells[index];
             let color = fluid_color(source.fluid);
             let base = cell.height_hu as f32 * 0.0005;
             draw_cube(
@@ -201,7 +211,9 @@ impl Game {
             else {
                 continue;
             };
-            let index = self.session.simulation.index(*cell).unwrap();
+            let Some(index) = self.session.simulation.index(*cell) else {
+                continue;
+            };
             let base = self.session.simulation.cells[index].height_hu as f32 * 0.0005;
             let scale = (*volume_vu as f32 / 250.0).clamp(0.35, 1.0);
             draw_sphere(
@@ -337,7 +349,9 @@ fn draw_steam(x: u16, y: u16, ground: f32, depth: f32, tick: u64) {
 }
 
 fn draw_flow_arrow(world: &crate::simulation::SimulationWorld, pos: CellPos, y: f32) {
-    let index = world.index(pos).unwrap();
+    let Some(index) = world.index(pos) else {
+        return;
+    };
     let head = world.cells[index].surface_head_hu();
     let candidates = [(1i16, 0i16), (-1, 0), (0, 1), (0, -1)];
     let Some((dx, dz, drop)) = candidates

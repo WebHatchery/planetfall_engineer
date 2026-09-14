@@ -97,7 +97,10 @@ pub fn run_all_showcases() -> String {
 
 fn hash(world: &SimulationWorld) -> u64 {
     let mut hash = 1469598103934665603u64;
-    for byte in serde_json::to_vec(world).unwrap() {
+    let Ok(bytes) = serde_json::to_vec(world) else {
+        return 0;
+    };
+    for byte in bytes {
         hash ^= byte as u64;
         hash = hash.wrapping_mul(1099511628211);
     }

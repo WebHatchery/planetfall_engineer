@@ -168,16 +168,17 @@ impl GameSession {
 
     pub fn state_hash(&self) -> u64 {
         let mut hash = 1469598103934665603u64;
-        for byte in serde_json::to_vec(&(
+        let Ok(bytes) = serde_json::to_vec(&(
             self.tick,
             &self.world,
             &self.simulation,
             &self.mission,
             &self.campaign,
             self.selected,
-        ))
-        .unwrap()
-        {
+        )) else {
+            return 0;
+        };
+        for byte in bytes {
             hash ^= byte as u64;
             hash = hash.wrapping_mul(1099511628211);
         }

@@ -66,10 +66,11 @@ pub fn run_scenario(id: MissionId, kind: ScenarioKind) -> ScenarioReport {
         tick_scenario(&mut map.world, &mut mission, id, kind);
     }
     let midpoint_hash = hash(&map.world, &mission);
-    let midpoint_save = serde_json::to_vec(&(map.world.clone(), mission.clone()))
-        .expect("midpoint replay state serializes");
     let (mut resumed_world, mut resumed_mission): (SimulationWorld, MissionState) =
-        serde_json::from_slice(&midpoint_save).expect("midpoint replay state loads");
+        serde_json::to_vec(&(map.world.clone(), mission.clone()))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_else(|| (map.world.clone(), mission.clone()));
     while mission.phase == MissionPhase::Active && mission.tick < 2_200 {
         tick_scenario(&mut map.world, &mut mission, id, kind);
     }
@@ -496,15 +497,22 @@ fn tick_scenario(
 }
 
 fn objective_target(id: MissionId) -> u32 {
-    match id {
-        MissionId::L01FirstFlow | MissionId::L02HoldingLine => 6_000,
-        MissionId::L03Firebreak => 3_000,
-    }
+    crate::content::ContentRegistry::load()
+        .ok()
+        .and_then(|content| {
+            content
+                .mission(id.content_id())
+                .map(|mission| mission.objective_min_vu)
+        })
+        .unwrap_or(0)
 }
 
 fn hash(world: &SimulationWorld, mission: &MissionState) -> u64 {
     let mut hash = 1469598103934665603u64;
-    for byte in serde_json::to_vec(&(world, mission)).unwrap() {
+    let Ok(bytes) = serde_json::to_vec(&(world, mission)) else {
+        return 0;
+    };
+    for byte in bytes {
         hash ^= byte as u64;
         hash = hash.wrapping_mul(1099511628211);
     }

@@ -9,9 +9,11 @@
   "controls": [
     { "key": "Arrow Keys", "desc": "Move survey selection" },
     { "key": "Right Mouse", "desc": "Drag camera" },
+    { "key": "Q / E", "desc": "Rotate camera" },
     { "key": "+ / -", "desc": "Zoom camera" },
-    { "key": "Space", "desc": "Run first engineering action" },
-    { "key": "S / L", "desc": "Save / load mission" }
+    { "key": "Space / 1 / 2 / 4", "desc": "Pause or set simulation speed" },
+    { "key": "F5 / F9", "desc": "Save / load mission" },
+    { "key": "Touch controls", "desc": "Visible time, build, field, pause, save, load, and reset buttons" }
   ],
   "details": [
     { "label": "Genre", "value": "Engineering puzzle" },

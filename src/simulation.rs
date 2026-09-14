@@ -183,6 +183,14 @@ pub struct SourceState {
     pub enabled: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SourceSchedule {
+    pub start_tick: u64,
+    pub end_tick: u64,
+    pub base_rate_vu: u32,
+    pub surge_rate_vu: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SimEvent {
     SourceBackpressure {
@@ -223,6 +231,8 @@ pub struct SimulationWorld {
     pub power_sources: Vec<PowerSource>,
     pub fabrication: FabricationState,
     pub power: PowerLedger,
+    #[serde(default)]
+    pub source_schedule: Option<SourceSchedule>,
 }
 
 impl SimulationWorld {
@@ -246,6 +256,7 @@ impl SimulationWorld {
             power_sources: Vec::new(),
             fabrication: FabricationState::default(),
             power: PowerLedger::default(),
+            source_schedule: None,
         }
     }
 

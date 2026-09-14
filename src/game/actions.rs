@@ -100,7 +100,7 @@ impl Game {
                     self.session.mission.start();
                     self.notice = format!(
                         "{} operation active — follow the field guide and begin when ready",
-                        self.session.mission.id.name()
+                        self.mission_title(self.session.mission.id)
                     );
                 }
                 true
@@ -147,7 +147,7 @@ impl Game {
                 } else {
                     self.notice = format!(
                         "{} is locked — finish earlier campaign work first",
-                        id.name()
+                        self.mission_title(id)
                     );
                 }
                 true
