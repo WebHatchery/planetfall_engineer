@@ -118,7 +118,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         1010.0,
         104.0,
         238.0,
-        532.0,
+        584.0,
         Color::new(0.04, 0.06, 0.09, 0.9),
     );
     draw_ui_text_ex(
@@ -145,6 +145,24 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         .find(|device| device.anchor == ctx.session.selected)
         .map(device_status)
         .unwrap_or_else(|| "Device none".into());
+    let deposit_readout = ctx
+        .session
+        .simulation
+        .deposits
+        .iter()
+        .find(|deposit| deposit.position == ctx.session.selected)
+        .map(|deposit| {
+            format!(
+                "Deposit {} {}",
+                deposit.id,
+                if deposit.depleted {
+                    "DEPLETED".into()
+                } else {
+                    format!("{} fabU AVAILABLE", deposit.yield_fu)
+                }
+            )
+        })
+        .unwrap_or_else(|| "Deposit none".into());
     let tutorial = ctx
         .session
         .mission
@@ -227,16 +245,7 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         style.params(),
     );
     draw_ui_text_ex(&device_readout, 1024.0, 280.0, style.params());
-    draw_ui_text_ex(
-        &format!(
-            "Queue {} / {} FAB reserved",
-            ctx.session.simulation.devices.queued.len(),
-            ctx.session.simulation.fabrication.reserved_fu
-        ),
-        1024.0,
-        298.0,
-        style.params(),
-    );
+    draw_ui_text_ex(&deposit_readout, 1024.0, 298.0, style.params());
     let verification_status = ctx
         .verification_label
         .map(|_| {
@@ -264,11 +273,16 @@ pub fn draw_hud(ctx: UiContext<'_>) {
         verification_status
     } else {
         format!(
-            "BUILD {} {} {}c {}°",
+            "BUILD {} {} {}fab {}° | A{} R{} P{} D{} B{}",
             placement_status,
             ctx.placement_reason,
             ctx.placement_device.cost(),
-            ctx.placement_rotation * 90
+            ctx.placement_rotation * 90,
+            ctx.session.simulation.fabrication.available_fu,
+            ctx.session.simulation.fabrication.reserved_fu,
+            ctx.session.simulation.power.supply_eu(),
+            ctx.session.simulation.power.allocated_demand_eu,
+            ctx.session.simulation.power.deficit_eu,
         )
     };
     draw_ui_text_ex(&build_readout, 1024.0, 316.0, style.params());
@@ -402,6 +416,23 @@ pub fn draw_hud(ctx: UiContext<'_>) {
                 x + 6.0,
                 618.0,
                 TextStyle::new(8.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
+            );
+        }
+        for (x, label) in [(1018.0, "RECOVER"), (1138.0, "POWER")] {
+            draw_rectangle(x, 634.0, 108.0, 28.0, Color::new(0.1, 0.22, 0.27, 0.98));
+            draw_rectangle_lines(
+                x,
+                634.0,
+                108.0,
+                28.0,
+                1.0,
+                Color::new(0.35, 0.74, 0.78, 0.95),
+            );
+            draw_ui_text_ex(
+                label,
+                x + 14.0,
+                652.0,
+                TextStyle::new(9.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
             );
         }
     }
@@ -680,49 +711,70 @@ fn draw_stage_guide(id: crate::mission::MissionId) {
 
 fn draw_pause_menu() {
     draw_rectangle(
-        420.0,
-        178.0,
-        440.0,
-        250.0,
+        400.0,
+        150.0,
+        480.0,
+        340.0,
         Color::new(0.03, 0.045, 0.07, 0.98),
     );
     draw_rectangle_lines(
-        420.0,
-        178.0,
-        440.0,
-        250.0,
+        400.0,
+        150.0,
+        480.0,
+        340.0,
         2.0,
         Color::new(0.95, 0.8, 0.35, 1.0),
     );
     draw_ui_text_ex(
         "SURVEY PAUSED",
-        478.0,
-        224.0,
+        458.0,
+        196.0,
         TextStyle::new(28.0, Color::new(0.95, 0.8, 0.35, 1.0)).params(),
     );
     draw_ui_text_ex(
         "Simulation and commands are frozen",
-        478.0,
-        258.0,
+        458.0,
+        224.0,
         TextStyle::new(16.0, Color::new(0.76, 0.82, 0.86, 1.0)).params(),
     );
     draw_ui_text_ex(
-        "Use the time controls to resume survey",
-        478.0,
-        304.0,
+        "TIME CONTROL",
+        430.0,
+        238.0,
         TextStyle::new(16.0, WHITE).params(),
     );
+    for (x, label) in [
+        (430.0, "RESUME 1X"),
+        (550.0, "RESUME 2X"),
+        (670.0, "RESUME 4X"),
+    ] {
+        draw_pause_button(x, 242.0, 110.0, label);
+    }
+    for (x, label) in [(430.0, "SAVE"), (555.0, "LOAD"), (680.0, "RESET")] {
+        draw_pause_button(x, 290.0, 125.0, label);
+    }
     draw_ui_text_ex(
-        "Mission progress is saved at checkpoints",
-        478.0,
-        334.0,
-        TextStyle::new(16.0, WHITE).params(),
+        "Saving and reset preserve the authoritative field ledger",
+        430.0,
+        354.0,
+        TextStyle::new(14.0, WHITE).params(),
     );
     draw_ui_text_ex(
-        "Reset is available from the mission menu",
-        478.0,
-        364.0,
-        TextStyle::new(16.0, WHITE).params(),
+        "Escape returns to the survey",
+        430.0,
+        382.0,
+        TextStyle::new(14.0, Color::new(0.56, 0.66, 0.72, 1.0)).params(),
+    );
+}
+
+fn draw_pause_button(x: f32, y: f32, width: f32, label: &str) {
+    draw_rectangle(x, y, width, 32.0, Color::new(0.1, 0.22, 0.27, 0.98));
+    draw_rectangle_lines(x, y, width, 32.0, 1.0, Color::new(0.35, 0.82, 0.76, 1.0));
+    draw_ui_text_ex(
+        label,
+        x + 12.0,
+        y + 21.0,
+        TextStyle::new(11.0, Color::new(0.85, 0.94, 0.9, 1.0)).params(),
     );
 }
 

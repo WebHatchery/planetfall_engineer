@@ -1,14 +1,14 @@
 //! Foundation orchestration: input, fixed ticks, orthographic world, HUD.
 
 use crate::ui;
+use crate::ui_action::{pause_action_at, UiAction};
 use crate::{
     campaign::load_campaign,
     data::GameData,
-    devices::{run_all_showcases, DeviceId, SHOWCASE_MAPS},
+    devices::{DeviceId, SHOWCASE_MAPS},
     mission::{campaign_summary, CommandKind, MissionId, MissionPhase},
-    replay::run_all_scenarios,
     simulation::{FluidId, TerrainAction},
-    state::{load_session, save_session, CellPos, GameSession, TimeControl, WorldState},
+    state::{save_session, CellPos, GameSession, TimeControl, WorldState},
     verification::FluidsLab,
 };
 use macroquad::prelude::*;
@@ -34,6 +34,8 @@ pub struct Game {
     pub(crate) placement_rotation: u8,
     pub(crate) overlay_mode: u8,
 }
+
+mod actions;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum VerificationMode {
@@ -237,11 +239,7 @@ impl Game {
         }
         if self.session.mission.phase == MissionPhase::Briefing {
             if is_key_pressed(KeyCode::Enter) || self.handle_briefing_click() {
-                self.session.mission.start();
-                self.notice = format!(
-                    "{} operation active — follow the field guide and begin when ready",
-                    self.session.mission.id.name()
-                );
+                self.dispatch_action(UiAction::BeginMission);
             }
             return;
         }
@@ -253,27 +251,25 @@ impl Game {
             return;
         }
         if is_key_pressed(KeyCode::Escape) {
-            self.pause_menu = !self.pause_menu;
-            if self.pause_menu {
-                self.session.time_control = TimeControl::Paused;
-                self.notice = "Pause menu open".into();
-            }
+            self.dispatch_action(UiAction::TogglePause);
         }
         if self.pause_menu {
-            if is_key_pressed(KeyCode::F12) {
-                self.reset_mission();
-                self.pause_menu = false;
+            let pause_action = if is_mouse_button_pressed(MouseButton::Left) {
+                let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
+                pause_action_at(point.x, point.y)
+            } else if is_key_pressed(KeyCode::F12) {
+                Some(UiAction::ResetMission)
             } else if is_key_pressed(KeyCode::F5) {
-                self.notice = save_session(&self.session, &self.data.config)
-                    .map(|_| "Checkpoint saved from pause menu".into())
-                    .unwrap_or_else(|e| e);
+                Some(UiAction::Save)
             } else if is_key_pressed(KeyCode::F9) {
-                match load_session(&self.data.config) {
-                    Ok(s) => {
-                        self.session = s;
-                        self.notice = "Checkpoint loaded from pause menu".into();
-                    }
-                    Err(e) => self.notice = e,
+                Some(UiAction::Load)
+            } else {
+                None
+            };
+            if let Some(action) = pause_action {
+                self.dispatch_action(action);
+                if matches!(action, UiAction::SetTime(_) | UiAction::ResetMission) {
+                    self.pause_menu = false;
                 }
             }
             return;
@@ -309,78 +305,62 @@ impl Game {
             self.select_from_pointer();
         }
         if is_key_pressed(KeyCode::Space) {
-            self.set_time(match self.session.time_control {
+            self.dispatch_action(UiAction::SetTime(match self.session.time_control {
                 TimeControl::Paused => TimeControl::OneX,
                 TimeControl::OneX => TimeControl::Paused,
                 _ => TimeControl::Paused,
-            });
+            }));
         }
         if is_key_pressed(KeyCode::Key1) {
-            self.set_time(TimeControl::OneX);
+            self.dispatch_action(UiAction::SetTime(TimeControl::OneX));
         }
         if is_key_pressed(KeyCode::Key2) {
-            self.set_time(TimeControl::TwoX);
+            self.dispatch_action(UiAction::SetTime(TimeControl::TwoX));
         }
         if is_key_pressed(KeyCode::Key4) {
-            self.set_time(TimeControl::FourX);
+            self.dispatch_action(UiAction::SetTime(TimeControl::FourX));
         }
-        let mut cursor_moved = false;
         if is_key_pressed(KeyCode::Up) {
-            self.session.move_selected(0, -1);
-            cursor_moved = true;
+            self.dispatch_action(UiAction::MoveSelection(0, -1));
         }
         if is_key_pressed(KeyCode::Down) {
-            self.session.move_selected(0, 1);
-            cursor_moved = true;
+            self.dispatch_action(UiAction::MoveSelection(0, 1));
         }
         if is_key_pressed(KeyCode::Left) {
-            self.session.move_selected(-1, 0);
-            cursor_moved = true;
+            self.dispatch_action(UiAction::MoveSelection(-1, 0));
         }
         if is_key_pressed(KeyCode::Right) {
-            self.session.move_selected(1, 0);
-            cursor_moved = true;
-        }
-        if cursor_moved {
-            let _ = self.session.mission.admit(CommandKind::Select);
+            self.dispatch_action(UiAction::MoveSelection(1, 0));
         }
         if is_key_pressed(KeyCode::X) {
-            self.apply_terrain(TerrainAction::Excavate);
+            self.dispatch_action(UiAction::Terrain(TerrainAction::Excavate));
         }
         if is_key_pressed(KeyCode::R) {
-            self.apply_terrain(TerrainAction::Raise);
+            self.dispatch_action(UiAction::Terrain(TerrainAction::Raise));
         }
         if is_key_pressed(KeyCode::T) {
-            self.apply_terrain(TerrainAction::Seal);
+            self.dispatch_action(UiAction::Terrain(TerrainAction::Seal));
         }
-        if is_key_pressed(KeyCode::I) && self.admit(CommandKind::Inspect) {
-            self.notice = format!(
-                "Inspecting cell {}, {}",
-                self.session.selected.x, self.session.selected.y
-            );
+        if is_key_pressed(KeyCode::I) {
+            self.dispatch_action(UiAction::Inspect);
         }
         if is_key_pressed(KeyCode::L) {
-            self.session
-                .simulation
-                .inject(self.session.selected, FluidId::Lava, 500);
+            self.dispatch_action(UiAction::Inject(FluidId::Lava));
         }
         if is_key_pressed(KeyCode::G) {
-            self.session
-                .simulation
-                .inject(self.session.selected, FluidId::ToxicSlurry, 500);
+            self.dispatch_action(UiAction::Inject(FluidId::ToxicSlurry));
         }
         if is_key_pressed(KeyCode::Y) {
-            self.overlay_mode = (self.overlay_mode + 1) % 5;
-            self.notice = format!("{} overlay", overlay_name(self.overlay_mode));
+            self.dispatch_action(UiAction::CycleOverlay);
         }
         if is_key_pressed(KeyCode::F1) {
-            self.toggle_lab_mode();
+            self.dispatch_action(UiAction::ToggleLab);
         }
         if is_key_pressed(KeyCode::F2) {
             if self.verification_mode.is_some() {
-                self.restore_campaign_session();
+                self.dispatch_action(UiAction::RestoreCampaign);
             } else {
-                self.enter_showcase(DeviceId::Channel);
+                self.dispatch_action(UiAction::EnterShowcase(DeviceId::Channel));
             }
         }
         if is_key_pressed(KeyCode::V) {
@@ -391,120 +371,82 @@ impl Game {
                     .unwrap_or(0)
                     + 1)
                     % DeviceId::ALL.len()];
-                self.enter_showcase(next);
+                self.dispatch_action(UiAction::EnterShowcase(next));
             }
         }
         if is_key_pressed(KeyCode::F3) {
             self.notice = campaign_summary();
         }
         if is_key_pressed(KeyCode::N) {
-            self.select_next_campaign();
+            self.dispatch_action(UiAction::NextCampaign);
         }
         if is_key_pressed(KeyCode::F4) {
-            self.skip_tutorial();
+            self.dispatch_action(UiAction::SkipTutorial);
         }
         if is_key_pressed(KeyCode::F6) && self.verification_mode.is_some() {
-            self.reset_verification();
+            self.dispatch_action(UiAction::ResetVerification);
         } else if is_key_pressed(KeyCode::F6) {
-            self.session.mission.checkpoint();
-            self.checkpoint_session = Some(self.session.clone());
-            self.notice = format!(
-                "Mission checkpoint recorded at tick {}",
-                self.session.mission.checkpoint_tick
-            );
+            self.dispatch_action(UiAction::Checkpoint);
         }
         if is_key_pressed(KeyCode::F7) {
-            self.session.mission.fail("manual failure-path check");
-            self.notice = "Mission failed — reset to checkpoint".into();
+            self.dispatch_action(UiAction::FailMission);
         }
         if is_key_pressed(KeyCode::F12) {
-            self.reset_mission();
+            self.dispatch_action(UiAction::ResetMission);
         }
         if is_key_pressed(KeyCode::F8) && self.verification_mode.is_some() {
-            self.step_verification();
+            self.dispatch_action(UiAction::StepVerification);
         } else if is_key_pressed(KeyCode::F8) {
-            let admission = self.session.mission.admit(CommandKind::DismissPrompt);
-            self.notice = format!("{} — tutorial command: {admission:?}", run_all_showcases());
+            self.dispatch_action(UiAction::RunShowcaseReport);
         }
         if is_key_pressed(KeyCode::F10) {
-            self.load_mission(self.session.mission.id, "reloaded from authored state");
+            self.dispatch_action(UiAction::ReloadMission);
         }
         if is_key_pressed(KeyCode::F11) {
-            self.notice = run_all_scenarios();
+            self.dispatch_action(UiAction::RunScenarioReport);
         }
         if is_key_pressed(KeyCode::C) {
-            if let Some(entity_id) = self
-                .session
-                .simulation
-                .devices
-                .devices
-                .iter()
-                .find(|device| device.anchor == self.session.selected)
-                .map(|device| device.entity_id)
-            {
-                let mut fabrication = std::mem::take(&mut self.session.simulation.fabrication);
-                self.session
-                    .simulation
-                    .devices
-                    .remove(entity_id, &mut fabrication);
-                self.session.simulation.fabrication = fabrication;
-                self.notice = "Device removed and fabrication refunded".into();
-            }
+            self.dispatch_action(UiAction::RemoveSelectedDevice);
         }
         if is_key_pressed(KeyCode::B) {
-            self.queue_device(DeviceId::Channel);
+            self.dispatch_action(UiAction::QueueDevice(DeviceId::Channel));
         }
         if is_key_pressed(KeyCode::P) {
-            self.queue_device(DeviceId::Pipe);
+            self.dispatch_action(UiAction::QueueDevice(DeviceId::Pipe));
         }
         if is_key_pressed(KeyCode::O) {
-            self.queue_device(DeviceId::Pump);
+            self.dispatch_action(UiAction::QueueDevice(DeviceId::Pump));
         }
         if is_key_pressed(KeyCode::F) {
-            self.queue_device(DeviceId::Floodgate);
+            self.dispatch_action(UiAction::QueueDevice(DeviceId::Floodgate));
         }
         if is_key_pressed(KeyCode::Z) {
-            self.placement_rotation = (self.placement_rotation + 1) % 4;
-            self.notice = format!(
-                "Placement rotation {}° — {} at {}, {}",
-                self.placement_rotation * 90,
-                self.placement_device.name(),
-                self.session.selected.x,
-                self.session.selected.y
-            );
+            self.dispatch_action(UiAction::RotatePlacement);
         }
         if is_key_pressed(KeyCode::J) {
-            self.set_gate(0);
+            self.dispatch_action(UiAction::SetGate(0));
         }
         if is_key_pressed(KeyCode::K) {
-            self.set_gate(5_000);
+            self.dispatch_action(UiAction::SetGate(5_000));
         }
         if is_key_pressed(KeyCode::H) {
-            self.set_gate(10_000);
+            self.dispatch_action(UiAction::SetGate(10_000));
         }
         if is_key_pressed(KeyCode::Enter) {
             if self.session.simulation.devices.queued.is_empty() {
-                let _ = self.admit(CommandKind::DismissPrompt);
+                self.dispatch_action(UiAction::DismissPrompt);
             } else {
-                self.commit_build_plan();
+                self.dispatch_action(UiAction::CommitPlan);
             }
         }
         if is_key_pressed(KeyCode::Backspace) {
-            self.cancel_build_plan();
+            self.dispatch_action(UiAction::CancelPlan);
         }
         if is_key_pressed(KeyCode::F5) {
-            self.notice = save_session(&self.session, &self.data.config)
-                .map(|_| "Checkpoint saved".into())
-                .unwrap_or_else(|e| e);
+            self.dispatch_action(UiAction::Save);
         }
         if is_key_pressed(KeyCode::F9) {
-            match load_session(&self.data.config) {
-                Ok(s) => {
-                    self.session = s;
-                    self.notice = "Checkpoint loaded".into();
-                }
-                Err(e) => self.notice = e,
-            }
+            self.dispatch_action(UiAction::Load);
         }
         let ticks = self.session.update(dt);
         if ticks > 0 {
@@ -609,9 +551,7 @@ impl Game {
                 let _ = self.admit(CommandKind::Inspect);
                 return;
             }
-            self.session.selected = selected;
-            let _ = self.session.mission.admit(CommandKind::Select);
-            self.notice = format!("Survey target selected: {}, {}", selected.x, selected.y);
+            self.dispatch_action(UiAction::Select(selected));
         }
     }
 

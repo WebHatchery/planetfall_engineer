@@ -52,7 +52,7 @@ pub enum MissionPhase {
     Debrief,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum AlertLevel {
     Clear,
     Advisory,
@@ -81,6 +81,8 @@ pub enum CommandKind {
     QueueExcavate,
     QueueDevice(DeviceId),
     CommitPlan,
+    RecoverDeposit,
+    ToggleDevice,
     SetTimeRunning,
     SetGate(u16),
     DismissPrompt,
@@ -141,19 +143,21 @@ impl TutorialState {
     }
 }
 
-fn tutorial_steps() -> [&'static str; 12] {
+fn tutorial_steps() -> [&'static str; 14] {
     [
         "tutorial_l01_welcome",
         "tutorial_l01_move_camera",
         "tutorial_l01_move_cursor",
         "tutorial_l01_inspect_grade",
+        "tutorial_l01_select_deposit",
+        "tutorial_l01_recover_deposit",
         "tutorial_l01_pause_plan",
         "tutorial_l01_raise_first",
-        "tutorial_l01_select_second",
-        "tutorial_l01_raise_second",
-        "tutorial_l01_select_third",
-        "tutorial_l01_raise_third",
+        "tutorial_l01_raise_remaining",
+        "tutorial_l01_place_channel",
         "tutorial_l01_run_and_observe",
+        "tutorial_l01_beacon_warning",
+        "tutorial_l01_open_gate",
         "tutorial_l01_stabilize",
     ]
 }
@@ -241,6 +245,11 @@ impl MissionState {
         self.tick = world.tick;
         if let Some(tutorial) = &mut self.tutorial {
             tutorial.ticks_in_step = tutorial.ticks_in_step.saturating_add(1);
+            if tutorial.current_step_id == "tutorial_l01_beacon_warning"
+                && self.alert_level >= AlertLevel::Advisory
+            {
+                tutorial.complete_current();
+            }
         }
         let basin_water = zone_water(world, 26..=30, 7..=11);
         let trench_water = zone_water(world, 31..=36, 7..=9);
@@ -407,15 +416,22 @@ fn tutorial_allows(step: &str, command: CommandKind) -> bool {
             matches!(command, CommandKind::Inspect | CommandKind::DismissPrompt)
         }
         "tutorial_l01_pause_plan" => matches!(command, CommandKind::SetPaused),
-        "tutorial_l01_raise_first" | "tutorial_l01_raise_second" | "tutorial_l01_raise_third" => {
+        "tutorial_l01_raise_first" | "tutorial_l01_raise_remaining" => {
             matches!(command, CommandKind::SelectTerrain)
         }
-        "tutorial_l01_select_second" | "tutorial_l01_select_third" => {
-            matches!(command, CommandKind::Select | CommandKind::Camera)
+        "tutorial_l01_select_deposit" => matches!(command, CommandKind::Select),
+        "tutorial_l01_recover_deposit" => matches!(command, CommandKind::RecoverDeposit),
+        "tutorial_l01_place_channel" => {
+            matches!(
+                command,
+                CommandKind::QueueDevice(DeviceId::Channel) | CommandKind::CommitPlan
+            )
         }
         "tutorial_l01_run_and_observe" => {
             matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
         }
+        "tutorial_l01_beacon_warning" => matches!(command, CommandKind::Inspect),
+        "tutorial_l01_open_gate" => matches!(command, CommandKind::SetGate(10_000)),
         "tutorial_l01_stabilize" => {
             matches!(command, CommandKind::SetTimeRunning | CommandKind::Select)
         }
@@ -434,13 +450,15 @@ fn advance_tutorial(tutorial: &mut TutorialState, command: CommandKind) {
         ("tutorial_l01_welcome", CommandKind::DismissPrompt)
             | ("tutorial_l01_move_camera", CommandKind::Camera)
             | ("tutorial_l01_move_cursor", CommandKind::Select)
+            | ("tutorial_l01_select_deposit", CommandKind::Select)
+            | ("tutorial_l01_recover_deposit", CommandKind::RecoverDeposit)
             | ("tutorial_l01_pause_plan", CommandKind::SetPaused)
             | ("tutorial_l01_raise_first", CommandKind::SelectTerrain)
-            | ("tutorial_l01_select_second", CommandKind::Select)
-            | ("tutorial_l01_raise_second", CommandKind::SelectTerrain)
-            | ("tutorial_l01_select_third", CommandKind::Select)
-            | ("tutorial_l01_raise_third", CommandKind::SelectTerrain)
+            | ("tutorial_l01_raise_remaining", CommandKind::SelectTerrain)
+            | ("tutorial_l01_place_channel", CommandKind::CommitPlan)
             | ("tutorial_l01_run_and_observe", CommandKind::SetTimeRunning)
+            | ("tutorial_l01_beacon_warning", CommandKind::Inspect)
+            | ("tutorial_l01_open_gate", CommandKind::SetGate(10_000))
             | ("tutorial_l01_stabilize", CommandKind::SetTimeRunning)
     ) || (tutorial.current_step_id == "tutorial_l01_inspect_grade"
         && tutorial.dismissed_prompt

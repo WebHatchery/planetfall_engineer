@@ -24,7 +24,7 @@ pub(crate) fn draw_tutorial_prompt(tutorial: &TutorialState) {
     );
     draw_ui_text_ex(
         &format!(
-            "FIELD TUTORIAL // STEP {}/12 // {}",
+            "FIELD TUTORIAL // STEP {}/14 // {}",
             tutorial.completed_step_ids.len() + 1,
             step
         ),
@@ -98,6 +98,16 @@ fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
             "Inspect the selected cell before changing it.",
             "Tap INSPECT in FIELD TOOLS, then DISMISS",
         ),
+        "tutorial_l01_select_deposit" => (
+            "FABRICATION CACHE",
+            "Select the marked wreckage cache to inspect its recoverable stock.",
+            "Tap the marked deposit at (5, 6)",
+        ),
+        "tutorial_l01_recover_deposit" => (
+            "RECOVER STOCK",
+            "Recover the one-shot cache; its fabU enters the field ledger exactly once.",
+            "Tap RECOVER in FIELD TOOLS",
+        ),
         "tutorial_l01_pause_plan" => (
             "PAUSE AND PLAN",
             "Pause the simulation before changing the terrain.",
@@ -108,30 +118,30 @@ fn tutorial_prompt(step: &str) -> (&'static str, &'static str, &'static str) {
             "Raise the first runoff cut at (8, 10) to block the fissure.",
             "Tap cell (8, 10), then tap RAISE",
         ),
-        "tutorial_l01_select_second" => (
-            "SECOND CUT",
-            "Move east along the stream and select runoff cut (14, 10).",
-            "Tap cell (14, 10) on the map",
+        "tutorial_l01_raise_remaining" => (
+            "REMAINING BARRIERS",
+            "Raise the two remaining runoff cuts so water stays in the eastbound course.",
+            "Tap each target, then tap RAISE",
         ),
-        "tutorial_l01_raise_second" => (
-            "SECOND BARRIER",
-            "Raise the selected cut so water stays in the eastbound course.",
-            "Tap RAISE in FIELD TOOLS at right",
-        ),
-        "tutorial_l01_select_third" => (
-            "THIRD CUT",
-            "Select the final runoff cut at (20, 10), near the dam.",
-            "Tap cell (20, 10) on the map",
-        ),
-        "tutorial_l01_raise_third" => (
-            "THIRD BARRIER",
-            "Raise the final cut to complete the route to the dam.",
-            "Tap RAISE in FIELD TOOLS at right",
+        "tutorial_l01_place_channel" => (
+            "CHANNEL PLAN",
+            "Queue and commit a channel at the marked saddle before running water.",
+            "Choose CHANNEL, then COMMIT",
         ),
         "tutorial_l01_run_and_observe" => (
             "OBSERVE",
             "Run time and watch water cross the map toward the dam.",
             "Tap 1X in the time controls at right",
+        ),
+        "tutorial_l01_beacon_warning" => (
+            "BEACON WARNING",
+            "Inspect the advisory warning before changing the inlet gate.",
+            "Tap INSPECT and read the warning",
+        ),
+        "tutorial_l01_open_gate" => (
+            "OPEN THE INLET",
+            "Open the floodgate fully during the grace period to protect the beacon.",
+            "Tap FULL in the flow controls",
         ),
         "tutorial_l01_stabilize" => (
             "STABILIZE",

@@ -6,6 +6,7 @@ use crate::{
     mission::MissionId,
     state::GameSession,
     ui,
+    ui_action::UiAction,
 };
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
@@ -27,19 +28,18 @@ impl Game {
         let Some(choice) = choice else { return };
 
         match (self.frontend_mode, choice) {
-            (FrontendMode::Title, 0) => self.start_new_campaign(),
-            (FrontendMode::Title, 1) => self.frontend_mode = FrontendMode::CampaignSelect,
-            (FrontendMode::Title, 2) => self.frontend_mode = FrontendMode::VerificationSelect,
+            (FrontendMode::Title, 0) => {
+                self.dispatch_action(UiAction::StartNewCampaign);
+            }
+            (FrontendMode::Title, 1) => {
+                self.dispatch_action(UiAction::OpenCampaignSelect);
+            }
+            (FrontendMode::Title, 2) => {
+                self.dispatch_action(UiAction::OpenVerificationSelect);
+            }
             (FrontendMode::CampaignSelect, 0..=2) => {
                 let id = MissionId::ALL[choice];
-                if self.session.campaign.unlocked[id.sequence() - 1] {
-                    self.load_mission(id, "selected from campaign board");
-                } else {
-                    self.notice = format!(
-                        "{} is locked — finish earlier campaign work first",
-                        id.name()
-                    );
-                }
+                self.dispatch_action(UiAction::SelectMission(id));
             }
             (FrontendMode::VerificationSelect, 0) => {
                 self.verification_returns_to_menu = true;
@@ -190,7 +190,7 @@ impl Game {
         );
     }
 
-    fn start_new_campaign(&mut self) {
+    pub(crate) fn start_new_campaign(&mut self) {
         self.session = GameSession::new(&self.data.config);
         self.checkpoint_session = None;
         self.saved_campaign_session = None;

@@ -17,5 +17,6 @@ pub mod replay;
 pub mod simulation;
 pub mod state;
 pub mod ui;
+pub mod ui_action;
 pub mod ui_tutorial;
 pub mod verification;

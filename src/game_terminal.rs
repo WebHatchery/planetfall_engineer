@@ -1,10 +1,6 @@
 //! Touch actions for mission success and failure panels.
 
-use crate::{
-    game::{FrontendMode, Game},
-    mission::MissionPhase,
-    ui,
-};
+use crate::{game::Game, mission::MissionPhase, ui, ui_action::UiAction};
 use macroquad::prelude::*;
 use macroquad_toolkit::ui::virtual_mouse_position;
 
@@ -16,15 +12,17 @@ impl Game {
         let point = virtual_mouse_position(ui::LOGICAL_WIDTH, ui::LOGICAL_HEIGHT);
         let success = self.session.mission.phase == MissionPhase::Success;
         match terminal_action_at(point.x, point.y) {
-            Some(TerminalAction::Primary) if success => self.select_next_campaign(),
-            Some(TerminalAction::Secondary) if success => {
-                self.frontend_mode = FrontendMode::CampaignSelect;
-                self.notice = "Campaign board opened after mission success".into();
+            Some(TerminalAction::Primary) if success => {
+                self.dispatch_action(UiAction::TerminalPrimary);
             }
-            Some(TerminalAction::Primary) => self.reset_mission(),
+            Some(TerminalAction::Secondary) if success => {
+                self.dispatch_action(UiAction::TerminalSecondary);
+            }
+            Some(TerminalAction::Primary) => {
+                self.dispatch_action(UiAction::TerminalPrimary);
+            }
             Some(TerminalAction::Secondary) => {
-                self.checkpoint_session = None;
-                self.load_mission(self.session.mission.id, "restarted from failure");
+                self.dispatch_action(UiAction::TerminalSecondary);
             }
             None => return false,
         }

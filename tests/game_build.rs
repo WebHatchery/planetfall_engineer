@@ -1,8 +1,12 @@
 //! Logical hit regions for the visible build and time controls.
 
 use planetfall_engineer::devices::DeviceId;
-use planetfall_engineer::game_build::{build_click_at, field_control_at, BuildClick, FieldControl};
+use planetfall_engineer::game_build::{
+    build_click_action, build_click_at, field_control_action, field_control_at, BuildClick,
+    FieldControl,
+};
 use planetfall_engineer::state::TimeControl;
+use planetfall_engineer::ui_action::{pause_action_at, UiAction};
 
 #[test]
 fn every_visible_build_control_maps_to_its_action() {
@@ -62,4 +66,44 @@ fn every_field_action_has_a_visible_touch_target() {
         field_control_at(1220.0, 614.0),
         Some(FieldControl::Gate(10_000))
     );
+    assert_eq!(field_control_at(1040.0, 648.0), Some(FieldControl::Recover));
+    assert_eq!(
+        field_control_at(1200.0, 648.0),
+        Some(FieldControl::ToggleDevice)
+    );
+}
+
+#[test]
+fn visible_controls_emit_central_actions() {
+    assert_eq!(build_click_action(BuildClick::Commit), UiAction::CommitPlan);
+    assert_eq!(
+        field_control_action(FieldControl::Recover),
+        UiAction::RecoverDeposit
+    );
+    assert_eq!(
+        field_control_action(FieldControl::ToggleDevice),
+        UiAction::ToggleSelectedDevice
+    );
+}
+
+#[test]
+fn pause_overlay_actions_have_logical_touch_targets() {
+    for (x, expected) in [
+        (480.0, UiAction::SetTime(TimeControl::OneX)),
+        (600.0, UiAction::SetTime(TimeControl::TwoX)),
+        (720.0, UiAction::SetTime(TimeControl::FourX)),
+        (480.0, UiAction::Save),
+        (610.0, UiAction::Load),
+        (740.0, UiAction::ResetMission),
+    ] {
+        let y = if expected == UiAction::Save
+            || expected == UiAction::Load
+            || expected == UiAction::ResetMission
+        {
+            306.0
+        } else {
+            258.0
+        };
+        assert_eq!(pause_action_at(x, y), Some(expected));
+    }
 }

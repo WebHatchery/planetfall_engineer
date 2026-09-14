@@ -42,13 +42,16 @@ fn normal_tutorial_path_reaches_completion() {
         CommandKind::Select,
         CommandKind::Inspect,
         CommandKind::DismissPrompt,
+        CommandKind::Select,
+        CommandKind::RecoverDeposit,
         CommandKind::SetPaused,
         CommandKind::SelectTerrain,
-        CommandKind::Select,
         CommandKind::SelectTerrain,
-        CommandKind::Select,
-        CommandKind::SelectTerrain,
+        CommandKind::QueueDevice(DeviceId::Channel),
+        CommandKind::CommitPlan,
         CommandKind::SetTimeRunning,
+        CommandKind::Inspect,
+        CommandKind::SetGate(10_000),
         CommandKind::SetTimeRunning,
     ]
     .into_iter()
@@ -90,7 +93,7 @@ fn inspection_explanation_requires_inspection_before_dismissal() {
     );
     assert_eq!(
         mission.tutorial.as_ref().unwrap().current_step_id,
-        "tutorial_l01_pause_plan"
+        "tutorial_l01_select_deposit"
     );
 }
 #[test]

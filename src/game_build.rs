@@ -2,32 +2,26 @@
 
 use crate::game::Game;
 use crate::state::TimeControl;
-use crate::{devices::DeviceId, ui};
+use crate::{devices::DeviceId, ui, ui_action::UiAction};
 use macroquad::prelude::*;
 use macroquad_toolkit::ui::virtual_mouse_position;
 
 impl Game {
     pub(crate) fn handle_palette_click(&mut self) -> bool {
         if let Some(BuildClick::Palette(device)) = mouse_build_click() {
-            self.queue_device(device);
+            self.dispatch_action(UiAction::QueueDevice(device));
             return true;
         }
         false
     }
 
     pub(crate) fn handle_build_action_click(&mut self) -> bool {
-        match mouse_build_click() {
-            Some(BuildClick::Rotate) => {
-                self.placement_rotation = (self.placement_rotation + 1) % 4;
-                self.notice = format!("Placement rotation {}°", self.placement_rotation * 90);
-                true
-            }
-            Some(BuildClick::Commit) => {
-                self.commit_build_plan();
-                true
-            }
-            Some(BuildClick::Cancel) => {
-                self.cancel_build_plan();
+        let Some(click) = mouse_build_click() else {
+            return false;
+        };
+        match click {
+            BuildClick::Rotate | BuildClick::Commit | BuildClick::Cancel => {
+                self.dispatch_action(build_click_action(click));
                 true
             }
             _ => false,
@@ -36,7 +30,7 @@ impl Game {
 
     pub(crate) fn handle_time_click(&mut self) -> bool {
         if let Some(BuildClick::Time(time)) = mouse_build_click() {
-            self.set_time(time);
+            self.dispatch_action(UiAction::SetTime(time));
             true
         } else {
             false
@@ -44,34 +38,11 @@ impl Game {
     }
 
     pub(crate) fn handle_field_control_click(&mut self) -> bool {
-        match field_control_click() {
-            Some(FieldControl::Inspect) => {
-                if self.admit(crate::mission::CommandKind::Inspect) {
-                    self.notice = format!(
-                        "Inspecting cell {}, {}",
-                        self.session.selected.x, self.session.selected.y
-                    );
-                }
-                true
-            }
-            Some(FieldControl::Excavate) => {
-                self.apply_terrain(crate::simulation::TerrainAction::Excavate);
-                true
-            }
-            Some(FieldControl::Raise) => {
-                self.apply_terrain(crate::simulation::TerrainAction::Raise);
-                true
-            }
-            Some(FieldControl::Seal) => {
-                self.apply_terrain(crate::simulation::TerrainAction::Seal);
-                true
-            }
-            Some(FieldControl::Gate(setting)) => {
-                self.set_gate(setting);
-                true
-            }
-            None => false,
-        }
+        let Some(control) = field_control_click() else {
+            return false;
+        };
+        self.dispatch_action(field_control_action(control));
+        true
     }
 
     pub(crate) fn queue_device(&mut self, device: DeviceId) {
@@ -137,6 +108,30 @@ pub enum FieldControl {
     Raise,
     Seal,
     Gate(u16),
+    Recover,
+    ToggleDevice,
+}
+
+pub fn field_control_action(control: FieldControl) -> UiAction {
+    match control {
+        FieldControl::Inspect => UiAction::Inspect,
+        FieldControl::Excavate => UiAction::Terrain(crate::simulation::TerrainAction::Excavate),
+        FieldControl::Raise => UiAction::Terrain(crate::simulation::TerrainAction::Raise),
+        FieldControl::Seal => UiAction::Terrain(crate::simulation::TerrainAction::Seal),
+        FieldControl::Gate(setting) => UiAction::SetGate(setting),
+        FieldControl::Recover => UiAction::RecoverDeposit,
+        FieldControl::ToggleDevice => UiAction::ToggleSelectedDevice,
+    }
+}
+
+pub fn build_click_action(click: BuildClick) -> UiAction {
+    match click {
+        BuildClick::Palette(device) => UiAction::QueueDevice(device),
+        BuildClick::Rotate => UiAction::RotatePlacement,
+        BuildClick::Commit => UiAction::CommitPlan,
+        BuildClick::Cancel => UiAction::CancelPlan,
+        BuildClick::Time(time) => UiAction::SetTime(time),
+    }
 }
 
 fn field_control_click() -> Option<FieldControl> {
@@ -173,6 +168,15 @@ pub fn field_control_at(x: f32, y: f32) -> Option<FieldControl> {
         } else {
             10_000
         }));
+    }
+    if (1018.0..1248.0).contains(&x) && (634.0..662.0).contains(&y) {
+        return Some(if x < 1132.0 {
+            FieldControl::Recover
+        } else if x >= 1138.0 {
+            FieldControl::ToggleDevice
+        } else {
+            return None;
+        });
     }
     None
 }

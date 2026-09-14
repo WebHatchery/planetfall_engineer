@@ -5,6 +5,7 @@ use crate::game::{FoundationCamera, Game, VerificationMode};
 use crate::mission::{MissionId, MissionState};
 use crate::state::{CellPos, GameSession, TimeControl, WorldState};
 use crate::ui;
+use crate::ui_action::UiAction;
 use macroquad::prelude::*;
 use macroquad_toolkit::ui::{Pointer, VirtualUi};
 
@@ -27,9 +28,15 @@ impl Game {
             return false;
         }
         match verification_click_at(pointer.position.x, pointer.position.y) {
-            Some(VerificationClick::Reset) => self.reset_verification(),
-            Some(VerificationClick::Step) => self.step_verification(),
-            Some(VerificationClick::Return) => self.restore_campaign_session(),
+            Some(VerificationClick::Reset) => {
+                self.dispatch_action(UiAction::ResetVerification);
+            }
+            Some(VerificationClick::Step) => {
+                self.dispatch_action(UiAction::StepVerification);
+            }
+            Some(VerificationClick::Return) => {
+                self.dispatch_action(UiAction::RestoreCampaign);
+            }
             None => return false,
         }
         true
