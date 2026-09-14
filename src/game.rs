@@ -5,7 +5,7 @@ use crate::{
     campaign::load_campaign,
     data::GameData,
     devices::{DeviceId, SHOWCASE_MAPS},
-    mission::{campaign_summary, CommandKind, MissionId},
+    mission::{campaign_summary, CommandKind, MissionId, MissionPhase},
     simulation::TerrainAction,
     state::{CellPos, GameSession, TimeControl, WorldState},
     verification::FluidsLab,
@@ -107,6 +107,7 @@ impl Game {
     }
 
     pub fn begin_capture_scene(&mut self, scene: &str) {
+        self.reset_capture_state();
         if scene.starts_with("title") {
             self.frontend_mode = FrontendMode::Title;
             return;
@@ -120,8 +121,12 @@ impl Game {
             return;
         }
         self.frontend_mode = FrontendMode::Playing;
-        if scene.starts_with("lab_fluids_all") {
+        if scene.starts_with("lab_fluids_all") || scene.starts_with("lab_field_economy") {
             self.toggle_lab_mode();
+            if scene.starts_with("lab_field_economy") {
+                self.notice =
+                    "Field economy laboratory ready — recover, build, refund, and power".into();
+            }
         }
         if scene.contains("campaign_l01") {
             self.load_mission(MissionId::L01FirstFlow, "capture briefing");
@@ -157,11 +162,35 @@ impl Game {
                 .fail("capture failure/recovery fixture");
             self.notice = "Failure fixture ready for recovery".into();
         }
+        if scene.contains("success") {
+            self.session.mission.phase = MissionPhase::Success;
+            self.session.mission.objective_progress = self.session.mission.rules.objective_max_vu;
+            self.session.mission.stability_ticks = self.session.mission.rules.stability_ticks;
+            self.session.time_control = TimeControl::Paused;
+            self.notice = "Success debrief fixture ready".into();
+        }
         if scene.contains("pause") {
             self.pause_menu = true;
             self.session.time_control = TimeControl::Paused;
             self.notice = "Pause menu capture fixture".into();
         }
+    }
+
+    fn reset_capture_state(&mut self) {
+        self.session = GameSession::new(&self.data.config);
+        self.checkpoint_session = None;
+        self.saved_campaign_session = None;
+        self.verification_mode = None;
+        self.verification_returns_to_menu = false;
+        self.frontend_mode = FrontendMode::Title;
+        self.camera = FoundationCamera::new(
+            self.session.simulation.width as usize,
+            self.session.simulation.height as usize,
+        );
+        self.notice = "Capture fixture reset".into();
+        self.pause_menu = false;
+        self.placement_rotation = 0;
+        self.overlay_mode = 0;
     }
 
     pub(crate) fn apply_terrain(&mut self, action: TerrainAction) {

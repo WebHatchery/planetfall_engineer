@@ -21,7 +21,11 @@ retrofit: finite `fabU` recovered from map deposits, deterministic `eU` supplied
 by geothermal fixtures and actual turbine flow, brownouts, refunds, and stronger
 loss/recovery routes. The executable now runs those constraints through the
 authoritative simulation, saves, replay harness, and renderer-independent tests.
-The remaining Milestone F work is the player-facing onboarding and evidence pass.
+Milestone F is complete: player-facing onboarding, data-backed mission rules,
+recovery evidence, and the release capture set now ship with the slice. The
+project wrapper also preflights formatting, warnings-denied Clippy, full tests,
+content validation, and the source-line gate before delegating to the shared
+Windows/WebGL publisher.
 
 ## Phase 1 Foundation
 
