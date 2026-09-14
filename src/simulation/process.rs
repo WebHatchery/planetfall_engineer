@@ -93,6 +93,10 @@ impl SimulationWorld {
                 }
             }
         }
+        self.apply_surface_transfers(transfers);
+    }
+
+    fn apply_surface_transfers(&mut self, transfers: Vec<(usize, usize, FluidId, u32, i32, u16)>) {
         for (source, destination, fluid, amount, temp, contamination) in transfers {
             let available = self.cells[source]
                 .surface

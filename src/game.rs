@@ -13,7 +13,6 @@ use crate::{
 };
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::AssetManager;
-use macroquad_toolkit::render3d::picking::{screen_ray, Aabb3};
 use macroquad_toolkit::ui::virtual_mouse_position;
 
 pub struct Game {
@@ -36,6 +35,9 @@ pub struct Game {
 }
 
 mod actions;
+mod camera;
+mod picking;
+pub(crate) use camera::FoundationCamera;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum VerificationMode {
@@ -49,78 +51,6 @@ pub enum FrontendMode {
     CampaignSelect,
     VerificationSelect,
     Playing,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct FoundationCamera {
-    target: Vec2,
-    pub(crate) yaw: u8,
-    pub(crate) zoom: f32,
-}
-
-impl FoundationCamera {
-    pub(crate) fn new(width: usize, height: usize) -> Self {
-        Self {
-            target: vec2(width as f32 / 2.0, height as f32 / 2.0),
-            yaw: 0,
-            // Keep the opening survey close enough that the player sees
-            // terraces and machinery as a diorama, not an entire debug board.
-            zoom: (width.max(height) as f32 * 0.52).clamp(18.0, 28.0),
-        }
-    }
-    fn update(&mut self, dt: f32, width: usize, height: usize) -> bool {
-        let before = (self.target, self.yaw, self.zoom);
-        let speed = dt * self.zoom * 0.8;
-        if is_key_down(KeyCode::A) {
-            self.target.x -= speed;
-        }
-        if is_key_down(KeyCode::D) {
-            self.target.x += speed;
-        }
-        if is_key_down(KeyCode::W) {
-            self.target.y -= speed;
-        }
-        if is_key_down(KeyCode::S) {
-            self.target.y += speed;
-        }
-        self.target.x = self.target.x.clamp(0.0, width as f32);
-        self.target.y = self.target.y.clamp(0.0, height as f32);
-        if is_key_pressed(KeyCode::Q) {
-            self.yaw = (self.yaw + 3) % 4;
-        }
-        if is_key_pressed(KeyCode::E) {
-            self.yaw = (self.yaw + 1) % 4;
-        }
-        if is_key_pressed(KeyCode::Minus) {
-            self.zoom = (self.zoom + 4.0).min(54.0);
-        }
-        if is_key_pressed(KeyCode::Equal) {
-            self.zoom = (self.zoom - 4.0).max(12.0);
-        }
-        before != (self.target, self.yaw, self.zoom)
-    }
-    pub(crate) fn camera3d(&self) -> Camera3D {
-        let angle = self.yaw as f32 * std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4;
-        let distance = self.zoom * 1.65;
-        let target = vec3(self.target.x, 0.0, self.target.y);
-        let viewport_scale = (screen_width() / ui::LOGICAL_WIDTH)
-            .min(screen_height() / ui::LOGICAL_HEIGHT)
-            .max(0.5);
-        Camera3D {
-            position: target
-                + vec3(
-                    angle.cos() * distance,
-                    distance * 0.82,
-                    angle.sin() * distance,
-                ),
-            target,
-            up: vec3(0.0, 1.0, 0.0),
-            projection: Projection::Orthographics,
-            fovy: self.zoom / viewport_scale,
-            aspect: Some(screen_width() / screen_height()),
-            ..Default::default()
-        }
-    }
 }
 
 fn make_terrain_texture() -> Texture2D {
@@ -491,73 +421,6 @@ impl Game {
             self.session.world.cells[index].height_hu =
                 self.session.simulation.cells[index].height_hu;
             self.session.world.cells[index].sealed = self.session.simulation.cells[index].sealed;
-        }
-    }
-
-    fn select_from_pointer(&mut self) {
-        let (mouse_x, mouse_y) = mouse_position();
-        if !(82.0..=604.0).contains(&mouse_y) || mouse_x > 1_000.0 {
-            return;
-        }
-        let ray = screen_ray(&self.camera.camera3d(), vec2(mouse_x, mouse_y), None);
-        let mut closest: Option<(CellPos, f32)> = None;
-        for y in 0..self.session.simulation.height {
-            for x in 0..self.session.simulation.width {
-                let pos = CellPos { x, y };
-                let Some(index) = self.session.simulation.index(pos) else {
-                    continue;
-                };
-                let cell = &self.session.simulation.cells[index];
-                let height = (cell.height_hu as f32 * 0.0005).max(0.12);
-                if let Some(distance) = Aabb3::from_center_size(
-                    vec3(x as f32 + 0.5, height * 0.5, y as f32 + 0.5),
-                    vec3(0.96, height, 0.96),
-                )
-                .intersect(ray)
-                {
-                    if closest.is_none_or(|(_, current)| distance < current) {
-                        closest = Some((pos, distance));
-                    }
-                }
-            }
-        }
-        for device in &self.session.simulation.devices.devices {
-            let (width, height) = device.device.footprint();
-            let Some(index) = self.session.simulation.index(device.anchor) else {
-                continue;
-            };
-            let cell = &self.session.simulation.cells[index];
-            let base = cell.height_hu as f32 * 0.0005;
-            if let Some(distance) = Aabb3::from_center_size(
-                vec3(
-                    device.anchor.x as f32 + width as f32 * 0.5,
-                    base + 0.35,
-                    device.anchor.y as f32 + height as f32 * 0.5,
-                ),
-                vec3(width as f32 * 0.72, 0.7, height as f32 * 0.72),
-            )
-            .intersect(ray)
-            {
-                if closest.is_none_or(|(_, current)| distance < current) {
-                    closest = Some((device.anchor, distance));
-                }
-            }
-        }
-        if let Some((selected, _)) = closest {
-            if selected == self.session.selected
-                && self
-                    .session
-                    .mission
-                    .tutorial
-                    .as_ref()
-                    .is_some_and(|tutorial| {
-                        tutorial.current_step_id == "tutorial_l01_inspect_grade"
-                    })
-            {
-                let _ = self.admit(CommandKind::Inspect);
-                return;
-            }
-            self.dispatch_action(UiAction::Select(selected));
         }
     }
 
